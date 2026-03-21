@@ -158,7 +158,7 @@ export const SiteHeader = () => {
   const coinCount = user?.coins ?? 0;
   const isEmbedded = searchParams.get("embedded") === "1";
 
-  if (isEmbedded) {
+  if (isEmbedded || pathname === "/") {
     return null;
   }
 

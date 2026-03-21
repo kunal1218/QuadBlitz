@@ -304,8 +304,47 @@ export const MapTab = ({ token, user }: SessionProps) => {
               setButtonState(publicToggleButton, publicActive);
             };
 
+            var confirmAction = function(message) {
+              try {
+                return window.confirm(message);
+              } catch (error) {
+                return true;
+              }
+            };
+
+            var confirmPublicFromWebModal = function() {
+              var attempt = function(remaining) {
+                var modalConfirmButtons = document.querySelectorAll("button");
+                for (var i = 0; i < modalConfirmButtons.length; i += 1) {
+                  var label = (modalConfirmButtons[i].textContent || "").trim().toLowerCase();
+                  if (label !== "go public") {
+                    continue;
+                  }
+                  var scope = modalConfirmButtons[i].closest("div");
+                  var scopeText = (scope && scope.textContent ? scope.textContent : "").toLowerCase();
+                  if (scopeText.indexOf("going public lets anyone on campus see your location and profile.") !== -1) {
+                    modalConfirmButtons[i].click();
+                    return;
+                  }
+                }
+                if (remaining > 0) {
+                  setTimeout(function() {
+                    attempt(remaining - 1);
+                  }, 80);
+                }
+              };
+              attempt(12);
+            };
+
             if (shareToggleButton) {
               shareToggleButton.onclick = function() {
+                var shareActive = isShareActive();
+                var shareMessage = shareActive
+                  ? "Stop sharing your location with friends?"
+                  : "Share your location with friends?";
+                if (!confirmAction(shareMessage)) {
+                  return;
+                }
                 if (shareToggle) {
                   shareToggle.click();
                 } else if (toggleRow) {
@@ -317,6 +356,13 @@ export const MapTab = ({ token, user }: SessionProps) => {
             }
             if (ghostToggleButton) {
               ghostToggleButton.onclick = function() {
+                var ghostActive = isGhostActive();
+                var ghostMessage = ghostActive
+                  ? "Turn off ghost mode and become visible again?"
+                  : "Turn on ghost mode and hide your location?";
+                if (!confirmAction(ghostMessage)) {
+                  return;
+                }
                 if (ghostToggle) {
                   ghostToggle.click();
                 } else if (toggleRow) {
@@ -328,13 +374,24 @@ export const MapTab = ({ token, user }: SessionProps) => {
             }
             if (publicToggleButton) {
               publicToggleButton.onclick = function() {
+                var publicActive = isPublicActive();
+                var publicMessage = publicActive
+                  ? "Turn off public mode?"
+                  : "Go public and let anyone on campus see your location and profile?";
+                if (!confirmAction(publicMessage)) {
+                  return;
+                }
                 if (publicToggle) {
                   publicToggle.click();
+                  if (!publicActive) {
+                    confirmPublicFromWebModal();
+                  }
                 } else if (toggleRow) {
                   var next = toggleRow.getAttribute("data-public-active") === "1" ? "0" : "1";
                   toggleRow.setAttribute("data-public-active", next);
                 }
                 setTimeout(syncToggleButtons, 120);
+                setTimeout(syncToggleButtons, 320);
               };
             }
             syncToggleButtons();
@@ -344,13 +401,19 @@ export const MapTab = ({ token, user }: SessionProps) => {
             actionButtons.forEach(function(button) {
               var label = (button.textContent || "").trim();
               var ariaLabel = (button.getAttribute("aria-label") || "").trim().toLowerCase();
-              if (ariaLabel === "create event" || ariaLabel === "cancel pin drop") {
+              var isCreateByAria = ariaLabel === "create event" || ariaLabel === "cancel pin drop";
+              var isZoomButton = ariaLabel === "zoom in" || ariaLabel === "zoom out";
+              var isCreateBySymbol = (label === "+" || label === "×") && !isZoomButton;
+
+              if (isCreateByAria || isCreateBySymbol) {
                 addEventButton = button;
+                button.setAttribute("data-lockedin-add-event", "1");
               }
+
               if (label === "+" || label === "×") {
-                button.style.width = "48px";
-                button.style.height = "48px";
-                button.style.fontSize = "22px";
+                button.style.width = "40px";
+                button.style.height = "40px";
+                button.style.fontSize = "20px";
               }
               if (label.indexOf("View Events") === 0) {
                 button.style.position = "absolute";
@@ -360,6 +423,20 @@ export const MapTab = ({ token, user }: SessionProps) => {
                 button.style.fontSize = "12px";
               }
             });
+
+            if (addEventButton) {
+              addEventButton.style.position = "fixed";
+              addEventButton.style.left = "12px";
+              addEventButton.style.right = "auto";
+              addEventButton.style.top = "auto";
+              addEventButton.style.bottom = "98px";
+              addEventButton.style.width = "40px";
+              addEventButton.style.height = "40px";
+              addEventButton.style.minHeight = "40px";
+              addEventButton.style.padding = "0";
+              addEventButton.style.fontSize = "20px";
+              addEventButton.style.zIndex = "44";
+            }
 
             var zoomInButton = document.querySelector('button[aria-label="Zoom in"]');
             var homeButton = document.querySelector(
@@ -390,22 +467,9 @@ export const MapTab = ({ token, user }: SessionProps) => {
               if (!toggleRow) {
                 return;
               }
-              var targetButton = addEventButton || document.querySelector('button[aria-label="Create event"], button[aria-label="Cancel pin drop"]');
-              if (!targetButton) {
-                toggleRow.style.right = "12px";
-                toggleRow.style.bottom = "164px";
-                toggleRow.style.left = "auto";
-                toggleRow.style.top = "auto";
-                return;
-              }
-              var targetRect = targetButton.getBoundingClientRect();
-              var rowRect = toggleRow.getBoundingClientRect();
-              var rowWidth = rowRect.width || 116;
-              var computedLeft = Math.max(10, targetRect.right - rowWidth);
-              var computedTop = Math.max(56, targetRect.top - 42);
-              toggleRow.style.left = computedLeft + "px";
-              toggleRow.style.top = computedTop + "px";
-              toggleRow.style.right = "auto";
+              toggleRow.style.right = "12px";
+              toggleRow.style.top = "56px";
+              toggleRow.style.left = "auto";
               toggleRow.style.bottom = "auto";
             };
             positionToggleRow();

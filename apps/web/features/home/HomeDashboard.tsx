@@ -11,6 +11,7 @@ import {
   Ellipsis,
   Flame,
   Trophy,
+  Zap,
 } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { useAuth } from "@/features/auth";

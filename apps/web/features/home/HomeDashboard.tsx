@@ -210,9 +210,37 @@ const formatPoints = (value: number) => {
   return `${value}BLITZPTS`;
 };
 
+const SiteIcon = () => (
+  <svg
+    viewBox="0 0 40 40"
+    aria-hidden="true"
+    className="h-[34px] w-[34px] shrink-0"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <circle cx="20" cy="20" r="19" fill="#1456f4" />
+    <circle cx="20" cy="20" r="5.2" fill="white" />
+    <circle cx="20" cy="9.4" r="3.15" fill="white" />
+    <circle cx="29.2" cy="14.7" r="3.15" fill="white" />
+    <circle cx="29.2" cy="25.3" r="3.15" fill="white" />
+    <circle cx="20" cy="30.6" r="3.15" fill="white" />
+    <circle cx="10.8" cy="25.3" r="3.15" fill="white" />
+    <circle cx="10.8" cy="14.7" r="3.15" fill="white" />
+    <path
+      d="M20 14.6v-2.2M24.6 17.3l2.05-1.18M24.6 22.7l2.05 1.18M20 25.4v2.2M15.4 22.7l-2.05 1.18M15.4 17.3l-2.05-1.18"
+      stroke="white"
+      strokeWidth="2"
+      strokeLinecap="round"
+      opacity="0.96"
+    />
+  </svg>
+);
+
 const HeaderWordmark = () => (
-  <span className="text-[21px] font-extrabold tracking-[-0.095em] text-[#1456f4] [text-shadow:0_0_0.01px_rgba(20,86,244,0.35)]">
-    QuadBlitz
+  <span className="inline-flex items-center gap-[10px]">
+    <SiteIcon />
+    <span className="text-[21px] font-extrabold tracking-[-0.045em] text-[#1456f4] [text-shadow:0_0_0.01px_rgba(20,86,244,0.35)]">
+      QuadBlitz
+    </span>
   </span>
 );
 

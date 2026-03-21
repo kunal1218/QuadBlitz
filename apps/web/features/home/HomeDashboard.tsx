@@ -219,8 +219,8 @@ export const HomeDashboard = () => {
 
   return (
     <div className="min-h-screen bg-[#f4f5f9] text-[#232631]">
-      <div className="mx-auto max-w-[1500px] lg:grid lg:grid-cols-[272px_minmax(0,1fr)]">
-        <aside className="hidden border-r border-white/70 bg-[#f7f8fc] px-8 py-6 lg:flex lg:min-h-screen lg:flex-col">
+      <div className="xl:grid xl:min-h-screen xl:grid-cols-[250px_minmax(0,1fr)]">
+        <aside className="hidden border-r border-white/70 bg-[#f7f8fc] px-7 py-6 xl:flex xl:min-h-screen xl:flex-col">
           <BrandMark />
           <nav className="mt-12 space-y-3">
             {navItems.map((item) => (
@@ -248,11 +248,12 @@ export const HomeDashboard = () => {
           </div>
         </aside>
 
-        <main className="px-4 pb-10 pt-5 sm:px-6 lg:px-9 lg:pb-14 lg:pt-6">
-          <div className="space-y-5 lg:hidden">
+        <main className="px-4 pb-10 pt-5 sm:px-6 lg:px-8 lg:pb-14 lg:pt-6 xl:px-0">
+          <div className="mx-auto max-w-[1170px] xl:px-9 2xl:max-w-[1230px]">
+            <div className="space-y-5 xl:hidden">
             <div className="flex items-center justify-between gap-4">
               <BrandMark />
-              <div className="flex items-center gap-3 rounded-full bg-white px-2 py-2 shadow-[0_12px_30px_rgba(17,24,39,0.06)]">
+              <div className="flex items-center gap-2 rounded-full bg-white px-2 py-2 shadow-[0_12px_30px_rgba(17,24,39,0.06)] sm:gap-3">
                 <button
                   type="button"
                   aria-label="Notifications"
@@ -260,7 +261,7 @@ export const HomeDashboard = () => {
                 >
                   <Bell className="h-4 w-4" />
                 </button>
-                <div className="flex items-center gap-3 pr-2">
+                <div className="hidden items-center gap-3 pr-2 sm:flex">
                   <Avatar name={profileName} size={36} />
                   <span className="text-sm font-semibold text-[#232631]">{profileName}</span>
                 </div>
@@ -269,19 +270,19 @@ export const HomeDashboard = () => {
             <MobileNav />
           </div>
 
-          <div className="mt-5 flex flex-col gap-5 lg:mt-0 lg:flex-row lg:items-start lg:justify-between">
-            <div className="max-w-[520px]">
+            <div className="mt-5 flex flex-col gap-5 xl:mt-0 xl:flex-row xl:items-start xl:justify-between">
+            <div className="max-w-[470px] 2xl:max-w-[520px]">
               <p className="text-[0.82rem] font-bold uppercase tracking-[0.32em] text-[#2153f6]">
                 Central Hub
               </p>
-              <h1 className="mt-3 text-[3rem] font-bold leading-[0.92] tracking-[-0.08em] text-[#232631] drop-shadow-[0_2px_0_rgba(35,38,49,0.24)] sm:text-[4.5rem]">
+              <h1 className="mt-3 text-[clamp(2.6rem,7vw,4.1rem)] font-bold leading-[0.94] tracking-[-0.08em] text-[#232631] drop-shadow-[0_2px_0_rgba(35,38,49,0.18)]">
                 Explore
                 <br />
                 Communities
               </h1>
             </div>
 
-            <div className="hidden items-center gap-4 lg:flex">
+            <div className="hidden items-center gap-4 xl:flex">
               <div className="flex items-center gap-3 rounded-full bg-white px-3 py-2 shadow-[0_14px_30px_rgba(17,24,39,0.06)]">
                 <button
                   type="button"
@@ -298,31 +299,31 @@ export const HomeDashboard = () => {
             </div>
           </div>
 
-          <div className="mt-6 flex flex-col gap-4 lg:mt-2 lg:flex-row lg:items-center lg:justify-end">
-            <div className="flex h-16 w-full items-center gap-3 rounded-full border border-white/80 bg-white px-6 shadow-[0_14px_30px_rgba(17,24,39,0.04)] lg:max-w-[420px]">
+            <div className="mt-6 flex flex-col gap-4 md:flex-row md:items-center xl:mt-2 xl:justify-end">
+            <div className="flex h-14 w-full items-center gap-3 rounded-full border border-white/80 bg-white px-5 shadow-[0_14px_30px_rgba(17,24,39,0.04)] md:h-16 xl:max-w-[390px] 2xl:max-w-[420px]">
               <Search className="h-5 w-5 text-[#646f83]" />
               <input
                 readOnly
                 value=""
                 placeholder="Search clubs, interests, or tags..."
-                className="w-full border-none bg-transparent text-[0.98rem] text-[#232631] outline-none placeholder:text-[#a7afbf]"
+                className="w-full border-none bg-transparent text-[0.95rem] text-[#232631] outline-none placeholder:text-[#a7afbf]"
               />
             </div>
             <button
               type="button"
               aria-label="Filters"
-              className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-white/80 bg-white text-[#232631] shadow-[0_14px_30px_rgba(17,24,39,0.04)]"
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-white/80 bg-white text-[#232631] shadow-[0_14px_30px_rgba(17,24,39,0.04)] md:h-16 md:w-16"
             >
               <SlidersHorizontal className="h-5 w-5" />
             </button>
           </div>
 
-          <section className="mt-16">
+            <section className="mt-14 lg:mt-16">
             <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-[2rem] font-bold tracking-[-0.06em] text-[#232631]">
+              <h2 className="text-[1.7rem] font-bold tracking-[-0.06em] text-[#232631] sm:text-[1.85rem]">
                 Trending Clubs
               </h2>
-              <div className="hidden items-center gap-3 lg:flex">
+              <div className="hidden items-center gap-3 xl:flex">
                 <button
                   type="button"
                   aria-label="Previous"
@@ -340,11 +341,11 @@ export const HomeDashboard = () => {
               </div>
             </div>
 
-            <div className="grid gap-6 xl:grid-cols-2">
+            <div className="grid gap-5 2xl:grid-cols-2">
               {heroCards.map((card, index) => (
                 <article
                   key={card.title}
-                  className="relative min-h-[325px] overflow-hidden rounded-[2.1rem] p-7 text-white shadow-[0_24px_50px_rgba(17,24,39,0.14)]"
+                  className="relative min-h-[280px] overflow-hidden rounded-[2rem] p-6 text-white shadow-[0_24px_50px_rgba(17,24,39,0.14)] sm:min-h-[300px] sm:p-7"
                   style={{ backgroundImage: card.background }}
                 >
                   <div
@@ -363,13 +364,17 @@ export const HomeDashboard = () => {
                     >
                       {card.badge}
                     </span>
-                    <h3 className="text-[2.05rem] font-bold tracking-[-0.06em]">{card.title}</h3>
-                    <p className="mt-2 max-w-[420px] text-base text-white/82">{card.description}</p>
-                    <div className="mt-6 flex items-center justify-between gap-4">
+                    <h3 className="text-[1.7rem] font-bold tracking-[-0.06em] sm:text-[1.9rem]">
+                      {card.title}
+                    </h3>
+                    <p className="mt-2 max-w-[420px] text-[0.95rem] text-white/82 sm:text-base">
+                      {card.description}
+                    </p>
+                    <div className="mt-6 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <MemberStack count={card.count} />
                       <button
                         type="button"
-                        className="rounded-full bg-white px-7 py-3.5 text-base font-semibold text-[#232631] shadow-[0_12px_24px_rgba(255,255,255,0.2)]"
+                        className="rounded-full bg-white px-6 py-3 text-sm font-semibold text-[#232631] shadow-[0_12px_24px_rgba(255,255,255,0.2)] sm:px-7 sm:py-3.5 sm:text-base"
                       >
                         View Club
                       </button>
@@ -380,9 +385,9 @@ export const HomeDashboard = () => {
             </div>
           </section>
 
-          <section className="mt-16">
+            <section className="mt-14 lg:mt-16">
             <div className="mb-7 flex items-center gap-3">
-              <h2 className="text-[2rem] font-bold tracking-[-0.06em] text-[#232631]">
+              <h2 className="text-[1.7rem] font-bold tracking-[-0.06em] text-[#232631] sm:text-[1.85rem]">
                 Verified University Orgs
               </h2>
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#2153f6] text-white">
@@ -390,11 +395,11 @@ export const HomeDashboard = () => {
               </div>
             </div>
 
-            <div className="grid gap-6 xl:grid-cols-3">
+            <div className="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
               {orgCards.map(({ title, description, members, icon: Icon }) => (
                 <article
                   key={title}
-                  className="relative overflow-hidden rounded-[2rem] border border-white/80 bg-white px-7 pb-7 pt-8 shadow-[0_22px_40px_rgba(17,24,39,0.05)]"
+                  className="relative overflow-hidden rounded-[2rem] border border-white/80 bg-white px-6 pb-6 pt-7 shadow-[0_22px_40px_rgba(17,24,39,0.05)] sm:px-7 sm:pb-7 sm:pt-8"
                 >
                   <div className="absolute -right-8 -top-9 h-32 w-32 rounded-full bg-[#f4f6ff]" />
                   <div className="relative flex items-start justify-between gap-4">
@@ -406,10 +411,12 @@ export const HomeDashboard = () => {
                       Official
                     </span>
                   </div>
-                  <h3 className="relative mt-8 text-[2rem] font-bold tracking-[-0.06em] text-[#232631]">
+                  <h3 className="relative mt-7 text-[1.65rem] font-bold tracking-[-0.06em] text-[#232631] sm:text-[1.8rem]">
                     {title}
                   </h3>
-                  <p className="relative mt-4 text-[1.02rem] leading-8 text-[#6c7487]">{description}</p>
+                  <p className="relative mt-4 text-[0.98rem] leading-7 text-[#6c7487]">
+                    {description}
+                  </p>
                   <div className="relative mt-8 h-px bg-[#edf0f7]" />
                   <div className="relative mt-7 flex items-center justify-between gap-4">
                     <p className="text-[0.9rem] font-semibold uppercase tracking-[0.16em] text-[#70778b]">
@@ -427,8 +434,8 @@ export const HomeDashboard = () => {
             </div>
           </section>
 
-          <section className="mt-20">
-            <h2 className="text-[2rem] font-bold tracking-[-0.06em] text-[#232631]">
+            <section className="mt-16 lg:mt-20">
+            <h2 className="text-[1.7rem] font-bold tracking-[-0.06em] text-[#232631] sm:text-[1.85rem]">
               Student Organizations
             </h2>
 
@@ -436,30 +443,32 @@ export const HomeDashboard = () => {
               {clubRows.map(({ title, description, members, icon: Icon }) => (
                 <article
                   key={title}
-                  className="flex flex-col gap-6 rounded-[2rem] border border-white/80 bg-white px-5 py-5 shadow-[0_18px_36px_rgba(17,24,39,0.04)] sm:px-7 sm:py-6 lg:flex-row lg:items-center lg:justify-between"
+                  className="flex flex-col gap-5 rounded-[2rem] border border-white/80 bg-white px-5 py-5 shadow-[0_18px_36px_rgba(17,24,39,0.04)] sm:px-6 sm:py-6 md:flex-row md:items-center md:justify-between lg:px-7"
                 >
-                  <div className="flex min-w-0 items-center gap-5">
-                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#f5f7ff] text-[#2153f6]">
-                      <Icon className="h-6 w-6" />
+                  <div className="flex min-w-0 items-center gap-4 sm:gap-5">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#f5f7ff] text-[#2153f6] sm:h-16 sm:w-16">
+                      <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
                     </div>
                     <div className="min-w-0">
-                      <h3 className="truncate text-[1.7rem] font-bold tracking-[-0.06em] text-[#232631]">
+                      <h3 className="truncate text-[1.35rem] font-bold tracking-[-0.06em] text-[#232631] sm:text-[1.5rem]">
                         {title}
                       </h3>
-                      <p className="mt-1 text-[1.02rem] text-[#80889a]">{description}</p>
+                      <p className="mt-1 text-[0.95rem] text-[#80889a] sm:text-[1rem]">{description}</p>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-5 lg:justify-end">
+                  <div className="flex items-center justify-between gap-4 md:justify-end">
                     <div className="min-w-[92px] text-center">
-                      <p className="text-[1.35rem] font-semibold text-[#232631]">{members}</p>
+                      <p className="text-[1.15rem] font-semibold text-[#232631] sm:text-[1.25rem]">
+                        {members}
+                      </p>
                       <p className="mt-1 text-[0.74rem] font-semibold uppercase tracking-[0.2em] text-[#8c93a6]">
                         Members
                       </p>
                     </div>
                     <button
                       type="button"
-                      className="rounded-full bg-[#f2f3f7] px-7 py-3.5 text-base font-semibold text-[#232631]"
+                      className="rounded-full bg-[#f2f3f7] px-5 py-3 text-sm font-semibold text-[#232631] sm:px-6 sm:text-base"
                     >
                       Request to Join
                     </button>
@@ -468,6 +477,7 @@ export const HomeDashboard = () => {
               ))}
             </div>
           </section>
+          </div>
         </main>
       </div>
     </div>

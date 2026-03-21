@@ -967,7 +967,6 @@ export const HomeDashboard = () => {
                           return;
                         }
                         setIsLoadingFeed(true);
-                        setFeedError(null);
                         setSort(option.id);
                       }}
                     >

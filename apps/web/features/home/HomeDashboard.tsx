@@ -8,8 +8,9 @@ import { Outfit } from "next/font/google";
 import { createPortal } from "react-dom";
 import type { DailyChallenge as DailyChallengeType, FeedPost } from "@lockedin/shared";
 import {
-  Ellipsis,
   Flame,
+  Heart,
+  MessageCircle,
   Trophy,
   Zap,
 } from "lucide-react";
@@ -28,6 +29,13 @@ type ScopeOption = "global" | "local";
 
 type NotificationCountResponse = {
   count: number;
+};
+
+type FeedPostWithOptionalImage = FeedPost & {
+  imageUrl?: string | null;
+  imageData?: string | null;
+  image?: string | null;
+  mediaUrl?: string | null;
 };
 
 const outfit = Outfit({
@@ -165,6 +173,24 @@ const trimText = (value: string, limit: number) => {
     return cleaned;
   }
   return `${cleaned.slice(0, limit - 1).trimEnd()}…`;
+};
+
+const getPostImageSource = (post: FeedPost): string | null => {
+  const candidate = post as FeedPostWithOptionalImage;
+  return (
+    candidate.imageUrl?.trim() ||
+    candidate.imageData?.trim() ||
+    candidate.image?.trim() ||
+    candidate.mediaUrl?.trim() ||
+    null
+  );
+};
+
+const getMaxVotes = (post: FeedPost) => {
+  if (!post.pollOptions || post.pollOptions.length === 0) {
+    return 0;
+  }
+  return Math.max(...post.pollOptions.map((option) => option.votes), 0);
 };
 
 const splitHeadline = (value: string) => {
@@ -578,11 +604,26 @@ const SpotlightCard = ({
   );
 };
 
-const FeedPoster = ({ post }: { post: FeedPost }) => {
+const HomeFeedCard = ({
+  post,
+  isLiking,
+  isVoting,
+  onLike,
+  onOpen,
+  onVote,
+  selectedOptionId,
+}: {
+  post: FeedPost;
+  isLiking?: boolean;
+  isVoting?: boolean;
+  onLike: (post: FeedPost) => void;
+  onOpen: (post: FeedPost) => void;
+  onVote: (post: FeedPost, optionId: string) => void;
+  selectedOptionId?: string | null;
+}) => {
   const authorName = post.author.name || post.author.handle.replace(/^@/, "");
-  const posterHeadline = trimText(post.content, 44)
-    .toUpperCase()
-    .replace(/[.!?]+$/g, "");
+  const imageSource = getPostImageSource(post);
+  const maxVotes = getMaxVotes(post) || 1;
 
   return (
     <article className="rounded-[42px] border border-[#edf0f6] bg-white p-5 shadow-[0_24px_70px_rgba(18,36,81,0.08)] sm:p-8">
@@ -605,56 +646,104 @@ const FeedPoster = ({ post }: { post: FeedPost }) => {
                 {trimText(post.content, 150)}
               </p>
             </div>
-            <Link
-              href={`/posts/${encodeURIComponent(post.id)}`}
-              aria-label="Open post"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#50586a] transition hover:bg-[#f3f6fb]"
-            >
-              <Ellipsis className="h-5 w-5" />
-            </Link>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                className={`inline-flex min-h-[38px] items-center gap-2 rounded-full border px-3.5 text-[13px] font-semibold transition ${
+                  post.likedByUser
+                    ? "border-[#dbe6ff] bg-[#eef4ff] text-[#1756f5]"
+                    : "border-[#e8edf5] bg-[#f9fbfe] text-[#566073] hover:border-[#d7e0ee] hover:text-[#1e2531]"
+                } ${isLiking ? "cursor-wait opacity-80" : ""}`}
+                onClick={() => onLike(post)}
+                disabled={isLiking}
+                aria-pressed={post.likedByUser}
+                aria-label={`Like post. ${post.likeCount} likes`}
+              >
+                <Heart className={`h-4 w-4 ${post.likedByUser ? "fill-current" : ""}`} strokeWidth={2.1} />
+                <span>{post.likeCount}</span>
+              </button>
+              <button
+                type="button"
+                className="inline-flex min-h-[38px] items-center gap-2 rounded-full border border-[#e8edf5] bg-[#f9fbfe] px-3.5 text-[13px] font-semibold text-[#566073] transition hover:border-[#d7e0ee] hover:text-[#1e2531]"
+                onClick={() => onOpen(post)}
+                aria-label={`View replies. ${post.commentCount ?? 0} replies`}
+              >
+                <MessageCircle className="h-4 w-4" strokeWidth={2.1} />
+                <span>{post.commentCount ?? 0}</span>
+              </button>
+            </div>
           </div>
 
-          <Link
-            href={`/posts/${encodeURIComponent(post.id)}`}
-            className="mt-7 block overflow-hidden rounded-[31px] bg-[linear-gradient(120deg,#3f898c_0%,#08363a_36%,#4a8a8f_100%)]"
-          >
-            <div className="relative min-h-[280px] p-8 text-white sm:min-h-[360px] sm:p-12">
-              <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(5,20,24,0.46),rgba(5,20,24,0.1)_35%,rgba(255,255,255,0.06)_100%)]" />
-              <div className="absolute left-[30%] top-0 h-full w-px bg-white/10" />
-              <div className="absolute right-[18%] top-0 h-full w-px bg-white/8" />
-              <div className="relative max-w-[520px]">
-                <div className="text-[16px] uppercase tracking-[0.38em] text-white/70">
-                  CAMPUS
-                </div>
-                <div className="mt-1 text-[16px] uppercase tracking-[0.38em] text-white/70">
-                  LIFE...
-                </div>
-                <h3 className="mt-10 text-[32px] font-semibold leading-[1.02] tracking-[0.06em] text-white sm:text-[54px]">
-                  {posterHeadline}
-                </h3>
-                {post.tags && post.tags.length > 0 && (
-                  <div className="mt-8 flex flex-wrap gap-2">
-                    {post.tags.slice(0, 3).map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full border border-white/18 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white/78"
-                      >
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
+          {post.type === "poll" && post.pollOptions && post.pollOptions.length > 0 ? (
+            <div className="mt-7 rounded-[30px] border border-[#e7edf7] bg-[linear-gradient(180deg,#f9fbff_0%,#f3f7fe_100%)] p-4 sm:p-5">
+              <div className="mb-4 inline-flex rounded-full border border-[#d8e4ff] bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#1756f5]">
+                Poll
+              </div>
+              <div className="space-y-3">
+                {post.pollOptions.map((option) => {
+                  const isSelected = selectedOptionId === option.id;
+                  const width = `${(option.votes / maxVotes) * 100}%`;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      className={`w-full overflow-hidden rounded-[22px] border text-left transition ${
+                        isSelected
+                          ? "border-[#cfe0ff] bg-white shadow-[0_12px_30px_rgba(35,90,245,0.08)]"
+                          : "border-[#e5ebf5] bg-white/88 hover:border-[#d7e0ee] hover:shadow-[0_10px_24px_rgba(18,36,81,0.05)]"
+                      } ${isVoting ? "cursor-wait opacity-80" : ""}`}
+                      onClick={() => onVote(post, option.id)}
+                      disabled={isVoting}
+                      aria-pressed={isSelected}
+                    >
+                      <div className="relative">
+                        <div
+                          className={`absolute inset-y-0 left-0 rounded-[22px] ${
+                            isSelected
+                              ? "bg-[linear-gradient(90deg,rgba(23,86,245,0.18),rgba(76,134,248,0.08))]"
+                              : "bg-[linear-gradient(90deg,rgba(23,86,245,0.10),rgba(76,134,248,0.04))]"
+                          }`}
+                          style={{ width }}
+                        />
+                        <div className="relative flex items-center justify-between gap-4 px-5 py-4">
+                          <span className="text-[15px] font-semibold tracking-[-0.02em] text-[#202531]">
+                            {option.label}
+                          </span>
+                          <span className="shrink-0 text-[13px] font-medium text-[#667183]">
+                            {option.votes} vote{option.votes === 1 ? "" : "s"}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          </Link>
+          ) : imageSource ? (
+            <div className="mt-7 overflow-hidden rounded-[31px] border border-[#edf0f6] bg-[#f6f8fc]">
+              <Image
+                src={imageSource}
+                alt={`${authorName} post attachment`}
+                width={1200}
+                height={900}
+                unoptimized
+                className="h-auto max-h-[620px] w-full object-cover"
+              />
+            </div>
+          ) : null}
 
-          <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-[#626b7c]">
-            <span className="rounded-full bg-[#f3f6fb] px-3 py-1 font-semibold text-[#2b3344]">
-              {post.likeCount} likes
-            </span>
-            <span>{post.commentCount ?? 0} replies</span>
-            <span className="uppercase tracking-[0.2em] text-[#9098a8]">{post.type}</span>
-          </div>
+          {post.tags && post.tags.length > 0 ? (
+            <div className="mt-5 flex flex-wrap gap-2">
+              {post.tags.slice(0, 4).map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full bg-[#f4f7fb] px-3 py-1 text-[12px] font-semibold uppercase tracking-[0.12em] text-[#6a7384]"
+                >
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
     </article>
@@ -673,6 +762,9 @@ export const HomeDashboard = () => {
   const [isComposerOpen, setComposerOpen] = useState(false);
   const [isProofModalOpen, setProofModalOpen] = useState(false);
   const [proofNotice, setProofNotice] = useState<string | null>(null);
+  const [pendingLikes, setPendingLikes] = useState<Set<string>>(new Set());
+  const [pendingVotes, setPendingVotes] = useState<Set<string>>(new Set());
+  const [pollSelections, setPollSelections] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let isActive = true;
@@ -772,6 +864,24 @@ export const HomeDashboard = () => {
   }, [token]);
 
   const activeChallenge = challenge ?? fallbackDailyChallenge;
+  const orderPosts = (nextPosts: FeedPost[]) => {
+    const sorted = [...nextPosts];
+    if (sort === "top") {
+      sorted.sort((a, b) => {
+        if (b.likeCount !== a.likeCount) {
+          return b.likeCount - a.likeCount;
+        }
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+      return sorted;
+    }
+
+    sorted.sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    return sorted;
+  };
+
   const visiblePosts = useMemo(() => {
     if (scope === "global") {
       return feedPosts;
@@ -798,6 +908,99 @@ export const HomeDashboard = () => {
 
   const profileName = user?.name ?? "Guest User";
   const profilePoints = formatPoints(user?.coins ?? 0);
+
+  const handleOpenPost = (post: FeedPost) => {
+    if (!post.id) {
+      return;
+    }
+    window.location.href = `/posts/${encodeURIComponent(post.id)}`;
+  };
+
+  const updatePostCollections = (
+    postId: string,
+    updater: (post: FeedPost) => FeedPost
+  ) => {
+    setFeedPosts((current) =>
+      orderPosts(current.map((post) => (post.id === postId ? updater(post) : post)))
+    );
+    setSpotlightPosts((current) =>
+      current.map((post) => (post.id === postId ? updater(post) : post))
+    );
+  };
+
+  const handleToggleLike = async (post: FeedPost) => {
+    if (!token) {
+      openAuthModal("signup");
+      return;
+    }
+
+    if (pendingLikes.has(post.id)) {
+      return;
+    }
+
+    setPendingLikes((current) => {
+      const next = new Set(current);
+      next.add(post.id);
+      return next;
+    });
+
+    try {
+      const response = await apiPost<{ likeCount: number; liked: boolean }>(
+        `/feed/${post.id}/like`,
+        {},
+        token
+      );
+
+      updatePostCollections(post.id, (current) => ({
+        ...current,
+        likeCount: response.likeCount,
+        likedByUser: response.liked,
+      }));
+    } finally {
+      setPendingLikes((current) => {
+        const next = new Set(current);
+        next.delete(post.id);
+        return next;
+      });
+    }
+  };
+
+  const handleVote = async (post: FeedPost, optionId: string) => {
+    if (!token) {
+      openAuthModal("signup");
+      return;
+    }
+
+    if (pendingVotes.has(post.id)) {
+      return;
+    }
+
+    setPendingVotes((current) => {
+      const next = new Set(current);
+      next.add(post.id);
+      return next;
+    });
+
+    try {
+      const response = await apiPost<{ options: { id: string; label: string; votes: number }[] }>(
+        `/feed/${post.id}/poll/${optionId}/vote`,
+        {},
+        token
+      );
+
+      updatePostCollections(post.id, (current) => ({
+        ...current,
+        pollOptions: response.options,
+      }));
+      setPollSelections((current) => ({ ...current, [post.id]: optionId }));
+    } finally {
+      setPendingVotes((current) => {
+        const next = new Set(current);
+        next.delete(post.id);
+        return next;
+      });
+    }
+  };
 
   const handleOpenComposer = () => {
     if (!token) {
@@ -827,9 +1030,7 @@ export const HomeDashboard = () => {
     }
 
     const response = await apiPost<{ post: FeedPost }>("/feed", payload, token);
-    setFeedPosts((current) =>
-      sort === "fresh" ? [response.post, ...current] : [...current, response.post]
-    );
+    setFeedPosts((current) => orderPosts([response.post, ...current]));
   };
 
   return (
@@ -1001,7 +1202,18 @@ export const HomeDashboard = () => {
                 </p>
               </div>
             ) : (
-              visiblePosts.map((post) => <FeedPoster key={post.id} post={post} />)
+              visiblePosts.map((post) => (
+                <HomeFeedCard
+                  key={post.id}
+                  post={post}
+                  isLiking={pendingLikes.has(post.id)}
+                  isVoting={pendingVotes.has(post.id)}
+                  onLike={handleToggleLike}
+                  onOpen={handleOpenPost}
+                  onVote={handleVote}
+                  selectedOptionId={pollSelections[post.id] ?? null}
+                />
+              ))
             )}
           </div>
         </div>

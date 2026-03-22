@@ -1213,7 +1213,7 @@ function FriendsPageContent() {
                               setSelectedMessageId(message.id);
                             }
                           }}
-                          className={`rounded-[38px] px-5 py-4 text-[15px] leading-[1.6] transition ${
+                          className={`rounded-[32px] px-4 py-2.5 text-[15px] leading-[1.45] transition ${
                             bubbleTone
                           } ${isSelected ? "ring-2 ring-[#1456f4]/20" : ""}`}
                         >

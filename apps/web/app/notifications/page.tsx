@@ -636,7 +636,7 @@ export default function NotificationsPage() {
   return (
     <div className={`${outfit.className} min-h-screen bg-white text-[#181d25]`}>
       <header className="sticky top-0 z-30 border-b border-[#eef1f6] bg-[linear-gradient(90deg,rgba(255,255,255,0.98)_0%,rgba(255,255,255,0.98)_24%,rgba(241,246,255,0.98)_56%,rgba(255,255,255,0.98)_88%)] backdrop-blur-xl">
-        <div className="mx-auto flex max-w-[1880px] items-center justify-between gap-6 px-[28px] py-[15px] xl:px-[30px]">
+        <div className="flex w-full items-center justify-between gap-6 px-[28px] py-[15px] xl:px-[30px]">
           <div className="flex items-center gap-[54px]">
             <Link href="/" className="inline-flex items-center leading-none">
               <HeaderWordmark />

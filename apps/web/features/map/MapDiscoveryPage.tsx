@@ -22,9 +22,10 @@ const outfit = Outfit({
 
 const formatCompactPoints = (value: number) => {
   if (value >= 1000) {
-    return `${(value / 1000).toFixed(1)}KBLITZPTS`;
+    const compact = (value / 1000).toFixed(value >= 10000 ? 0 : 1);
+    return `${compact.replace(/\.0$/, "")}K PTS`;
   }
-  return `${value}BLITZPTS`;
+  return `${value} PTS`;
 };
 
 const HomeNavIcon = (props: SVGProps<SVGSVGElement>) => (

@@ -335,7 +335,7 @@ export const MapCanvas = ({
   const [discoverySearch, setDiscoverySearch] = useState("");
   const [discoveryCategory, setDiscoveryCategory] =
     useState<DiscoveryCategory>("sports");
-  const [showAllDiscoveryEvents, setShowAllDiscoveryEvents] = useState(false);
+  const [showAllDiscoveryEvents, setShowAllDiscoveryEvents] = useState(true);
   const [, setTempMarker] = useState<mapboxgl.Marker | null>(null);
   const [eventClock, setEventClock] = useState(0);
   const [mapInstanceKey, setMapInstanceKey] = useState(0);
@@ -2205,12 +2205,7 @@ export const MapCanvas = ({
         </aside>
 
         <div className="relative min-h-0 min-w-0 overflow-hidden">
-          <div
-            ref={mapContainerRef}
-            className="absolute inset-0 z-0 h-full w-full [filter:saturate(0.3)_brightness(1.08)_contrast(0.78)]"
-          />
-          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(194,217,189,0.55)_0%,rgba(248,240,205,0.74)_49%,rgba(182,214,198,0.6)_100%)]" />
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_48%,rgba(255,249,221,0.86),transparent_0%,transparent_44%),radial-gradient(circle_at_82%_34%,rgba(189,213,198,0.38),transparent_28%),radial-gradient(circle_at_18%_18%,rgba(162,192,174,0.22),transparent_26%)]" />
+          <div ref={mapContainerRef} className="absolute inset-0 z-0 h-full w-full" />
 
           {error && (
             <div className="absolute left-6 top-6 z-20 rounded-full bg-white/92 px-4 py-2 text-[12px] font-medium text-[#606b7d] shadow-[0_10px_24px_rgba(28,39,62,0.08)]">

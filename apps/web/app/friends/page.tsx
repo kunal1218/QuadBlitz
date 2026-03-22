@@ -1165,41 +1165,22 @@ function FriendsPageContent() {
                   return (
                     <div
                       key={message.id}
-                      className={`flex gap-4 ${isMine ? "justify-end" : "justify-start"}`}
+                      className="flex gap-4 justify-start"
                     >
-                      {!isMine && (
-                        <Avatar
-                          name={message.sender.name}
-                          size={38}
-                          className="mt-1 shrink-0 border border-[#e5ebf5] bg-white text-[#202531]"
-                        />
-                      )}
+                      <Avatar
+                        name={isMine ? user?.name ?? "You" : message.sender.name}
+                        size={38}
+                        className="mt-1 shrink-0 border border-[#e5ebf5] bg-white text-[#202531]"
+                      />
 
-                      <div className={`max-w-[min(760px,84%)] ${isMine ? "items-end" : ""}`}>
-                        <div
-                          className={`mb-2 flex items-center gap-2 ${
-                            isMine ? "justify-end" : "justify-start"
-                          }`}
-                        >
-                          {!isMine ? (
-                            <>
-                              <p className="text-[14px] font-[700] tracking-[-0.04em] text-[#20242d]">
-                                {message.sender.name}
-                              </p>
-                              <p className="text-[12px] font-medium text-[#8c95a6]">
-                                {formatRelativeTime(message.createdAt)}
-                              </p>
-                            </>
-                          ) : (
-                            <>
-                              <p className="text-[12px] font-medium text-[#8c95a6]">
-                                {formatRelativeTime(message.createdAt)}
-                              </p>
-                              <p className="text-[14px] font-[700] tracking-[-0.04em] text-[#20242d]">
-                                You
-                              </p>
-                            </>
-                          )}
+                      <div className="max-w-[min(760px,84%)]">
+                        <div className="mb-2 flex items-center gap-2">
+                          <p className="text-[14px] font-[700] tracking-[-0.04em] text-[#20242d]">
+                            {isMine ? "You" : message.sender.name}
+                          </p>
+                          <p className="text-[12px] font-medium text-[#8c95a6]">
+                            {formatRelativeTime(message.createdAt)}
+                          </p>
                         </div>
 
                         <div
@@ -1263,14 +1244,6 @@ function FriendsPageContent() {
                           )}
                         </div>
                       </div>
-
-                      {isMine && (
-                        <Avatar
-                          name={user?.name ?? "You"}
-                          size={38}
-                          className="mt-1 shrink-0 border border-[#e5ebf5] bg-white text-[#202531]"
-                        />
-                      )}
                     </div>
                   );
                 })}

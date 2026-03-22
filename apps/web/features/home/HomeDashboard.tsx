@@ -154,7 +154,7 @@ const navItems: Array<{
   active?: boolean;
 }> = [
   { href: "/", label: "HOME", icon: HomeNavIcon, active: true },
-  { href: "/play", label: "CHALLENGES", icon: ChallengeNavIcon },
+  { href: "/challenges", label: "CHALLENGES", icon: ChallengeNavIcon },
   { href: "/notifications", label: "CHAT", icon: ChatNavIcon },
   { href: "/map", label: "MAPS", icon: MapsNavIcon },
   { href: "/marketplace", label: "MARKET", icon: MarketNavIcon },

@@ -1398,7 +1398,7 @@ const ProfileLayoutInner = () => {
   if (!isAuthenticated) {
     return (
       <div className={`${outfit.className} min-h-screen bg-white text-[#181d25]`}>
-        <header className="sticky top-0 z-30 border-b border-[#eef1f6] bg-[linear-gradient(90deg,rgba(255,255,255,0.98)_0%,rgba(255,255,255,0.98)_24%,rgba(241,246,255,0.98)_56%,rgba(255,255,255,0.98)_88%)] backdrop-blur-xl">
+        <header className="sticky top-0 isolate z-[120] pointer-events-auto border-b border-[#eef1f6] bg-[linear-gradient(90deg,rgba(255,255,255,0.98)_0%,rgba(255,255,255,0.98)_24%,rgba(241,246,255,0.98)_56%,rgba(255,255,255,0.98)_88%)] backdrop-blur-xl">
           <div className="flex w-full items-center justify-between gap-6 px-[28px] py-[15px] xl:px-[30px]">
             <div className="flex items-center gap-[54px]">
               <Link href="/" className="inline-flex items-center leading-none">
@@ -1442,7 +1442,7 @@ const ProfileLayoutInner = () => {
 
   return (
     <div className={`${outfit.className} min-h-screen bg-white text-[#181d25]`}>
-      <header className="sticky top-0 z-30 border-b border-[#eef1f6] bg-[linear-gradient(90deg,rgba(255,255,255,0.98)_0%,rgba(255,255,255,0.98)_24%,rgba(241,246,255,0.98)_56%,rgba(255,255,255,0.98)_88%)] backdrop-blur-xl">
+      <header className="sticky top-0 isolate z-[120] pointer-events-auto border-b border-[#eef1f6] bg-[linear-gradient(90deg,rgba(255,255,255,0.98)_0%,rgba(255,255,255,0.98)_24%,rgba(241,246,255,0.98)_56%,rgba(255,255,255,0.98)_88%)] backdrop-blur-xl">
         <div className="flex w-full items-center justify-between gap-6 px-[28px] py-[15px] xl:px-[30px]">
           <div className="flex items-center gap-[54px]">
             <Link href="/" className="inline-flex items-center leading-none">
@@ -1496,10 +1496,10 @@ const ProfileLayoutInner = () => {
         </div>
       </header>
 
-      <div className="mx-auto max-w-[1180px] px-4 pb-16 pt-6">
+      <div className="relative z-0 mx-auto max-w-[1180px] px-4 pb-16 pt-6">
         <div
           ref={setContainerNode}
-          className="relative"
+          className="relative z-0"
           style={{ height: canvasHeight || "auto" }}
         >
           {isEditing && movementMode === "relative" && gridStep > 0 && (
@@ -1527,9 +1527,15 @@ const ProfileLayoutInner = () => {
             return (
               <div
                 key={block.id}
-                className={`absolute transition ${
+                className={`absolute pointer-events-auto transition ${
                   isEditing ? "cursor-grab select-none" : ""
-                } ${draggingId === block.id ? "z-30" : "z-10"}`}
+                } ${
+                  draggingId === block.id
+                    ? "z-40"
+                    : block.id === "profile-header"
+                      ? "z-30"
+                      : "z-10"
+                }`}
                 style={style}
                 onPointerDown={
                   isEditing ? (event) => handlePointerDown(block.id, event) : undefined

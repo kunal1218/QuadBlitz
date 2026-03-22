@@ -93,7 +93,9 @@ type OverviewCardProps = {
   collegeAcronym: string;
   displayBio: string;
   isEditing: boolean;
+  movementMode: MovementMode;
   onEditToggle: () => void;
+  onMovementModeChange: (mode: MovementMode) => void;
   onSaveLayout: () => void;
   onCancelLayout: () => void;
   onShare: () => void;
@@ -133,6 +135,9 @@ const layoutStorageKey = (userId: string) => `lockedin_profile_layout:${userId}`
 
 const shellCardClasses =
   "rounded-[30px] border border-[#e7edf6] bg-white/94 shadow-[0_24px_60px_rgba(24,35,61,0.08)]";
+
+const toggleBaseClasses =
+  "rounded-full px-3 py-1 text-xs font-semibold transition";
 
 const isInteractiveElement = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement)) {
@@ -573,7 +578,9 @@ const ProfileOverviewCard = ({
   collegeAcronym,
   displayBio,
   isEditing,
+  movementMode,
   onEditToggle,
+  onMovementModeChange,
   onSaveLayout,
   onCancelLayout,
   onShare,
@@ -621,6 +628,35 @@ const ProfileOverviewCard = ({
         <div className="flex flex-wrap items-center gap-3 self-start">
           {isEditing ? (
             <>
+              <div
+                data-drag-ignore
+                className="flex items-center rounded-full border border-[#e4e9f2] bg-white p-1 shadow-[0_10px_24px_rgba(24,35,61,0.06)]"
+              >
+                <button
+                  type="button"
+                  data-drag-ignore
+                  className={`${toggleBaseClasses} ${
+                    movementMode === "relative"
+                      ? "bg-[#edf3ff] text-[#1456f4]"
+                      : "text-[#667183] hover:text-[#20242d]"
+                  }`}
+                  onClick={() => onMovementModeChange("relative")}
+                >
+                  Relative
+                </button>
+                <button
+                  type="button"
+                  data-drag-ignore
+                  className={`${toggleBaseClasses} ${
+                    movementMode === "absolute"
+                      ? "bg-[#edf3ff] text-[#1456f4]"
+                      : "text-[#667183] hover:text-[#20242d]"
+                  }`}
+                  onClick={() => onMovementModeChange("absolute")}
+                >
+                  Absolute
+                </button>
+              </div>
               <button
                 type="button"
                 data-drag-ignore
@@ -812,12 +848,12 @@ const ProfileLayoutInner = () => {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [layoutError, setLayoutError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [movementMode, setMovementMode] = useState<MovementMode>("relative");
   const [isAnswerEditorOpen, setAnswerEditorOpen] = useState(false);
   const [friendsSummary, setFriendsSummary] = useState<FriendSummary | null>(null);
   const [leaderboardRank, setLeaderboardRank] = useState<number | null>(null);
   const [shareLabel, setShareLabel] = useState("Share");
   const [unreadCount, setUnreadCount] = useState(0);
-  const movementMode: MovementMode = "relative";
 
   const gridGap = containerWidth > 0 && containerWidth < 640 ? 12 : GRID_GAP;
   const gridUnit = useMemo(() => {
@@ -1291,10 +1327,12 @@ const ProfileLayoutInner = () => {
             collegeAcronym={collegeAcronym}
             displayBio={displayBio}
             isEditing={isEditing}
+            movementMode={movementMode}
             onEditToggle={() => {
               setLayoutError(null);
               setIsEditing(true);
             }}
+            onMovementModeChange={setMovementMode}
             onSaveLayout={handleSave}
             onCancelLayout={handleCancel}
             onShare={handleShare}

@@ -7,6 +7,7 @@ import { Outfit } from "next/font/google";
 import { Avatar } from "@/components/Avatar";
 import { useAuth } from "@/features/auth";
 import { apiGet } from "@/lib/api";
+import { formatHeaderPoints } from "@/lib/points";
 import { MapCanvas } from "./MapCanvas";
 
 type NotificationCountResponse = {
@@ -19,14 +20,6 @@ const outfit = Outfit({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
 });
-
-const formatCompactPoints = (value: number) => {
-  if (value >= 1000) {
-    const compact = (value / 1000).toFixed(value >= 10000 ? 0 : 1);
-    return `${compact.replace(/\.0$/, "")}K PTS`;
-  }
-  return `${value} PTS`;
-};
 
 const HomeNavIcon = (props: SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" {...props}>
@@ -159,7 +152,7 @@ export const MapDiscoveryPage = () => {
   const { token, user, isAuthenticated, openAuthModal } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
   const profileName = user?.name ?? "Profile";
-  const profilePoints = formatCompactPoints(user?.coins ?? 0);
+  const profilePoints = formatHeaderPoints(user?.coins ?? 0);
 
   useEffect(() => {
     if (!token) {

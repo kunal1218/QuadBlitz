@@ -10,6 +10,7 @@ import type { DailyChallenge as DailyChallengeType } from "@lockedin/shared";
 import { Avatar } from "@/components/Avatar";
 import { useAuth } from "@/features/auth";
 import { apiGet, apiPost } from "@/lib/api";
+import { formatHeaderPoints } from "@/lib/points";
 import { dailyChallenge as fallbackDailyChallenge } from "@/features/home/mock";
 
 type LeaderboardEntry = {
@@ -149,7 +150,7 @@ const formatCompactPoints = (value: number) => {
   return `${value}`;
 };
 
-const formatPointsLabel = (value: number) => `${formatCompactPoints(value)} PTS`;
+const formatPointsLabel = (value: number) => formatHeaderPoints(value);
 
 const formatRankLabel = (rank: number | null) => (rank ? `#${rank}` : "#--");
 

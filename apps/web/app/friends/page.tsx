@@ -14,6 +14,7 @@ import { Avatar } from "@/components/Avatar";
 import { useAuth } from "@/features/auth";
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
 import { deriveCollegeFromDomain } from "@/lib/college";
+import { formatHeaderPoints } from "@/lib/points";
 import { formatRelativeTime } from "@/lib/time";
 
 type FriendUser = {
@@ -75,13 +76,6 @@ const normalizeHandle = (handle: string) => handle.replace(/^@/, "").trim();
 
 const getCollegeLabel = (user: FriendUser) =>
   user.collegeName ?? deriveCollegeFromDomain(user.collegeDomain ?? "") ?? "";
-
-const formatCompactPoints = (value: number) => {
-  if (value >= 1000) {
-    return `${(value / 1000).toFixed(1)}KBLITZPTS`;
-  }
-  return `${value}BLITZPTS`;
-};
 
 const HomeNavIcon = (props: SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" {...props}>
@@ -751,7 +745,7 @@ function FriendsPageContent() {
       );
     }) ?? [];
   const profileName = user?.name ?? "Profile";
-  const profilePoints = formatCompactPoints(user?.coins ?? 0);
+  const profilePoints = formatHeaderPoints(user?.coins ?? 0);
 
   return (
     <div className={`${outfit.className} h-screen overflow-hidden bg-white text-[#181d25]`}>

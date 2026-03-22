@@ -17,6 +17,7 @@ import {
 import { Avatar } from "@/components/Avatar";
 import { useAuth } from "@/features/auth";
 import { apiGet, apiPost } from "@/lib/api";
+import { formatHeaderPoints } from "@/lib/points";
 import { formatRelativeTime } from "@/lib/time";
 import { PostComposerModal } from "./PostComposerModal";
 import {
@@ -201,13 +202,6 @@ const splitHeadline = (value: string) => {
     first: words.slice(0, middle).join(" "),
     second: words.slice(middle).join(" "),
   };
-};
-
-const formatPoints = (value: number) => {
-  if (value >= 1000) {
-    return `${(value / 1000).toFixed(1)}KBLITZPTS`;
-  }
-  return `${value}BLITZPTS`;
 };
 
 const SiteIcon = () => (
@@ -935,7 +929,7 @@ export const HomeDashboard = () => {
   }, [spotlightPosts]);
 
   const profileName = user?.name ?? "Guest User";
-  const profilePoints = formatPoints(user?.coins ?? 0);
+  const profilePoints = formatHeaderPoints(user?.coins ?? 0);
 
   const handleOpenPost = (post: FeedPost) => {
     if (!post.id) {

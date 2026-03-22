@@ -27,6 +27,8 @@ export type Listing = {
     id: string;
     username: string;
     name: string;
+    avatarUrl?: string | null;
+    createdAt?: string | null;
   };
 };
 
@@ -155,6 +157,8 @@ const mapListing = (row: {
   updated_at: string | Date;
   seller_name: string;
   seller_handle: string;
+  seller_avatar_url?: string | null;
+  seller_created_at?: string | Date | null;
 }): Listing => ({
   id: row.id,
   title: row.title,
@@ -171,6 +175,8 @@ const mapListing = (row: {
     id: row.user_id,
     username: row.seller_handle,
     name: row.seller_name,
+    avatarUrl: row.seller_avatar_url ?? null,
+    createdAt: row.seller_created_at ? toIsoString(row.seller_created_at) : null,
   },
 });
 
@@ -216,7 +222,7 @@ export const listListings = async (params: {
   const offsetParam = `$${values.length}`;
 
   const result = await db.query(
-    `SELECT l.*, u.name AS seller_name, u.handle AS seller_handle
+    `SELECT l.*, u.name AS seller_name, u.handle AS seller_handle, u.profile_picture_url AS seller_avatar_url, u.created_at AS seller_created_at
      FROM listings l
      JOIN users u ON u.id = l.user_id
      WHERE ${conditions.join(" AND ")}
@@ -238,7 +244,7 @@ export const getUserListings = async (userId: string): Promise<Listing[]> => {
   }
 
   const result = await db.query(
-    `SELECT l.*, u.name AS seller_name, u.handle AS seller_handle
+    `SELECT l.*, u.name AS seller_name, u.handle AS seller_handle, u.profile_picture_url AS seller_avatar_url, u.created_at AS seller_created_at
      FROM listings l
      JOIN users u ON u.id = l.user_id
      WHERE l.user_id = $1 AND l.status != 'deleted'
@@ -255,7 +261,7 @@ export const getListingById = async (id: string): Promise<Listing> => {
   await ensureListingsTable();
 
   const result = await db.query(
-    `SELECT l.*, u.name AS seller_name, u.handle AS seller_handle
+    `SELECT l.*, u.name AS seller_name, u.handle AS seller_handle, u.profile_picture_url AS seller_avatar_url, u.created_at AS seller_created_at
      FROM listings l
      JOIN users u ON u.id = l.user_id
      WHERE l.id = $1 AND l.status != 'deleted'
@@ -344,15 +350,24 @@ export const createListing = async (params: {
   };
 
   const sellerResult = await db.query(
-    "SELECT name, handle FROM users WHERE id = $1",
+    "SELECT name, handle, profile_picture_url, created_at FROM users WHERE id = $1",
     [params.userId]
   );
-  const sellerRow = sellerResult.rows[0] as { name: string; handle: string } | undefined;
+  const sellerRow = sellerResult.rows[0] as
+    | {
+        name: string;
+        handle: string;
+        profile_picture_url?: string | null;
+        created_at?: string | Date | null;
+      }
+    | undefined;
 
   return mapListing({
     ...row,
     seller_name: sellerRow?.name ?? "",
     seller_handle: sellerRow?.handle ?? "",
+    seller_avatar_url: sellerRow?.profile_picture_url ?? null,
+    seller_created_at: sellerRow?.created_at ?? null,
   });
 };
 
@@ -460,15 +475,24 @@ export const updateListing = async (params: {
   );
 
   const sellerResult = await db.query(
-    "SELECT name, handle FROM users WHERE id = $1",
+    "SELECT name, handle, profile_picture_url, created_at FROM users WHERE id = $1",
     [params.userId]
   );
-  const sellerRow = sellerResult.rows[0] as { name: string; handle: string } | undefined;
+  const sellerRow = sellerResult.rows[0] as
+    | {
+        name: string;
+        handle: string;
+        profile_picture_url?: string | null;
+        created_at?: string | Date | null;
+      }
+    | undefined;
 
   return mapListing({
     ...(result.rows[0] as Parameters<typeof mapListing>[0]),
     seller_name: sellerRow?.name ?? "",
     seller_handle: sellerRow?.handle ?? "",
+    seller_avatar_url: sellerRow?.profile_picture_url ?? null,
+    seller_created_at: sellerRow?.created_at ?? null,
   });
 };
 
@@ -546,15 +570,24 @@ export const updateListingStatus = async (params: {
   );
 
   const sellerResult = await db.query(
-    "SELECT name, handle FROM users WHERE id = $1",
+    "SELECT name, handle, profile_picture_url, created_at FROM users WHERE id = $1",
     [params.userId]
   );
-  const sellerRow = sellerResult.rows[0] as { name: string; handle: string } | undefined;
+  const sellerRow = sellerResult.rows[0] as
+    | {
+        name: string;
+        handle: string;
+        profile_picture_url?: string | null;
+        created_at?: string | Date | null;
+      }
+    | undefined;
 
   return mapListing({
     ...(result.rows[0] as Parameters<typeof mapListing>[0]),
     seller_name: sellerRow?.name ?? "",
     seller_handle: sellerRow?.handle ?? "",
+    seller_avatar_url: sellerRow?.profile_picture_url ?? null,
+    seller_created_at: sellerRow?.created_at ?? null,
   });
 };
 
@@ -614,15 +647,24 @@ export const uploadListingImages = async (params: {
   );
 
   const sellerResult = await db.query(
-    "SELECT name, handle FROM users WHERE id = $1",
+    "SELECT name, handle, profile_picture_url, created_at FROM users WHERE id = $1",
     [params.userId]
   );
-  const sellerRow = sellerResult.rows[0] as { name: string; handle: string } | undefined;
+  const sellerRow = sellerResult.rows[0] as
+    | {
+        name: string;
+        handle: string;
+        profile_picture_url?: string | null;
+        created_at?: string | Date | null;
+      }
+    | undefined;
 
   return mapListing({
     ...(result.rows[0] as Parameters<typeof mapListing>[0]),
     seller_name: sellerRow?.name ?? "",
     seller_handle: sellerRow?.handle ?? "",
+    seller_avatar_url: sellerRow?.profile_picture_url ?? null,
+    seller_created_at: sellerRow?.created_at ?? null,
   });
 };
 
@@ -683,14 +725,23 @@ export const deleteListingImage = async (params: {
   );
 
   const sellerResult = await db.query(
-    "SELECT name, handle FROM users WHERE id = $1",
+    "SELECT name, handle, profile_picture_url, created_at FROM users WHERE id = $1",
     [params.userId]
   );
-  const sellerRow = sellerResult.rows[0] as { name: string; handle: string } | undefined;
+  const sellerRow = sellerResult.rows[0] as
+    | {
+        name: string;
+        handle: string;
+        profile_picture_url?: string | null;
+        created_at?: string | Date | null;
+      }
+    | undefined;
 
   return mapListing({
     ...(result.rows[0] as Parameters<typeof mapListing>[0]),
     seller_name: sellerRow?.name ?? "",
     seller_handle: sellerRow?.handle ?? "",
+    seller_avatar_url: sellerRow?.profile_picture_url ?? null,
+    seller_created_at: sellerRow?.created_at ?? null,
   });
 };

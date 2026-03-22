@@ -91,7 +91,7 @@ const outfit = Outfit({
 });
 
 const primaryActionClasses =
-  "inline-flex items-center justify-center rounded-full bg-[#1456f4] px-4 py-[9px] text-[12px] font-semibold text-white shadow-[0_12px_24px_rgba(20,86,244,0.18)] transition hover:brightness-[1.03]";
+  "inline-flex items-center justify-center rounded-full bg-[#1456f4] px-4 py-[9px] text-[12px] font-semibold !text-white visited:!text-white hover:!text-white shadow-[0_12px_24px_rgba(20,86,244,0.18)] transition hover:brightness-[1.03]";
 const secondaryActionClasses =
   "inline-flex items-center justify-center rounded-full bg-[#edf1f6] px-4 py-[9px] text-[12px] font-semibold text-[#555d6b] transition hover:bg-[#e5eaf1]";
 const ghostActionClasses =

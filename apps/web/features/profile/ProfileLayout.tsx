@@ -1,632 +1,658 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import type { ReactNode, PointerEvent as ReactPointerEvent } from "react";
-import { ProfileHeader } from "./ProfileHeader";
-import { ProfileLogout } from "./ProfileLogout";
-import { ProfileQuestionCard } from "./ProfileQuestionCard";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { JSX, SVGProps } from "react";
+import { Outfit } from "next/font/google";
+import { Avatar } from "@/components/Avatar";
+import { useAuth } from "@/features/auth";
+import { apiGet } from "@/lib/api";
+import { deriveCollegeFromDomain, deriveCollegeFromEmail } from "@/lib/college";
 import { ProfileAnswersProvider, useProfileAnswers } from "./ProfileAnswersContext";
 import { ProfileQuestionnaireModal } from "./ProfileQuestionnaireModal";
-import { ProfileCrewCard, ProfileCurrentlyCard } from "./ProfileSidePanel";
-import { useAuth } from "@/features/auth";
-import { apiGet, apiPost } from "@/lib/api";
+import { profile as fallbackProfile } from "./mock";
 
-type MovementMode = "relative" | "absolute";
-
-type BlockTemplate = {
+type FriendUser = {
   id: string;
-  columns: {
-    default: number;
-    compact: number;
-  };
-  layout: {
-    default: { x: number; y: number };
-    compact: { x: number; y: number };
-  };
+  name: string;
+  handle: string;
 };
 
-type BlockPosition = {
-  x: number;
-  y: number;
+type FriendRequest = {
+  id: string;
+  createdAt: string;
+  requester: FriendUser;
+  recipient: FriendUser;
 };
 
-type BlockSizes = Record<string, number>;
+type FriendSummary = {
+  friends: FriendUser[];
+  incoming: FriendRequest[];
+  outgoing: FriendRequest[];
+  blocked: FriendUser[];
+};
 
-const GRID_COLUMNS = 12;
-const GRID_GAP = 20;
-const GRID_SNAP = 1;
-type LayoutMode = "default" | "compact";
+type LeaderboardEntry = {
+  id: string;
+  name: string;
+  handle: string;
+  coins: number;
+};
 
-const layoutStorageKey = (userId: string) => `lockedin_profile_layout:${userId}`;
+type StatItem = {
+  label: string;
+  value: number;
+  icon: JSX.Element;
+};
 
-const rectsOverlap = (
-  a: { x: number; y: number; width: number; height: number },
-  b: { x: number; y: number; width: number; height: number }
-) =>
-  a.x < b.x + b.width &&
-  a.x + a.width > b.x &&
-  a.y < b.y + b.height &&
-  a.y + a.height > b.y;
+type PromptCardProps = {
+  icon: JSX.Element;
+  title: string;
+  answer?: string;
+  chips?: string[];
+  actionLabel: string;
+  onAction: () => void;
+};
 
-const isInteractiveElement = (target: EventTarget | null) => {
-  if (!(target instanceof HTMLElement)) {
-    return false;
+type PromptCardData = Omit<PromptCardProps, "onAction">;
+
+const outfit = Outfit({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+});
+
+const shellCardClasses =
+  "rounded-[30px] border border-[#e7edf6] bg-white/94 shadow-[0_24px_60px_rgba(24,35,61,0.08)]";
+
+const loadLeaderboardRank = async (token: string | null, userId: string) => {
+  const attempts: Array<{ path: string; token?: string }> = token
+    ? [
+        { path: "/leaderboard?limit=250", token },
+        { path: "/ranked/leaderboard?limit=250", token },
+        { path: "/leaderboard/public?limit=250" },
+      ]
+    : [
+        { path: "/leaderboard/public?limit=250" },
+        { path: "/leaderboard?limit=250" },
+      ];
+
+  for (const attempt of attempts) {
+    try {
+      const payload = await apiGet<{ entries: LeaderboardEntry[] }>(
+        attempt.path,
+        attempt.token
+      );
+      const entries = payload.entries ?? [];
+      const index = entries.findIndex((entry) => entry.id === userId);
+      if (index >= 0) {
+        return index + 1;
+      }
+    } catch {
+      // Try the next path.
+    }
   }
 
-  return Boolean(
-    target.closest("button, a, input, textarea, select, [data-drag-ignore]")
-  );
+  return null;
 };
 
-const BLOCK_TEMPLATES: BlockTemplate[] = [
-  {
-    id: "profile-header",
-    columns: { default: 12, compact: 12 },
-    layout: {
-      default: { x: 0, y: 0 },
-      compact: { x: 0, y: 0 },
-    },
-  },
-  {
-    id: "question-career",
-    columns: { default: 4, compact: 12 },
-    layout: {
-      default: { x: 0, y: 3 },
-      compact: { x: 0, y: 9 },
-    },
-  },
-  {
-    id: "question-madlib",
-    columns: { default: 4, compact: 12 },
-    layout: {
-      default: { x: 4, y: 3 },
-      compact: { x: 0, y: 14 },
-    },
-  },
-  {
-    id: "question-memory",
-    columns: { default: 4, compact: 12 },
-    layout: {
-      default: { x: 8, y: 3 },
-      compact: { x: 0, y: 19 },
-    },
-  },
-  {
-    id: "currently",
-    columns: { default: 6, compact: 12 },
-    layout: {
-      default: { x: 0, y: 6 },
-      compact: { x: 0, y: 24 },
-    },
-  },
-  {
-    id: "crew",
-    columns: { default: 6, compact: 12 },
-    layout: {
-      default: { x: 6, y: 6 },
-      compact: { x: 0, y: 29 },
-    },
-  },
-  {
-    id: "logout",
-    columns: { default: 12, compact: 12 },
-    layout: {
-      default: { x: 0, y: 9 },
-      compact: { x: 0, y: 34 },
-    },
-  },
-];
+const toCollegeAcronym = (value: string) => {
+  const parts = value
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
 
-const buildDefaultPositions = (mode: "default" | "compact") => {
-  const positions: Record<string, BlockPosition> = {};
-  BLOCK_TEMPLATES.forEach((block) => {
-    const layout = mode === "compact" ? block.layout.compact : block.layout.default;
-    positions[block.id] = { x: layout.x, y: layout.y };
-  });
-  return positions;
+  if (parts.length === 0) {
+    return "CAMP";
+  }
+
+  const compact = parts.join("");
+  if (compact.length <= 4) {
+    return compact.toUpperCase();
+  }
+
+  return parts
+    .slice(0, 4)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+};
+
+const buildMemberId = (seed: string) => {
+  const checksum = Array.from(seed).reduce(
+    (total, character) => total + character.charCodeAt(0),
+    0
+  );
+  const serial = ((checksum * 97) % 9000) + 1000;
+  return `#${new Date().getFullYear()}-${serial}`;
+};
+
+const PeopleIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+    <circle cx="8.2" cy="9.1" r="2.35" stroke="currentColor" strokeWidth="1.8" />
+    <circle cx="15.95" cy="8.55" r="1.95" stroke="currentColor" strokeWidth="1.8" />
+    <path
+      d="M4.7 17.6c.52-2.2 2.2-3.5 4.72-3.5 2.56 0 4.25 1.3 4.77 3.5M13.95 13.95c1.56.17 2.66.86 3.33 2.1"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+const SparkIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+    <path
+      d="m12 3 1.62 4.38L18 9l-4.38 1.62L12 15l-1.62-4.38L6 9l4.38-1.62L12 3Z"
+      fill="currentColor"
+    />
+    <path d="m18.4 15.2.72 1.95 1.94.71-1.94.72-.72 1.94-.72-1.94-1.94-.72 1.94-.71.72-1.95Z" fill="currentColor" />
+    <path d="m5.5 15.4.52 1.4 1.4.52-1.4.52-.52 1.4-.52-1.4-1.4-.52 1.4-.52.52-1.4Z" fill="currentColor" />
+  </svg>
+);
+
+const ShieldIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+    <path
+      d="M12 3.8 5.2 6.7v5.25c0 4.1 2.57 7.08 6.8 8.65 4.23-1.57 6.8-4.55 6.8-8.65V6.7L12 3.8Z"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinejoin="round"
+    />
+    <path d="m9.1 12.45 1.9 1.9 3.9-4.1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const MemoryIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+    <path
+      d="M12 4.25 13.7 8l4.05.4-3.06 2.74.86 4.01L12 13.16l-3.55 1.99.86-4.01L6.25 8.4 10.3 8 12 4.25Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
+const CareerIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+    <path
+      d="M8.2 8.1V6.95A2.95 2.95 0 0 1 11.15 4h1.7A2.95 2.95 0 0 1 15.8 6.95V8.1M5 8.1h14v8.75a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V8.1Z"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinejoin="round"
+    />
+    <path d="M10.25 12.2h3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
+const PencilIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+    <path
+      d="m5.45 16.95 8.7-8.7 2.9 2.9-8.7 8.7-3.75.85.85-3.75ZM14.95 7.45l1.2-1.2a2 2 0 1 1 2.82 2.82l-1.2 1.2"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const ShareIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+    <circle cx="18.25" cy="5.75" r="2.35" stroke="currentColor" strokeWidth="1.8" />
+    <circle cx="6" cy="12" r="2.35" stroke="currentColor" strokeWidth="1.8" />
+    <circle cx="18.25" cy="18.25" r="2.35" stroke="currentColor" strokeWidth="1.8" />
+    <path d="m8.05 10.95 7.95-4.1M8.05 13.05l7.95 4.1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
+const SiteGlyph = () => (
+  <svg viewBox="0 0 40 40" aria-hidden="true" className="h-10 w-10">
+    <circle cx="20" cy="20" r="19" fill="#1456f4" />
+    <circle cx="20" cy="20" r="5.2" fill="white" />
+    <circle cx="20" cy="9.4" r="3.15" fill="white" />
+    <circle cx="29.2" cy="14.7" r="3.15" fill="white" />
+    <circle cx="29.2" cy="25.3" r="3.15" fill="white" />
+    <circle cx="20" cy="30.6" r="3.15" fill="white" />
+    <circle cx="10.8" cy="25.3" r="3.15" fill="white" />
+    <circle cx="10.8" cy="14.7" r="3.15" fill="white" />
+    <path
+      d="M20 14.6v-2.2M24.6 17.3l2.05-1.18M24.6 22.7l2.05 1.18M20 25.4v2.2M15.4 22.7l-2.05 1.18M15.4 17.3l-2.05-1.18"
+      stroke="white"
+      strokeWidth="2"
+      strokeLinecap="round"
+      opacity="0.96"
+    />
+  </svg>
+);
+
+const PromptCard = ({
+  icon,
+  title,
+  answer,
+  chips,
+  actionLabel,
+  onAction,
+}: PromptCardProps) => {
+  const hasChips = Boolean(chips && chips.length > 0);
+
+  return (
+    <article className={`${shellCardClasses} flex min-h-[280px] flex-col p-5`}>
+      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#edf3ff] text-[#1456f4]">
+        {icon}
+      </div>
+      <h3 className="mt-5 max-w-[220px] text-[18px] font-[700] leading-[1.16] tracking-[-0.05em] text-[#20242d]">
+        {title}
+      </h3>
+      <div className="mt-4 flex-1">
+        {hasChips ? (
+          <div className="flex flex-wrap gap-2">
+            {chips?.map((chip) => (
+              <span
+                key={chip}
+                className="rounded-full bg-[#fdebf7] px-3 py-1 text-[11px] font-semibold lowercase tracking-[-0.01em] text-[#cc5d9f]"
+              >
+                {chip}
+              </span>
+            ))}
+          </div>
+        ) : answer?.trim() ? (
+          <p className="max-w-[260px] text-[13px] leading-[1.7] text-[#5f697b]">
+            “{answer.trim()}”
+          </p>
+        ) : (
+          <p className="max-w-[260px] text-[13px] leading-[1.7] text-[#96a0b0]">
+            Add an answer so your profile feels more like you.
+          </p>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={onAction}
+        className="mt-6 inline-flex h-10 items-center justify-center self-start rounded-full border border-[#e4e9f2] bg-white px-5 text-[11px] font-semibold tracking-[-0.01em] text-[#5b6577] transition hover:border-[#d7deea] hover:text-[#20242d]"
+      >
+        {actionLabel}
+      </button>
+    </article>
+  );
 };
 
 const ProfileLayoutInner = () => {
-  const { user, isAuthenticated, openAuthModal, token } = useAuth();
-  const { answers, madlibAnswer } = useProfileAnswers();
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [gridUnit, setGridUnit] = useState(0);
-  const [gridGap, setGridGap] = useState(GRID_GAP);
-  const [positions, setPositions] = useState<Record<string, BlockPosition>>(() =>
-    buildDefaultPositions("default")
-  );
-  const [savedPositions, setSavedPositions] = useState<Record<string, BlockPosition>>(
-    () => buildDefaultPositions("default")
-  );
-  const [blockHeights, setBlockHeights] = useState<BlockSizes>({});
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [layoutError, setLayoutError] = useState<string | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [movementMode, setMovementMode] = useState<MovementMode>("relative");
+  const { user, token, isAuthenticated, openAuthModal } = useAuth();
+  const { answers, isLoaded } = useProfileAnswers();
+  const [friendsSummary, setFriendsSummary] = useState<FriendSummary | null>(null);
+  const [leaderboardRank, setLeaderboardRank] = useState<number | null>(null);
   const [isAnswerEditorOpen, setAnswerEditorOpen] = useState(false);
-  const dragOffsetRef = useRef({ x: 0, y: 0 });
-
-  const handleAnswerEdit = useCallback(() => {
-    if (!isAuthenticated) {
-      openAuthModal();
-      return;
-    }
-    setAnswerEditorOpen(true);
-  }, [isAuthenticated, openAuthModal]);
-
-  const gridStep = useMemo(() => gridUnit + gridGap, [gridUnit, gridGap]);
-
-  const isCompact = useMemo(() => {
-    if (!containerRef.current) {
-      return false;
-    }
-    return containerRef.current.offsetWidth < 768;
-  }, [gridUnit]);
-
-  const blockTemplates = BLOCK_TEMPLATES;
-
-  const getBlockWidth = useCallback(
-    (block: BlockTemplate) => {
-      const columns = isCompact ? block.columns.compact : block.columns.default;
-      return columns * gridUnit + (columns - 1) * gridGap;
-    },
-    [gridGap, gridUnit, isCompact]
-  );
-
-  const getRect = useCallback(
-    (id: string, position?: BlockPosition) => {
-      const block = blockTemplates.find((item) => item.id === id);
-      const width = block ? getBlockWidth(block) : 0;
-      const height = blockHeights[id] ?? gridStep * 2;
-      const pos = position ?? positions[id] ?? { x: 0, y: 0 };
-
-      return {
-        x: pos.x * gridStep,
-        y: pos.y * gridStep,
-        width,
-        height,
-      };
-    },
-    [blockHeights, blockTemplates, getBlockWidth, gridStep, positions]
-  );
-
-  const layoutMode: LayoutMode = isCompact ? "compact" : "default";
-  const defaultPositions = useMemo(
-    () => buildDefaultPositions(layoutMode),
-    [layoutMode]
-  );
-
-  const updateGridUnit = useCallback(() => {
-    if (!containerRef.current) {
-      return;
-    }
-    const width = containerRef.current.offsetWidth;
-    const nextGap = width < 640 ? 12 : GRID_GAP;
-    const nextUnit = (width - nextGap * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
-    setGridGap(nextGap);
-    setGridUnit(Math.max(0, nextUnit));
-  }, []);
+  const [shareLabel, setShareLabel] = useState("Share");
 
   useEffect(() => {
-    updateGridUnit();
-    const observer = new ResizeObserver(() => updateGridUnit());
-    if (containerRef.current) {
-      observer.observe(containerRef.current);
+    if (!token || !isAuthenticated) {
+      return;
     }
-    return () => observer.disconnect();
-  }, [updateGridUnit]);
 
-  useEffect(() => {
     let isActive = true;
 
-    if (!user?.id) {
-      setPositions(defaultPositions);
-      setSavedPositions(defaultPositions);
-      return;
-    }
-
-    const loadLayout = async () => {
-      let remotePositions: Record<string, BlockPosition> | null = null;
-
-      if (token) {
-        try {
-          const response = await apiGet<{
-            layout?: { positions: Record<string, BlockPosition>; mode: LayoutMode };
-          }>(`/profile/layout?mode=${layoutMode}`, token);
-
-          if (response.layout?.positions) {
-            remotePositions = response.layout.positions;
-          }
-        } catch {
-          remotePositions = null;
-        }
-      }
-
-      let localPositions: Record<string, BlockPosition> | null = null;
-      const raw =
-        typeof window !== "undefined"
-          ? window.localStorage.getItem(layoutStorageKey(user.id))
-          : null;
-      if (raw) {
-        try {
-          const parsed = JSON.parse(raw) as {
-            positions?: Record<string, BlockPosition>;
-            mode?: LayoutMode;
-          };
-          if (parsed?.positions && parsed.mode === layoutMode) {
-            localPositions = parsed.positions;
-          }
-        } catch {
-          // Ignore malformed stored layouts.
-        }
-      }
-
-      const chosenPositions = localPositions ?? remotePositions ?? {};
-      const merged = {
-        ...defaultPositions,
-        ...chosenPositions,
-      };
-
-      const shouldSync =
-        token &&
-        localPositions &&
-        (!remotePositions ||
-          JSON.stringify(remotePositions) !== JSON.stringify(localPositions));
-
-      if (shouldSync) {
-        apiPost(
-          "/profile/layout",
-          { positions: localPositions, mode: layoutMode },
-          token
-        ).catch(() => {
-          // Ignore migration failures; local layout still works.
-        });
-      }
+    const loadData = async () => {
+      const [summaryResult, rankResult] = await Promise.allSettled([
+        apiGet<FriendSummary>("/friends/summary", token),
+        user?.id ? loadLeaderboardRank(token, user.id) : Promise.resolve(null),
+      ]);
 
       if (!isActive) {
         return;
       }
 
-      setPositions(merged);
-      setSavedPositions(merged);
+      if (summaryResult.status === "fulfilled") {
+        setFriendsSummary(summaryResult.value);
+      } else {
+        setFriendsSummary(null);
+      }
+
+      if (rankResult.status === "fulfilled") {
+        setLeaderboardRank(rankResult.value);
+      } else {
+        setLeaderboardRank(null);
+      }
     };
 
-    loadLayout();
+    void loadData();
 
     return () => {
       isActive = false;
     };
-  }, [defaultPositions, layoutMode, token, user?.id]);
+  }, [isAuthenticated, token, user?.id]);
 
-  const saveLayout = useCallback(
-    async (next: Record<string, BlockPosition>) => {
-      if (!user?.id) {
-        return;
-      }
+  const handleOpenEditor = useCallback(() => {
+    if (!isAuthenticated) {
+      openAuthModal("login");
+      return;
+    }
+    setAnswerEditorOpen(true);
+  }, [isAuthenticated, openAuthModal]);
 
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(
-          layoutStorageKey(user.id),
-          JSON.stringify({
-            positions: next,
-            mode: layoutMode,
-          })
-        );
-      }
-
-      if (!token) {
-        return;
-      }
-
-      try {
-        await apiPost(
-          "/profile/layout",
-          { positions: next, mode: layoutMode },
-          token
-        );
-      } catch {
-        // Keep local layout even if the save fails.
-      }
-    },
-    [layoutMode, token, user?.id]
-  );
-
-  const handleSave = useCallback(() => {
-    const collisions = blockTemplates.some((block) => {
-      const rect = getRect(block.id, positions[block.id]);
-      return blockTemplates.some((other) => {
-        if (block.id === other.id) {
-          return false;
-        }
-        const otherRect = getRect(other.id, positions[other.id]);
-        return rectsOverlap(rect, otherRect);
-      });
-    });
-
-    if (collisions) {
-      setLayoutError("Resolve overlaps before saving the layout.");
+  const handleShare = useCallback(async () => {
+    if (typeof window === "undefined") {
       return;
     }
 
-    setLayoutError(null);
-    setSavedPositions(positions);
-    saveLayout(positions);
-    setIsEditing(false);
-  }, [blockTemplates, getRect, positions, saveLayout]);
-
-  const handleCancel = useCallback(() => {
-    setLayoutError(null);
-    setPositions(savedPositions);
-    setIsEditing(false);
-  }, [savedPositions]);
-
-  const handleMovementMode = useCallback((mode: MovementMode) => {
-    setMovementMode(mode);
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setShareLabel("Copied");
+      window.setTimeout(() => setShareLabel("Share"), 1800);
+    } catch {
+      setShareLabel("Share");
+    }
   }, []);
 
-  const canvasHeight = useMemo(() => {
-    const bottoms = blockTemplates.map((block) => {
-      const rect = getRect(block.id, positions[block.id]);
-      return rect.y + rect.height;
-    });
-    return Math.max(...bottoms, 200) + gridStep;
-  }, [blockTemplates, getRect, gridStep, positions]);
+  const displayName = user?.name ?? fallbackProfile.name;
+  const displayHandle = user?.handle ?? fallbackProfile.handle;
+  const collegeLabel =
+    user?.collegeName ??
+    deriveCollegeFromDomain(user?.collegeDomain ?? "") ??
+    deriveCollegeFromEmail(user?.email ?? "") ??
+    "Campus";
+  const collegeAcronym = toCollegeAcronym(collegeLabel);
+  const displayBio = fallbackProfile.bio;
+  const memberId = buildMemberId(user?.id ?? displayHandle);
+  const promptCount = [
+    answers?.career?.trim(),
+    answers?.memory?.trim(),
+    answers?.madlib.when?.trim() &&
+      answers?.madlib.focus?.trim() &&
+      answers?.madlib.action?.trim()
+      ? "madlib"
+      : "",
+  ].filter(Boolean).length;
 
-  const handlePointerDown = (
-    id: string,
-    event: ReactPointerEvent<HTMLDivElement>
-  ) => {
-    if (!isEditing || !containerRef.current) {
-      return;
+  const displayBadges = useMemo(() => {
+    const values = [...fallbackProfile.badges];
+    values.unshift(`${collegeAcronym} Member`);
+    if (leaderboardRank) {
+      values.push(`Ranked #${leaderboardRank}`);
     }
-    if (event.button !== 0 || isInteractiveElement(event.target)) {
-      return;
-    }
+    return Array.from(new Set(values)).slice(0, 4);
+  }, [collegeAcronym, leaderboardRank]);
 
-    const currentPosition = positions[id] ?? { x: 0, y: 0 };
-    const snappedPosition =
-      movementMode === "relative"
-        ? {
-            x: Math.round(currentPosition.x / GRID_SNAP) * GRID_SNAP,
-            y: Math.round(currentPosition.y / GRID_SNAP) * GRID_SNAP,
-          }
-        : currentPosition;
+  const ecosystemStats = useMemo<StatItem[]>(
+    () => [
+      {
+        label: "Friends",
+        value: friendsSummary?.friends.length ?? 0,
+        icon: <PeopleIcon className="h-4 w-4" />,
+      },
+      {
+        label: "Prompts",
+        value: promptCount,
+        icon: <SparkIcon className="h-4 w-4" />,
+      },
+      {
+        label: "Badges",
+        value: displayBadges.length,
+        icon: <ShieldIcon className="h-4 w-4" />,
+      },
+    ],
+    [displayBadges.length, friendsSummary?.friends.length, promptCount]
+  );
 
-    if (
-      movementMode === "relative" &&
-      (snappedPosition.x !== currentPosition.x ||
-        snappedPosition.y !== currentPosition.y)
-    ) {
-      setPositions((prev) => ({
-        ...prev,
-        [id]: snappedPosition,
-      }));
-    }
+  const madlibChips = useMemo(
+    () =>
+      [
+        answers?.madlib.when?.trim(),
+        answers?.madlib.focus?.trim(),
+        answers?.madlib.action?.trim(),
+      ].filter(Boolean) as string[],
+    [answers?.madlib.action, answers?.madlib.focus, answers?.madlib.when]
+  );
 
-    const rect = getRect(id, snappedPosition);
-    dragOffsetRef.current = {
-      x: event.clientX - (containerRef.current.getBoundingClientRect().left + rect.x),
-      y: event.clientY - (containerRef.current.getBoundingClientRect().top + rect.y),
-    };
-    setDraggingId(id);
-  };
+  const promptCards: PromptCardData[] = [
+    {
+      title: "What's your favorite memory?",
+      answer: answers?.memory,
+      chips: undefined,
+      icon: <MemoryIcon className="h-[18px] w-[18px]" />,
+      actionLabel: answers?.memory?.trim() ? "Reply" : "Add your answer",
+    },
+    {
+      title: "If you're guaranteed success, what career would you choose?",
+      answer: answers?.career,
+      chips: undefined,
+      icon: <CareerIcon className="h-[18px] w-[18px]" />,
+      actionLabel: answers?.career?.trim() ? "Edit response" : "Add your answer",
+    },
+    {
+      title: "Whenever I'm _______, my _______ stop and _______.",
+      answer: undefined,
+      chips: madlibChips,
+      icon: <PencilIcon className="h-[18px] w-[18px]" />,
+      actionLabel: madlibChips.length > 0 ? "Edit response" : "Add your answer",
+    },
+  ] as const;
 
-  useEffect(() => {
-    if (!draggingId || !containerRef.current) {
-      return;
-    }
-
-    const handleMove = (event: PointerEvent) => {
-      if (!containerRef.current) {
-        return;
-      }
-      const containerRect = containerRef.current.getBoundingClientRect();
-      const block = blockTemplates.find((item) => item.id === draggingId);
-      if (!block) {
-        return;
-      }
-      const width = getBlockWidth(block);
-      const height = blockHeights[block.id] ?? gridStep * 2;
-
-      let nextX =
-        (event.clientX - containerRect.left - dragOffsetRef.current.x) / gridStep;
-      let nextY =
-        (event.clientY - containerRect.top - dragOffsetRef.current.y) / gridStep;
-
-      if (movementMode === "relative") {
-        nextX = Math.round(nextX / GRID_SNAP) * GRID_SNAP;
-        nextY = Math.round(nextY / GRID_SNAP) * GRID_SNAP;
-      }
-
-      const maxX = Math.max(0, (containerRect.width - width) / gridStep);
-      nextX = Math.min(Math.max(0, nextX), maxX);
-      nextY = Math.max(0, nextY);
-
-      const candidateRect = {
-        x: nextX * gridStep,
-        y: nextY * gridStep,
-        width,
-        height,
-      };
-
-      setPositions((prev) => ({
-        ...prev,
-        [draggingId]: { x: nextX, y: nextY },
-      }));
-      setLayoutError(null);
-    };
-
-    const handleUp = () => {
-      setDraggingId(null);
-    };
-
-    window.addEventListener("pointermove", handleMove);
-    window.addEventListener("pointerup", handleUp);
-    return () => {
-      window.removeEventListener("pointermove", handleMove);
-      window.removeEventListener("pointerup", handleUp);
-    };
-  }, [
-    blockHeights,
-    blockTemplates,
-    draggingId,
-    getBlockWidth,
-    getRect,
-    gridStep,
-    movementMode,
-    positions,
-  ]);
-
-  const renderBlock = (blockId: string) => {
-    switch (blockId) {
-      case "profile-header":
-        return (
-          <ProfileHeader
-            isEditing={isEditing}
-            movementMode={movementMode}
-            onEditToggle={() => {
-              setLayoutError(null);
-              setIsEditing(true);
-            }}
-            onSaveLayout={() => handleSave()}
-            onCancelLayout={() => handleCancel()}
-            onMovementModeChange={(mode) => handleMovementMode(mode)}
-            layoutError={layoutError}
-          />
-        );
-      case "question-career":
-        return (
-          <ProfileQuestionCard
-            title="If you're guaranteed success, what career would you choose?"
-            answer={answers?.career}
-            onEdit={isEditing ? undefined : handleAnswerEdit}
-          />
-        );
-      case "question-madlib":
-        return (
-          <ProfileQuestionCard
-            title="Whenever I'm ____, my ____ stop and ____."
-            answer={madlibAnswer}
-            onEdit={isEditing ? undefined : handleAnswerEdit}
-          />
-        );
-      case "question-memory":
-        return (
-          <ProfileQuestionCard
-            title="What's your favorite memory?"
-            answer={answers?.memory}
-            onEdit={isEditing ? undefined : handleAnswerEdit}
-          />
-        );
-      case "currently":
-        return <ProfileCurrentlyCard />;
-      case "crew":
-        return <ProfileCrewCard />;
-      case "logout":
-        return <ProfileLogout />;
-      default:
-        return null;
-    }
-  };
+  if (!isAuthenticated) {
+    return (
+      <div className={`${outfit.className} mx-auto max-w-[980px] px-4 pb-16 pt-6`}>
+        <div className={`${shellCardClasses} px-8 py-12 text-center`}>
+          <h1 className="text-[34px] font-[800] tracking-[-0.065em] text-[#20242d]">
+            Your Profile
+          </h1>
+          <p className="mx-auto mt-3 max-w-[480px] text-[15px] leading-[1.7] text-[#667183]">
+            Sign in to customize your card, prompt answers, badges, and campus identity.
+          </p>
+          <button
+            type="button"
+            onClick={() => openAuthModal("login")}
+            className="mt-7 inline-flex h-12 items-center justify-center rounded-full bg-[#1456f4] px-6 text-[12px] font-semibold uppercase tracking-[0.18em] text-white shadow-[0_16px_32px_rgba(20,86,244,0.22)] transition hover:bg-[#0f49e2]"
+          >
+            Log In
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-16 pt-2">
-      <div
-        ref={containerRef}
-        className="relative pointer-events-none"
-        style={{ height: canvasHeight }}
-      >
-        {isEditing && movementMode === "relative" && gridStep > 0 && (
-          <div
-            className="pointer-events-none absolute inset-0 rounded-[32px] opacity-70"
-            style={{
-              backgroundImage:
-                "linear-gradient(rgba(255,134,88,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,134,88,0.08) 1px, transparent 1px)",
-              backgroundSize: `${gridStep}px ${gridStep}px`,
-            }}
-          />
-        )}
-
-        {blockTemplates.map((block) => {
-          const pos = positions[block.id] ?? { x: 0, y: 0 };
-          const width = getBlockWidth(block);
-          const height = blockHeights[block.id] ?? "auto";
-          const style = {
-            left: pos.x * gridStep,
-            top: pos.y * gridStep,
-            width,
-            height,
-          } as const;
-
-          return (
-            <div
-              key={block.id}
-              className={`absolute transition ${
-                isEditing ? "cursor-grab select-none" : ""
-              } ${draggingId === block.id ? "z-30" : "z-10"} pointer-events-auto`}
-              style={style}
-              onPointerDown={
-                isEditing ? (event) => handlePointerDown(block.id, event) : undefined
-              }
-            >
-              <BlockSizer
-                blockId={block.id}
-                onResize={(nextHeight) =>
-                  setBlockHeights((prev) => ({
-                    ...prev,
-                    [block.id]: nextHeight,
-                  }))
-                }
-              >
-                {renderBlock(block.id)}
-              </BlockSizer>
+    <div className={`${outfit.className} mx-auto max-w-[1100px] px-4 pb-16 pt-4 md:pt-6`}>
+      <div className={`${shellCardClasses} px-5 py-5 sm:px-6 sm:py-6`}>
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex min-w-0 items-start gap-4 sm:gap-5">
+            <div className="relative shrink-0">
+              <Avatar
+                name={displayName}
+                size={86}
+                className="border-[3px] border-white text-[32px] text-[#202531] shadow-[0_16px_34px_rgba(24,35,61,0.14)]"
+              />
+              <span className="absolute bottom-[6px] right-[6px] flex h-4 w-4 items-center justify-center rounded-full border-[3px] border-white bg-[#1456f4]" />
             </div>
-          );
-        })}
+
+            <div className="min-w-0">
+              <h1 className="truncate text-[34px] font-[800] leading-[0.96] tracking-[-0.07em] text-[#20242d] sm:text-[40px]">
+                {displayName}
+              </h1>
+              <p className="mt-2 text-[13px] font-medium text-[#7a8394]">
+                {displayHandle}{" "}
+                <span className="px-1.5 text-[#bcc4d1]">•</span>
+                {collegeAcronym}
+              </p>
+              <p className="mt-3 max-w-[560px] text-[15px] leading-[1.7] text-[#616c7e]">
+                {displayBio}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 self-start">
+            <button
+              type="button"
+              onClick={handleOpenEditor}
+              className="inline-flex h-11 items-center justify-center rounded-full bg-[#1456f4] px-5 text-[12px] font-semibold text-white shadow-[0_14px_28px_rgba(20,86,244,0.22)] transition hover:bg-[#0f49e2]"
+            >
+              Edit Profile
+            </button>
+            <button
+              type="button"
+              onClick={handleShare}
+              aria-label="Share profile"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#e4e9f2] bg-white text-[#5e6778] transition hover:border-[#d6dce8] hover:text-[#20242d]"
+            >
+              <ShareIcon className="h-[18px] w-[18px]" />
+            </button>
+            <span className="sr-only">{shareLabel}</span>
+          </div>
+        </div>
       </div>
+
+      <div className="mt-6 grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
+        <div className="space-y-5">
+          <section className={`${shellCardClasses} p-4`}>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#1456f4]">
+              My Ecosystem
+            </p>
+            <div className="mt-4 divide-y divide-[#edf1f6]">
+              {ecosystemStats.map((item) => (
+                <div key={item.label} className="flex items-center justify-between gap-3 py-3">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#eef3ff] text-[#1456f4]">
+                      {item.icon}
+                    </span>
+                    <span className="text-[13px] font-medium text-[#434b5a]">
+                      {item.label}
+                    </span>
+                  </div>
+                  <span className="text-[18px] font-[800] tracking-[-0.05em] text-[#20242d]">
+                    {item.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className={`${shellCardClasses} p-4`}>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#1456f4]">
+              Badges
+            </p>
+            <div className="mt-4 space-y-3">
+              {displayBadges.map((badge) => (
+                <div
+                  key={badge}
+                  className="flex items-center gap-3 rounded-[18px] bg-[#f7f9fc] px-3 py-3"
+                >
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#edf3ff] text-[#1456f4]">
+                    <ShieldIcon className="h-4 w-4" />
+                  </span>
+                  <p className="text-[13px] font-medium leading-[1.45] text-[#434b5a]">
+                    {badge}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        <section className="overflow-hidden rounded-[34px] border border-[#376ef7]/20 bg-[linear-gradient(135deg,#2a63f5_0%,#5f84f7_100%)] p-6 text-white shadow-[0_26px_60px_rgba(20,86,244,0.22)] sm:p-8">
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_210px] lg:items-center">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/84">
+                Official University ID
+              </p>
+              <div className="mt-6 grid gap-5">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/64">
+                    Student Name
+                  </p>
+                  <h2 className="mt-2 text-[34px] font-[800] leading-[0.94] tracking-[-0.06em] text-white sm:text-[40px]">
+                    {displayName}
+                  </h2>
+                </div>
+
+                <div className="grid gap-4 text-[14px] sm:grid-cols-2">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/64">
+                      Affiliation
+                    </p>
+                    <p className="mt-1 font-medium text-white">{collegeLabel}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/64">
+                      Member ID
+                    </p>
+                    <p className="mt-1 font-medium text-white">{memberId}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/64">
+                      Handle
+                    </p>
+                    <p className="mt-1 font-medium text-white">{displayHandle}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/64">
+                      Global Rank
+                    </p>
+                    <p className="mt-1 font-medium text-white">
+                      {leaderboardRank ? `#${leaderboardRank}` : "Unranked"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="inline-flex w-fit items-center gap-2 rounded-full bg-white/16 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22)]">
+                  <span className="h-2 w-2 rounded-full bg-[#57e69a]" />
+                  NFC Tap Ready
+                </div>
+              </div>
+            </div>
+
+            <div className="mx-auto w-full max-w-[210px]">
+              <div className="rounded-[30px] bg-white px-5 py-6 text-center text-[#20242d] shadow-[0_22px_45px_rgba(22,34,72,0.18)]">
+                <div className="mx-auto flex h-[164px] w-[122px] items-center justify-center rounded-[16px] bg-[linear-gradient(180deg,#30404c_0%,#202936_100%)] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
+                  <div className="flex h-[106px] w-[76px] flex-col items-center justify-center rounded-[12px] bg-white shadow-[0_16px_28px_rgba(17,27,57,0.12)]">
+                    <SiteGlyph />
+                    <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#5d6777]">
+                      Verified
+                    </p>
+                  </div>
+                </div>
+                <p className="mt-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#20242d]">
+                  Scan to verify
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div className="mt-10 flex items-center justify-between gap-4">
+        <div>
+          <h2 className="text-[30px] font-[800] tracking-[-0.065em] text-[#20242d]">
+            Identity Prompts
+          </h2>
+          {!isLoaded && (
+            <p className="mt-2 text-[14px] text-[#8c95a6]">Loading your answers...</p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={handleOpenEditor}
+          className="text-[11px] font-semibold tracking-[0.02em] text-[#1456f4] transition hover:text-[#0f49e2]"
+        >
+          Customize Prompts
+        </button>
+      </div>
+
+      <div className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        {promptCards.map((card) => (
+          <PromptCard
+            key={card.title}
+            icon={card.icon}
+            title={card.title}
+            answer={card.answer}
+            chips={card.chips}
+            actionLabel={card.actionLabel}
+            onAction={handleOpenEditor}
+          />
+        ))}
+      </div>
+
       <ProfileQuestionnaireModal
         isOpen={isAnswerEditorOpen}
         onClose={() => setAnswerEditorOpen(false)}
       />
     </div>
   );
-};
-
-const BlockSizer = ({
-  blockId,
-  onResize,
-  children,
-}: {
-  blockId: string;
-  onResize: (height: number) => void;
-  children: ReactNode;
-}) => {
-  const ref = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!ref.current) {
-      return;
-    }
-
-    const element = ref.current;
-    const update = () => {
-      const rect = element.getBoundingClientRect();
-      onResize(rect.height);
-    };
-
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [blockId, onResize]);
-
-  return <div ref={ref}>{children}</div>;
 };
 
 export const ProfileLayout = () => {

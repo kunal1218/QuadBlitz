@@ -178,18 +178,6 @@ const MoreIcon = (props: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-const ComposeIcon = (props: SVGProps<SVGSVGElement>) => (
-  <svg viewBox="0 0 18 18" fill="none" aria-hidden="true" {...props}>
-    <path
-      d="M12.82 3.13a1.53 1.53 0 0 1 2.17 2.16L8.1 12.2l-3.1.94.95-3.08 6.87-6.93Z"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinejoin="round"
-    />
-    <path d="M10.96 5.02 13.1 7.17" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-  </svg>
-);
-
 const PlusIcon = (props: SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" {...props}>
     <circle cx="10" cy="10" r="8.4" stroke="currentColor" strokeWidth="1.7" />
@@ -869,25 +857,6 @@ function FriendsPageContent() {
               />
             </label>
           </div>
-
-          <button
-            type="button"
-            className="mt-5 inline-flex h-[52px] items-center justify-center gap-3 rounded-full bg-[#1756f5] text-[14px] font-semibold tracking-[0.14em] text-white shadow-[0_18px_32px_rgba(23,86,245,0.24)] transition hover:bg-[#0f49e2]"
-            onClick={() => {
-              if (!isAuthenticated) {
-                openAuthModal("login");
-                return;
-              }
-              if (!selectedHandle && summary?.friends[0]) {
-                handleSelectFriend(summary.friends[0].handle);
-                return;
-              }
-              inputRef.current?.focus();
-            }}
-          >
-            <ComposeIcon className="h-[18px] w-[18px]" />
-            NEW MESSAGE
-          </button>
 
           <div className="mt-8 flex-1 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <div className="space-y-6">

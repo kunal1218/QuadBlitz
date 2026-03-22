@@ -1199,35 +1199,24 @@ function FriendsPageContent() {
                           } ${isSelected ? "ring-2 ring-[#1456f4]/20" : ""}`}
                         >
                           {isEditing ? (
-                            <div className="space-y-3">
-                              <textarea
-                                ref={editInputRef}
-                                value={editingDraft}
-                                onChange={(event) => setEditingDraft(event.target.value)}
-                                onKeyDown={(event) => {
-                                  if (event.key === "Enter" && !event.shiftKey) {
-                                    event.preventDefault();
-                                    saveEditedMessage();
-                                  } else if (event.key === "Escape") {
-                                    event.preventDefault();
-                                    cancelEditMessage();
-                                  }
-                                }}
-                                rows={2}
-                                className={`w-full resize-none bg-transparent outline-none ${
-                                  isMine ? "placeholder-white/70" : "placeholder-[#a0a8b8]"
-                                }`}
-                              />
-                              {message.edited ? (
-                                <div
-                                  className={`text-[12px] ${
-                                    isMine ? "text-white/74" : "text-[#7d8697]"
-                                  }`}
-                                >
-                                  edited
-                                </div>
-                              ) : null}
-                            </div>
+                            <textarea
+                              ref={editInputRef}
+                              value={editingDraft}
+                              onChange={(event) => setEditingDraft(event.target.value)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter" && !event.shiftKey) {
+                                  event.preventDefault();
+                                  saveEditedMessage();
+                                } else if (event.key === "Escape") {
+                                  event.preventDefault();
+                                  cancelEditMessage();
+                                }
+                              }}
+                              rows={1}
+                              className={`block h-[22px] w-full resize-none overflow-hidden bg-transparent outline-none ${
+                                isMine ? "placeholder-white/70" : "placeholder-[#a0a8b8]"
+                              }`}
+                            />
                           ) : (
                             <>
                               <p className="whitespace-pre-wrap">{message.body}</p>

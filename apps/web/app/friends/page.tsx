@@ -1212,18 +1212,20 @@ function FriendsPageContent() {
                               }`}
                             />
                           ) : (
-                            <>
-                              <p className="whitespace-pre-wrap">{message.body}</p>
+                            <div className="flex flex-wrap items-end gap-x-2 gap-y-0.5">
+                              <span className="min-w-0 whitespace-pre-wrap break-words">
+                                {message.body}
+                              </span>
                               {message.edited ? (
-                                <div
-                                  className={`mt-3 text-[12px] ${
+                                <span
+                                  className={`whitespace-nowrap text-[12px] ${
                                     isMine ? "text-white/74" : "text-[#7d8697]"
                                   }`}
                                 >
                                   edited
-                                </div>
+                                </span>
                               ) : null}
-                            </>
+                            </div>
                           )}
                         </div>
                       </div>

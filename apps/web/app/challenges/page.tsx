@@ -179,21 +179,7 @@ const getDisplayLeaderboardEntries = (
     highlighted: entry.id === currentUserId,
   }));
 
-  if (!currentUserId) {
-    return ranked.slice(0, 5);
-  }
-
-  const current = ranked.find((item) => item.entry.id === currentUserId);
-  if (!current) {
-    return ranked.slice(0, 5);
-  }
-
-  if (current.rank <= 5) {
-    return ranked.slice(0, 5);
-  }
-
-  const withoutCurrent = ranked.filter((item) => item.entry.id !== currentUserId);
-  return [...withoutCurrent.slice(0, 2), current, ...withoutCurrent.slice(2, 4)];
+  return ranked.slice(0, 5);
 };
 
 const loadLeaderboardEntries = async (token: string | null) => {

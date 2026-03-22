@@ -922,10 +922,20 @@ export const PublicProfileView = ({ handle }: { handle: string }) => {
               <BlockSizer
                 blockId={block.id}
                 onResize={(nextHeight) =>
-                  setBlockHeights((prev) => ({
-                    ...prev,
-                    [block.id]: nextHeight,
-                  }))
+                  setBlockHeights((prev) => {
+                    const currentHeight = prev[block.id];
+                    if (
+                      typeof currentHeight === "number" &&
+                      Math.abs(currentHeight - nextHeight) < 0.5
+                    ) {
+                      return prev;
+                    }
+
+                    return {
+                      ...prev,
+                      [block.id]: nextHeight,
+                    };
+                  })
                 }
               >
                 {renderBlock(block.id)}
@@ -948,6 +958,12 @@ const BlockSizer = ({
   children: ReactNode;
 }) => {
   const ref = useRef<HTMLDivElement | null>(null);
+  const resizeHandlerRef = useRef(onResize);
+  const lastHeightRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    resizeHandlerRef.current = onResize;
+  }, [onResize]);
 
   useEffect(() => {
     if (!ref.current) {
@@ -956,15 +972,24 @@ const BlockSizer = ({
 
     const element = ref.current;
     const update = () => {
-      const rect = element.getBoundingClientRect();
-      onResize(rect.height);
+      const nextHeight = element.getBoundingClientRect().height;
+      if (
+        lastHeightRef.current !== null &&
+        Math.abs(lastHeightRef.current - nextHeight) < 0.5
+      ) {
+        return;
+      }
+
+      lastHeightRef.current = nextHeight;
+      resizeHandlerRef.current(nextHeight);
     };
 
+    lastHeightRef.current = null;
     update();
     const observer = new ResizeObserver(update);
     observer.observe(element);
     return () => observer.disconnect();
-  }, [blockId, onResize]);
+  }, [blockId]);
 
   return <div ref={ref}>{children}</div>;
 };

@@ -940,24 +940,6 @@ function FriendsPageContent() {
                 </div>
               )}
 
-              {isAuthenticated && (
-                <div className="rounded-[28px] border border-[#e7ecf5] bg-white px-5 py-5 shadow-[0_8px_20px_rgba(18,36,81,0.04)]">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1456f4]">
-                    Requests
-                  </p>
-                  <p className="mt-2 text-sm leading-[1.5] text-[#5f697b]">
-                    Incoming requests now live in notifications. Accept or deny them there,
-                    then come back here to keep chatting.
-                  </p>
-                  <Link
-                    href="/notifications"
-                    className="mt-4 inline-flex text-[12px] font-semibold uppercase tracking-[0.14em] text-[#1456f4]"
-                  >
-                    OPEN NOTIFICATIONS
-                  </Link>
-                </div>
-              )}
-
               {isAuthenticated && summary && summary.blocked.length > 0 && (
                 <div className="rounded-[28px] border border-[#e7ecf5] bg-white px-5 py-5 shadow-[0_8px_20px_rgba(18,36,81,0.04)]">
                   <div className="flex items-center justify-between gap-3">
@@ -1255,26 +1237,28 @@ function FriendsPageContent() {
                                   isMine ? "placeholder-white/70" : "placeholder-[#a0a8b8]"
                                 }`}
                               />
-                              <div
-                                className={`flex items-center gap-2 text-[12px] ${
-                                  isMine ? "text-white/74" : "text-[#7d8697]"
-                                }`}
-                              >
-                                <span>{formatRelativeTime(message.createdAt)}</span>
-                                {message.edited && <span>· edited</span>}
-                              </div>
+                              {message.edited ? (
+                                <div
+                                  className={`text-[12px] ${
+                                    isMine ? "text-white/74" : "text-[#7d8697]"
+                                  }`}
+                                >
+                                  edited
+                                </div>
+                              ) : null}
                             </div>
                           ) : (
                             <>
                               <p className="whitespace-pre-wrap">{message.body}</p>
-                              <div
-                                className={`mt-3 flex items-center gap-2 text-[12px] ${
-                                  isMine ? "text-white/74" : "text-[#7d8697]"
-                                }`}
-                              >
-                                <span>{formatRelativeTime(message.createdAt)}</span>
-                                {message.edited && <span>· edited</span>}
-                              </div>
+                              {message.edited ? (
+                                <div
+                                  className={`mt-3 text-[12px] ${
+                                    isMine ? "text-white/74" : "text-[#7d8697]"
+                                  }`}
+                                >
+                                  edited
+                                </div>
+                              ) : null}
                             </>
                           )}
                         </div>
@@ -1299,7 +1283,7 @@ function FriendsPageContent() {
             className="shrink-0 border-t border-[#edf0f6] px-6 py-5"
             onSubmit={handleSubmit}
           >
-            <div className="flex items-end gap-3 rounded-[30px] border border-[#e7ecf5] bg-[#fbfcff] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
+            <div className="flex items-center gap-3 rounded-[30px] border border-[#e7ecf5] bg-[#fbfcff] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
               <button
                 type="button"
                 className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#596274] transition hover:bg-white hover:text-[#20242d]"
@@ -1320,7 +1304,7 @@ function FriendsPageContent() {
                     : "Pick a friend to start typing..."
                 }
                 disabled={!selectedHandle || isSending || !isAuthenticated}
-                className="max-h-32 min-h-[28px] flex-1 resize-none bg-transparent py-1 text-[15px] text-[#20242d] outline-none placeholder:text-[#a0a8b8]"
+                className="h-9 max-h-32 flex-1 resize-none bg-transparent py-[7px] text-[15px] leading-[1.4] text-[#20242d] outline-none placeholder:text-[#a0a8b8]"
               />
               <button
                 type="button"

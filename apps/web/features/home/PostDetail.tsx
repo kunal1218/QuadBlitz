@@ -9,6 +9,7 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { useAuth } from "@/features/auth";
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
+import { getProfileHref } from "@/lib/profile";
 import { formatRelativeTime } from "@/lib/time";
 import { PollCard } from "./PollCard";
 import { PostCard } from "./PostCard";
@@ -576,7 +577,20 @@ export const PostDetail = ({ postId }: PostDetailProps) => {
 
                     return (
                       <div key={comment.id} className="flex items-start gap-3">
-                        <Avatar name={comment.author.name} size={32} />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            router.push(getProfileHref(comment.author, user?.id))
+                          }
+                          className="rounded-full"
+                          aria-label={`View ${comment.author.handle} profile`}
+                        >
+                          <Avatar
+                            name={comment.author.name}
+                            avatarUrl={comment.author.avatarUrl}
+                            size={32}
+                          />
+                        </button>
                         <div className="flex-1 min-w-0 space-y-2">
                           <div className="flex items-start gap-2">
                             <div className="flex items-center gap-2 text-xs text-muted">

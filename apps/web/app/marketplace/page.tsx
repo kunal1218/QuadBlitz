@@ -56,8 +56,13 @@ const filters = [
   { id: "Electronics", label: "Electronics", queryCategory: "Electronics" },
   { id: "Furniture", label: "Furniture", queryCategory: "Furniture" },
   { id: "Clothing", label: "Clothing", queryCategory: "Clothing" },
-  { id: "Other", label: "Other", queryCategory: "Other" },
-] as const;
+  { id: "Kitchen", label: "Kitchen", queryCategory: "Other" },
+  { id: "Sporting Goods", label: "Sporting Goods", queryCategory: "Other" },
+] as const satisfies ReadonlyArray<{
+  id: string;
+  label: string;
+  queryCategory: Listing["category"] | undefined;
+}>;
 
 type FilterId = (typeof filters)[number]["id"];
 
@@ -123,62 +128,54 @@ export default function MarketplacePage() {
     : `${listings.length} listing${listings.length === 1 ? "" : "s"}`;
 
   return (
-    <div
-      className={`${outfit.className} min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(20,86,244,0.10),transparent_28%),radial-gradient(circle_at_top_right,rgba(91,137,255,0.10),transparent_30%),#f5f7fb] text-[#181d25]`}
-    >
+    <div className={`${outfit.className} min-h-screen bg-white text-[#181d25]`}>
       <MarketplaceHeader />
 
-      <main className="mx-auto max-w-[1280px] px-4 pb-16 pt-6 sm:px-6 lg:px-8">
-        <section className="relative overflow-hidden rounded-[34px] border border-[#e7ecf4] bg-[linear-gradient(135deg,rgba(255,255,255,0.98)_0%,rgba(250,252,255,0.98)_52%,rgba(242,246,255,0.96)_100%)] p-5 shadow-[0_24px_70px_rgba(20,28,48,0.08)] sm:p-7 lg:p-8">
-          <div className="pointer-events-none absolute right-[-80px] top-[-90px] h-[220px] w-[220px] rounded-full bg-[radial-gradient(circle,rgba(20,86,244,0.16),rgba(20,86,244,0)_70%)]" />
-          <div className="pointer-events-none absolute bottom-[-90px] left-[-40px] h-[180px] w-[180px] rounded-full bg-[radial-gradient(circle,rgba(120,161,255,0.12),rgba(120,161,255,0)_70%)]" />
-
-          <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-            <div className="max-w-[560px]">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#6e7b92]">
-                Campus Exchange
-              </p>
-              <h1 className="mt-3 text-[40px] font-[800] tracking-[-0.07em] text-[#20242d] sm:text-[48px]">
+      <main className="mx-auto max-w-[1180px] px-5 pb-16 pt-7 sm:px-6 lg:px-8">
+        <section className="border-b border-[#edf1f6] pb-8">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+            <div className="max-w-[380px]">
+              <h1 className="text-[44px] font-[800] tracking-[-0.08em] text-[#252933] sm:text-[52px]">
                 Marketplace
               </h1>
-              <p className="mt-3 max-w-[440px] text-[15px] leading-[1.7] text-[#6b7587] sm:text-[16px]">
+              <p className="mt-2 max-w-[300px] text-[14px] leading-[1.6] text-[#7d8695] sm:text-[15px]">
                 Buy and sell within your campus community with ease and trust.
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-3 xl:justify-end">
+            <div className="flex flex-wrap gap-3 lg:justify-end">
               <Link
                 href="/marketplace/messages"
-                className="inline-flex h-11 items-center gap-2 rounded-full bg-white/90 px-4 text-[12px] font-semibold text-[#4d5564] shadow-[inset_0_0_0_1px_rgba(228,234,243,0.95)] transition hover:bg-white hover:text-[#20242d]"
+                className="inline-flex h-10 items-center gap-2 rounded-full bg-[#f8f9fc] px-4 text-[11px] font-semibold text-[#4f5563] shadow-[inset_0_0_0_1px_rgba(231,236,244,1)] transition hover:bg-white hover:text-[#20242d]"
               >
-                <MessageStackIcon className="h-4 w-4" />
+                <MessageStackIcon className="h-[13px] w-[13px]" />
                 <span>Marketplace Messages</span>
               </Link>
               <Link
                 href="/marketplace/my-listings"
-                className="inline-flex h-11 items-center gap-2 rounded-full bg-white/90 px-4 text-[12px] font-semibold text-[#4d5564] shadow-[inset_0_0_0_1px_rgba(228,234,243,0.95)] transition hover:bg-white hover:text-[#20242d]"
+                className="inline-flex h-10 items-center gap-2 rounded-full bg-[#f8f9fc] px-4 text-[11px] font-semibold text-[#4f5563] shadow-[inset_0_0_0_1px_rgba(231,236,244,1)] transition hover:bg-white hover:text-[#20242d]"
               >
-                <ListingsIcon className="h-4 w-4" />
+                <ListingsIcon className="h-[13px] w-[13px]" />
                 <span>My Listings</span>
               </Link>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(true)}
-                className="inline-flex h-11 items-center justify-center rounded-full bg-[#1456f4] px-5 text-[12px] font-semibold text-white shadow-[0_16px_30px_rgba(20,86,244,0.24)] transition hover:bg-[#0f49e2]"
+                className="inline-flex h-10 items-center justify-center rounded-full bg-[#1456f4] px-6 text-[11px] font-semibold text-white shadow-[0_14px_28px_rgba(20,86,244,0.22)] transition hover:bg-[#0f49e2]"
               >
                 Post Listing
               </button>
             </div>
           </div>
 
-          <div className="relative mt-7">
-            <SearchIcon className="pointer-events-none absolute left-5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#97a0b0]" />
+          <div className="relative mt-7 max-w-[940px]">
+            <SearchIcon className="pointer-events-none absolute left-5 top-1/2 h-[16px] w-[16px] -translate-y-1/2 text-[#a2aabc]" />
             <input
               type="text"
               placeholder="What are you looking for today?"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              className="h-14 w-full rounded-full border border-[#edf1f6] bg-white/96 pl-14 pr-5 text-[14px] text-[#20242d] shadow-[0_14px_34px_rgba(15,23,42,0.04)] outline-none transition placeholder:text-[#a1a9b8] focus:border-[#d7e2ff] focus:ring-4 focus:ring-[#1456f4]/10"
+              className="h-14 w-full rounded-full bg-[#fbfbfd] pl-14 pr-5 text-[14px] text-[#20242d] shadow-[inset_0_0_0_1px_rgba(238,242,247,1)] outline-none transition placeholder:text-[#adb4c2] focus:bg-white focus:ring-4 focus:ring-[#1456f4]/8"
             />
           </div>
 
@@ -190,10 +187,10 @@ export default function MarketplacePage() {
                   key={filter.id}
                   type="button"
                   onClick={() => setSelectedFilter(filter.id)}
-                  className={`inline-flex h-9 items-center rounded-full px-4 text-[11px] font-semibold transition ${
+                  className={`inline-flex h-9 items-center rounded-full px-4 text-[10px] font-semibold transition ${
                     isActive
-                      ? "bg-[#1456f4] text-white shadow-[0_14px_28px_rgba(20,86,244,0.24)]"
-                      : "bg-white/94 text-[#5f6675] shadow-[inset_0_0_0_1px_rgba(229,234,243,1)] hover:bg-white hover:text-[#20242d]"
+                      ? "bg-[#1456f4] text-white shadow-[0_12px_24px_rgba(20,86,244,0.22)]"
+                      : "bg-[#fbfbfd] text-[#6f7684] shadow-[inset_0_0_0_1px_rgba(231,236,244,1)] hover:bg-white hover:text-[#20242d]"
                   }`}
                 >
                   {filter.label}

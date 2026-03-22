@@ -18,6 +18,7 @@ import { Avatar } from "@/components/Avatar";
 import { useAuth } from "@/features/auth";
 import { apiGet, apiPost } from "@/lib/api";
 import { formatHeaderPoints } from "@/lib/points";
+import { getProfileHref } from "@/lib/profile";
 import { formatRelativeTime } from "@/lib/time";
 import { PostComposerModal } from "./PostComposerModal";
 import {
@@ -628,6 +629,7 @@ const SpotlightCard = ({
 
 const HomeFeedCard = ({
   post,
+  viewerId,
   isLiking,
   isVoting,
   onLike,
@@ -636,6 +638,7 @@ const HomeFeedCard = ({
   selectedOptionId,
 }: {
   post: FeedPost;
+  viewerId?: string | null;
   isLiking?: boolean;
   isVoting?: boolean;
   onLike: (post: FeedPost) => void;
@@ -646,15 +649,23 @@ const HomeFeedCard = ({
   const authorName = post.author.name || post.author.handle.replace(/^@/, "");
   const imageSource = getPostImageSource(post);
   const maxVotes = getMaxVotes(post) || 1;
+  const profileHref = getProfileHref(post.author, viewerId);
 
   return (
     <article className="rounded-[42px] border border-[#edf0f6] bg-white p-5 shadow-[0_24px_70px_rgba(18,36,81,0.08)] sm:p-8">
       <div className="flex items-start gap-4">
-        <Avatar
-          name={authorName}
-          size={50}
-          className="shrink-0 border border-[#efede5] bg-[#f2ead8] text-[#4e4a3e]"
-        />
+        <Link
+          href={profileHref}
+          aria-label={`View ${post.author.handle} profile`}
+          className="shrink-0 rounded-full transition hover:-translate-y-0.5 hover:shadow-sm"
+        >
+          <Avatar
+            name={authorName}
+            avatarUrl={post.author.avatarUrl}
+            size={50}
+            className="border border-[#efede5] text-[#4e4a3e]"
+          />
+        </Link>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
@@ -1110,8 +1121,9 @@ export const HomeDashboard = () => {
                 </div>
                 <Avatar
                   name={profileName}
+                  avatarUrl={user?.avatarUrl}
                   size={42}
-                  className="border border-[#dde4ef] bg-white text-[#202531] shadow-[0_10px_20px_rgba(26,39,73,0.08)]"
+                  className="border border-[#dde4ef] text-[#202531] shadow-[0_10px_20px_rgba(26,39,73,0.08)]"
                 />
               </Link>
             ) : (
@@ -1228,6 +1240,7 @@ export const HomeDashboard = () => {
                 <HomeFeedCard
                   key={post.id}
                   post={post}
+                  viewerId={user?.id}
                   isLiking={pendingLikes.has(post.id)}
                   isVoting={pendingVotes.has(post.id)}
                   onLike={handleToggleLike}

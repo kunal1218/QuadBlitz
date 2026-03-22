@@ -11,6 +11,7 @@ type UserRow = {
   handle: string;
   email: string;
   password_hash: string;
+  profile_picture_url?: string | null;
   college_name?: string | null;
   college_domain?: string | null;
   coins?: number | null;
@@ -24,6 +25,7 @@ export type AuthUser = {
   name: string;
   handle: string;
   email: string;
+  avatarUrl?: string | null;
   collegeName?: string | null;
   collegeDomain?: string | null;
   isAdmin?: boolean;
@@ -248,6 +250,7 @@ const mapUser = (
     | "name"
     | "handle"
     | "email"
+    | "profile_picture_url"
     | "college_name"
     | "college_domain"
     | "coins"
@@ -257,6 +260,7 @@ const mapUser = (
   name: row.name,
   handle: row.handle,
   email: row.email,
+  avatarUrl: row.profile_picture_url ?? null,
   collegeName: row.college_name ?? null,
   collegeDomain: row.college_domain ?? null,
   isAdmin: isAdminEmail(row.email),
@@ -564,7 +568,7 @@ export const signUpUser = async (params: {
   const result = await db.query(
     `INSERT INTO users (id, name, handle, email, password_hash, college_name, college_domain)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
-     RETURNING id, name, handle, email, college_name, college_domain, coins`,
+     RETURNING id, name, handle, email, profile_picture_url, college_name, college_domain, coins`,
     [
       userId,
       name,
@@ -595,7 +599,7 @@ export const signInUser = async (params: {
   }
 
   const result = await db.query(
-    "SELECT id, name, handle, email, password_hash, college_name, college_domain, coins, banned_until, banned_indefinitely FROM users WHERE email = $1",
+    "SELECT id, name, handle, email, password_hash, profile_picture_url, college_name, college_domain, coins, banned_until, banned_indefinitely FROM users WHERE email = $1",
     [email]
   );
   const row = result.rows[0] as UserRow | undefined;
@@ -618,7 +622,7 @@ export const signInUser = async (params: {
         `UPDATE users
          SET college_name = $2, college_domain = $3
          WHERE id = $1
-         RETURNING id, name, handle, email, college_name, college_domain, coins, banned_until, banned_indefinitely`,
+         RETURNING id, name, handle, email, profile_picture_url, college_name, college_domain, coins, banned_until, banned_indefinitely`,
         [row.id, college.name, college.domain]
       );
       const updated = refreshed.rows[0] as UserRow | undefined;
@@ -651,7 +655,7 @@ export const getUserFromToken = async (
 
   const { userId } = JSON.parse(session) as { userId: string };
   const result = await db.query(
-    "SELECT id, name, handle, email, college_name, college_domain, coins, banned_until, banned_indefinitely FROM users WHERE id = $1",
+    "SELECT id, name, handle, email, profile_picture_url, college_name, college_domain, coins, banned_until, banned_indefinitely FROM users WHERE id = $1",
     [userId]
   );
   const row = result.rows[0] as UserRow | undefined;
@@ -668,7 +672,7 @@ export const getUserFromToken = async (
         `UPDATE users
          SET college_name = $2, college_domain = $3
          WHERE id = $1
-         RETURNING id, name, handle, email, college_name, college_domain, coins, banned_until, banned_indefinitely`,
+         RETURNING id, name, handle, email, profile_picture_url, college_name, college_domain, coins, banned_until, banned_indefinitely`,
         [row.id, college.name, college.domain]
       );
       const updated = refreshed.rows[0] as UserRow | undefined;

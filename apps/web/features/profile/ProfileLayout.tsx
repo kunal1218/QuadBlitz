@@ -90,6 +90,7 @@ type PromptCardData = Omit<PromptCardProps, "onAction">;
 type OverviewCardProps = {
   displayName: string;
   displayHandle: string;
+  avatarUrl?: string | null;
   collegeAcronym: string;
   displayBio: string;
   isEditing: boolean;
@@ -575,6 +576,7 @@ const PromptCard = ({
 const ProfileOverviewCard = ({
   displayName,
   displayHandle,
+  avatarUrl,
   collegeAcronym,
   displayBio,
   isEditing,
@@ -594,6 +596,7 @@ const ProfileOverviewCard = ({
           <div className="relative shrink-0">
             <Avatar
               name={displayName}
+              avatarUrl={avatarUrl}
               size={86}
               className="border-[3px] border-white text-[32px] text-[#202531] shadow-[0_16px_34px_rgba(24,35,61,0.14)]"
             />
@@ -1324,6 +1327,7 @@ const ProfileLayoutInner = () => {
           <ProfileOverviewCard
             displayName={displayName}
             displayHandle={displayHandle}
+            avatarUrl={user?.avatarUrl ?? null}
             collegeAcronym={collegeAcronym}
             displayBio={displayBio}
             isEditing={isEditing}
@@ -1488,8 +1492,9 @@ const ProfileLayoutInner = () => {
               </div>
               <Avatar
                 name={profileName}
+                avatarUrl={user?.avatarUrl}
                 size={42}
-                className="border border-[#dde4ef] bg-white text-[#202531] shadow-[0_10px_20px_rgba(26,39,73,0.08)]"
+                className="border border-[#dde4ef] text-[#202531] shadow-[0_10px_20px_rgba(26,39,73,0.08)]"
               />
             </Link>
           </div>

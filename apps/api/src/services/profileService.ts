@@ -11,6 +11,7 @@ type PublicProfileUserRow = {
   id: string;
   name: string;
   handle: string;
+  profile_picture_url?: string | null;
   college_name?: string | null;
   college_domain?: string | null;
   banned_until?: string | Date | null;
@@ -59,7 +60,7 @@ export const fetchPublicProfileByHandle = async (
   let result;
   if (isUuid(trimmed)) {
     result = await db.query(
-      "SELECT id, name, handle, college_name, college_domain, banned_until, banned_indefinitely FROM users WHERE id = $1",
+      "SELECT id, name, handle, profile_picture_url, college_name, college_domain, banned_until, banned_indefinitely FROM users WHERE id = $1",
       [trimmed]
     );
   } else {
@@ -68,7 +69,7 @@ export const fetchPublicProfileByHandle = async (
       return null;
     }
     result = await db.query(
-      "SELECT id, name, handle, college_name, college_domain, banned_until, banned_indefinitely FROM users WHERE handle = $1",
+      "SELECT id, name, handle, profile_picture_url, college_name, college_domain, banned_until, banned_indefinitely FROM users WHERE handle = $1",
       [normalized]
     );
   }
@@ -96,6 +97,7 @@ export const fetchPublicProfileByHandle = async (
       id: row.id,
       name: row.name,
       handle: row.handle,
+      avatarUrl: row.profile_picture_url ?? null,
       collegeName: row.college_name ?? null,
       collegeDomain: row.college_domain ?? null,
     },

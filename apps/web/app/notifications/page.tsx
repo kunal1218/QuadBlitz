@@ -679,8 +679,9 @@ export default function NotificationsPage() {
                 </div>
                 <Avatar
                   name={profileName}
+                  avatarUrl={user?.avatarUrl}
                   size={42}
-                  className="border border-[#dde4ef] bg-white text-[#202531] shadow-[0_10px_20px_rgba(26,39,73,0.08)]"
+                  className="border border-[#dde4ef] text-[#202531] shadow-[0_10px_20px_rgba(26,39,73,0.08)]"
                 />
               </Link>
             ) : (

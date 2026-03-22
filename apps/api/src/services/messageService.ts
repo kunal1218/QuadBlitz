@@ -7,6 +7,7 @@ export type MessageUser = {
   id: string;
   name: string;
   handle: string;
+  avatarUrl?: string | null;
 };
 
 export type DirectMessage = {
@@ -21,6 +22,7 @@ type MessageUserRow = {
   id: string;
   name: string;
   handle: string;
+  avatar_url?: string | null;
 };
 
 type MessageRow = {
@@ -30,9 +32,11 @@ type MessageRow = {
   sender_id: string;
   sender_name: string;
   sender_handle: string;
+  sender_avatar_url?: string | null;
   recipient_id: string;
   recipient_name: string;
   recipient_handle: string;
+  recipient_avatar_url?: string | null;
 };
 
 export class MessageError extends Error {
@@ -60,6 +64,7 @@ const mapMessageUser = (row: MessageUserRow): MessageUser => ({
   id: row.id,
   name: row.name,
   handle: row.handle,
+  avatarUrl: row.avatar_url ?? null,
 });
 
 const mapMessage = (row: MessageRow): DirectMessage => ({
@@ -70,11 +75,13 @@ const mapMessage = (row: MessageRow): DirectMessage => ({
     id: row.sender_id,
     name: row.sender_name,
     handle: row.sender_handle,
+    avatarUrl: row.sender_avatar_url ?? null,
   },
   recipient: {
     id: row.recipient_id,
     name: row.recipient_name,
     handle: row.recipient_handle,
+    avatarUrl: row.recipient_avatar_url ?? null,
   },
 });
 
@@ -112,7 +119,7 @@ export const getMessageUserByHandle = async (
   }
 
   const result = await db.query(
-    "SELECT id, name, handle FROM users WHERE handle = $1",
+    "SELECT id, name, handle, profile_picture_url AS avatar_url FROM users WHERE handle = $1",
     [normalized]
   );
 
@@ -136,9 +143,11 @@ export const fetchDirectMessages = async (
             sender.id AS sender_id,
             sender.name AS sender_name,
             sender.handle AS sender_handle,
+            sender.profile_picture_url AS sender_avatar_url,
             recipient.id AS recipient_id,
             recipient.name AS recipient_name,
-            recipient.handle AS recipient_handle
+            recipient.handle AS recipient_handle,
+            recipient.profile_picture_url AS recipient_avatar_url
      FROM direct_messages m
      JOIN users sender ON sender.id = m.sender_id
      JOIN users recipient ON recipient.id = m.recipient_id
@@ -183,9 +192,11 @@ export const sendDirectMessage = async (params: {
             sender.id AS sender_id,
             sender.name AS sender_name,
             sender.handle AS sender_handle,
+            sender.profile_picture_url AS sender_avatar_url,
             recipient.id AS recipient_id,
             recipient.name AS recipient_name,
-            recipient.handle AS recipient_handle
+            recipient.handle AS recipient_handle,
+            recipient.profile_picture_url AS recipient_avatar_url
      FROM direct_messages m
      JOIN users sender ON sender.id = m.sender_id
      JOIN users recipient ON recipient.id = m.recipient_id
@@ -227,9 +238,11 @@ export const updateDirectMessage = async (params: {
             sender.id AS sender_id,
             sender.name AS sender_name,
             sender.handle AS sender_handle,
+            sender.profile_picture_url AS sender_avatar_url,
             recipient.id AS recipient_id,
             recipient.name AS recipient_name,
-            recipient.handle AS recipient_handle
+            recipient.handle AS recipient_handle,
+            recipient.profile_picture_url AS recipient_avatar_url
      FROM direct_messages m
      JOIN users sender ON sender.id = m.sender_id
      JOIN users recipient ON recipient.id = m.recipient_id
@@ -258,9 +271,11 @@ export const updateDirectMessage = async (params: {
             sender.id AS sender_id,
             sender.name AS sender_name,
             sender.handle AS sender_handle,
+            sender.profile_picture_url AS sender_avatar_url,
             recipient.id AS recipient_id,
             recipient.name AS recipient_name,
-            recipient.handle AS recipient_handle
+            recipient.handle AS recipient_handle,
+            recipient.profile_picture_url AS recipient_avatar_url
      FROM direct_messages m
      JOIN users sender ON sender.id = m.sender_id
      JOIN users recipient ON recipient.id = m.recipient_id

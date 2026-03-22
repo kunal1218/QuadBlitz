@@ -15,12 +15,14 @@ import { useAuth } from "@/features/auth";
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
 import { deriveCollegeFromDomain } from "@/lib/college";
 import { formatHeaderPoints } from "@/lib/points";
+import { getProfileHref } from "@/lib/profile";
 import { formatRelativeTime } from "@/lib/time";
 
 type FriendUser = {
   id: string;
   name: string;
   handle: string;
+  avatarUrl?: string | null;
   collegeName?: string | null;
   collegeDomain?: string | null;
 };
@@ -43,6 +45,7 @@ type MessageUser = {
   id: string;
   name: string;
   handle: string;
+  avatarUrl?: string | null;
 };
 
 type DirectMessage = {
@@ -804,8 +807,9 @@ function FriendsPageContent() {
                 </div>
                 <Avatar
                   name={profileName}
+                  avatarUrl={user?.avatarUrl}
                   size={42}
-                  className="border border-[#dde4ef] bg-white text-[#202531] shadow-[0_10px_20px_rgba(26,39,73,0.08)]"
+                  className="border border-[#dde4ef] text-[#202531] shadow-[0_10px_20px_rgba(26,39,73,0.08)]"
                 />
               </Link>
             ) : (
@@ -897,6 +901,7 @@ function FriendsPageContent() {
                           <div className="relative shrink-0">
                             <Avatar
                               name={friend.name}
+                              avatarUrl={friend.avatarUrl}
                               size={46}
                               className={isActive ? "border border-white/20 text-[#202531]" : "border border-[#e5ebf5] text-[#202531]"}
                             />
@@ -953,6 +958,7 @@ function FriendsPageContent() {
                         <div className="flex items-center gap-3">
                           <Avatar
                             name={blocked.name}
+                            avatarUrl={blocked.avatarUrl}
                             size={34}
                             className="border border-[#e5ebf5]"
                           />
@@ -997,6 +1003,7 @@ function FriendsPageContent() {
                         <div className="flex items-center gap-3">
                           <Avatar
                             name={request.recipient.name}
+                            avatarUrl={request.recipient.avatarUrl}
                             size={34}
                             className="border border-[#e5ebf5]"
                           />
@@ -1161,11 +1168,28 @@ function FriendsPageContent() {
                       key={message.id}
                       className="flex gap-4 justify-start"
                     >
-                      <Avatar
-                        name={isMine ? user?.name ?? "You" : message.sender.name}
-                        size={38}
-                        className="mt-1 shrink-0 border border-[#e5ebf5] bg-white text-[#202531]"
-                      />
+                      <Link
+                        href={getProfileHref(
+                          isMine
+                            ? {
+                                id: user?.id ?? null,
+                                handle: user?.handle ?? null,
+                              }
+                            : message.sender,
+                          user?.id
+                        )}
+                        aria-label={`View ${
+                          isMine ? user?.handle ?? "your" : message.sender.handle
+                        } profile`}
+                        className="mt-1 shrink-0 rounded-full transition hover:-translate-y-0.5 hover:shadow-sm"
+                      >
+                        <Avatar
+                          name={isMine ? user?.name ?? "You" : message.sender.name}
+                          avatarUrl={isMine ? user?.avatarUrl : message.sender.avatarUrl}
+                          size={38}
+                          className="border border-[#e5ebf5] text-[#202531]"
+                        />
+                      </Link>
 
                       <div className="max-w-[min(760px,84%)]">
                         <div className="mb-2 flex items-center gap-2">

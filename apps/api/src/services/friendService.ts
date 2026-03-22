@@ -6,6 +6,7 @@ export type FriendUser = {
   id: string;
   name: string;
   handle: string;
+  avatarUrl?: string | null;
   collegeName?: string | null;
   collegeDomain?: string | null;
 };
@@ -36,6 +37,7 @@ type FriendUserRow = {
   id: string;
   name: string;
   handle: string;
+  profile_picture_url?: string | null;
   college_name?: string | null;
   college_domain?: string | null;
 };
@@ -46,11 +48,13 @@ type FriendRequestRow = {
   requester_id: string;
   requester_name: string;
   requester_handle: string;
+  requester_profile_picture_url?: string | null;
   requester_college_name?: string | null;
   requester_college_domain?: string | null;
   recipient_id: string;
   recipient_name: string;
   recipient_handle: string;
+  recipient_profile_picture_url?: string | null;
   recipient_college_name?: string | null;
   recipient_college_domain?: string | null;
 };
@@ -80,6 +84,7 @@ const mapUser = (row: FriendUserRow): FriendUser => ({
   id: row.id,
   name: row.name,
   handle: row.handle,
+  avatarUrl: row.profile_picture_url ?? null,
   collegeName: row.college_name ?? null,
   collegeDomain: row.college_domain ?? null,
 });
@@ -91,6 +96,7 @@ const mapRequest = (row: FriendRequestRow): FriendRequest => ({
     id: row.requester_id,
     name: row.requester_name,
     handle: row.requester_handle,
+    profile_picture_url: row.requester_profile_picture_url ?? null,
     college_name: row.requester_college_name ?? null,
     college_domain: row.requester_college_domain ?? null,
   }),
@@ -98,6 +104,7 @@ const mapRequest = (row: FriendRequestRow): FriendRequest => ({
     id: row.recipient_id,
     name: row.recipient_name,
     handle: row.recipient_handle,
+    profile_picture_url: row.recipient_profile_picture_url ?? null,
     college_name: row.recipient_college_name ?? null,
     college_domain: row.recipient_college_domain ?? null,
   }),
@@ -146,7 +153,7 @@ export const getUserByHandle = async (handle: string): Promise<FriendUserRow> =>
   }
 
   const result = await db.query(
-    "SELECT id, name, handle, college_name, college_domain FROM users WHERE handle = $1",
+    "SELECT id, name, handle, profile_picture_url, college_name, college_domain FROM users WHERE handle = $1",
     [normalized]
   );
 
@@ -222,6 +229,7 @@ export const fetchFriendSummary = async (userId: string): Promise<FriendSummary>
         CASE WHEN fr.requester_id = $1 THEN recipient.id ELSE requester.id END AS id,
         CASE WHEN fr.requester_id = $1 THEN recipient.name ELSE requester.name END AS name,
         CASE WHEN fr.requester_id = $1 THEN recipient.handle ELSE requester.handle END AS handle,
+        CASE WHEN fr.requester_id = $1 THEN recipient.profile_picture_url ELSE requester.profile_picture_url END AS profile_picture_url,
         CASE WHEN fr.requester_id = $1 THEN recipient.college_name ELSE requester.college_name END AS college_name,
         CASE WHEN fr.requester_id = $1 THEN recipient.college_domain ELSE requester.college_domain END AS college_domain
      FROM friend_requests fr
@@ -239,11 +247,13 @@ export const fetchFriendSummary = async (userId: string): Promise<FriendSummary>
             requester.id AS requester_id,
             requester.name AS requester_name,
             requester.handle AS requester_handle,
+            requester.profile_picture_url AS requester_profile_picture_url,
             requester.college_name AS requester_college_name,
             requester.college_domain AS requester_college_domain,
             recipient.id AS recipient_id,
             recipient.name AS recipient_name,
             recipient.handle AS recipient_handle,
+            recipient.profile_picture_url AS recipient_profile_picture_url,
             recipient.college_name AS recipient_college_name,
             recipient.college_domain AS recipient_college_domain
      FROM friend_requests fr
@@ -261,11 +271,13 @@ export const fetchFriendSummary = async (userId: string): Promise<FriendSummary>
             requester.id AS requester_id,
             requester.name AS requester_name,
             requester.handle AS requester_handle,
+            requester.profile_picture_url AS requester_profile_picture_url,
             requester.college_name AS requester_college_name,
             requester.college_domain AS requester_college_domain,
             recipient.id AS recipient_id,
             recipient.name AS recipient_name,
             recipient.handle AS recipient_handle,
+            recipient.profile_picture_url AS recipient_profile_picture_url,
             recipient.college_name AS recipient_college_name,
             recipient.college_domain AS recipient_college_domain
      FROM friend_requests fr
@@ -278,7 +290,7 @@ export const fetchFriendSummary = async (userId: string): Promise<FriendSummary>
   );
 
   const blockedResult = await db.query(
-    `SELECT users.id, users.name, users.handle, users.college_name, users.college_domain
+    `SELECT users.id, users.name, users.handle, users.profile_picture_url, users.college_name, users.college_domain
      FROM friend_blocks blocks
      JOIN users ON users.id = blocks.blocked_id
      WHERE blocks.blocker_id = $1

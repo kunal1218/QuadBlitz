@@ -141,7 +141,12 @@ export const ProfileHeader = ({
       <div className="absolute -bottom-10 left-16 h-24 w-24 rounded-full bg-accent-2/20 blur-2xl" />
       <div className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4">
-          <Avatar name={displayName} size={72} className="text-2xl" />
+          <Avatar
+            name={displayName}
+            avatarUrl={user?.avatarUrl}
+            size={72}
+            className="text-2xl"
+          />
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <p className="font-display text-2xl font-semibold text-ink">

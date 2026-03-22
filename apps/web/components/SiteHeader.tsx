@@ -217,7 +217,11 @@ export const SiteHeader = () => {
                 aria-label="Profile"
                 className="rounded-full border border-card-border/70 bg-white/80 p-1 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/50"
               >
-                <Avatar name={profileName} size={32} />
+                <Avatar
+                  name={profileName}
+                  avatarUrl={user?.avatarUrl}
+                  size={32}
+                />
               </Link>
             </>
           )}

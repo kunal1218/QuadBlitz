@@ -29,6 +29,7 @@ type PublicProfilePayload = {
     id: string;
     name: string;
     handle: string;
+    avatarUrl?: string | null;
     collegeName?: string | null;
     collegeDomain?: string | null;
   };
@@ -673,7 +674,12 @@ export const PublicProfileView = ({ handle }: { handle: string }) => {
       <div className="absolute -right-16 -top-12 h-32 w-32 rounded-full bg-accent/20 blur-2xl" />
       <div className="absolute -bottom-10 left-16 h-24 w-24 rounded-full bg-accent-2/20 blur-2xl" />
       <div className="relative flex flex-wrap items-center gap-4">
-        <Avatar name={user.name} size={72} className="text-2xl" />
+        <Avatar
+          name={user.name}
+          avatarUrl={user.avatarUrl}
+          size={72}
+          className="text-2xl"
+        />
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-display text-2xl font-semibold text-ink">

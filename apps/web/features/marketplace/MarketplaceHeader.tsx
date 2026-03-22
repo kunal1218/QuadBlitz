@@ -181,7 +181,7 @@ export const MarketplaceHeader = () => {
   }, [token]);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-[#e7edf6] bg-[linear-gradient(90deg,rgba(255,255,255,0.98)_0%,rgba(255,255,255,0.98)_24%,rgba(241,246,255,0.98)_56%,rgba(255,255,255,0.98)_88%)] backdrop-blur-xl">
+    <header className="sticky top-0 z-30 border-b border-[#e7edf6] bg-white">
       <div className="flex w-full items-center justify-between gap-6 px-[28px] py-[15px] xl:px-[30px]">
         <div className="flex items-center gap-[54px]">
           <Link href="/" className="inline-flex items-center leading-none">
@@ -234,8 +234,9 @@ export const MarketplaceHeader = () => {
               </div>
               <Avatar
                 name={profileName}
+                avatarUrl={user?.avatarUrl}
                 size={42}
-                className="border border-[#dde4ef] bg-white text-[#202531] shadow-[0_10px_20px_rgba(26,39,73,0.08)]"
+                className="border border-[#dde4ef] text-[#202531] shadow-[0_10px_20px_rgba(26,39,73,0.08)]"
               />
             </Link>
           ) : (

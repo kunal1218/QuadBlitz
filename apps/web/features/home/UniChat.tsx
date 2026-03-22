@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { Avatar } from "@/components/Avatar";
 import { Card } from "@/components/Card";
 import { Tag } from "@/components/Tag";
+import { getProfileHref } from "@/lib/profile";
 import { formatRelativeTime } from "@/lib/time";
 import { chatMessages } from "./mock";
 
@@ -21,7 +23,17 @@ export const UniChat = () => {
       <div className="space-y-4">
         {chatMessages.map((message) => (
           <div key={message.id} className="flex items-start gap-3">
-            <Avatar name={message.author.name} size={32} />
+            <Link
+              href={getProfileHref(message.author)}
+              aria-label={`View ${message.author.handle} profile`}
+              className="rounded-full transition hover:-translate-y-0.5 hover:shadow-sm"
+            >
+              <Avatar
+                name={message.author.name}
+                avatarUrl={message.author.avatarUrl}
+                size={32}
+              />
+            </Link>
             <div>
               <div className="flex items-center gap-2 text-xs text-muted">
                 <span className="font-semibold text-ink">

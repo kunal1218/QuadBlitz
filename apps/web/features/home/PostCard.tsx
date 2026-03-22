@@ -8,6 +8,7 @@ import { Card } from "@/components/Card";
 import { Tag } from "@/components/Tag";
 import { useAuth } from "@/features/auth";
 import { deriveCollegeFromDomain, deriveCollegeFromEmail } from "@/lib/college";
+import { getProfileHref } from "@/lib/profile";
 import { formatRelativeTime } from "@/lib/time";
 
 type PostCardProps = {
@@ -41,11 +42,6 @@ export const PostCard = ({
     post.author.collegeName ??
     deriveCollegeFromDomain(post.author.collegeDomain ?? "") ??
     fallbackCollege;
-  const profileSlug =
-    typeof post.author.handle === "string"
-      ? post.author.handle.replace(/^@/, "").trim()
-      : "";
-  const profileIdentifier = profileSlug || post.author.id;
 
   const handleActionClick =
     (action?: (post: FeedPost) => void) => (event: MouseEvent<HTMLButtonElement>) => {
@@ -65,10 +61,7 @@ export const PostCard = ({
       return;
     }
 
-    if (!profileIdentifier) {
-      return;
-    }
-    router.push(`/profile/${encodeURIComponent(profileIdentifier)}`);
+    router.push(getProfileHref(post.author, user?.id));
   };
 
   return (
@@ -81,7 +74,10 @@ export const PostCard = ({
           aria-label={`View ${post.author.handle} profile`}
           data-profile-link
         >
-          <Avatar name={post.author.name} />
+          <Avatar
+            name={post.author.name}
+            avatarUrl={post.author.avatarUrl}
+          />
         </button>
         <div>
           <div className="flex flex-wrap items-center gap-2">

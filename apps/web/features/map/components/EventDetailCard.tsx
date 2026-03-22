@@ -378,7 +378,7 @@ export const EventDetailCard = ({
                     <span>{formatTime(event.start_time)}</span>
                   </div>
 
-                  <div className="mt-5 grid gap-4 sm:grid-cols-[190px_minmax(0,1fr)]">
+                  <div className="mt-5 grid gap-3 sm:grid-cols-[172px_minmax(0,1fr)]">
                     <button
                       type="button"
                       onClick={handleHostClick}

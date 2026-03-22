@@ -137,7 +137,7 @@ const headerNavItems: Array<{
 }> = [
   { href: "/", label: "HOME", icon: HomeNavIcon },
   { href: "/challenges", label: "CHALLENGES", icon: ChallengeNavIcon, active: true },
-  { href: "/notifications", label: "CHAT", icon: ChatNavIcon },
+  { href: "/friends", label: "CHAT", icon: ChatNavIcon },
   { href: "/map", label: "MAPS", icon: MapsNavIcon },
   { href: "/marketplace", label: "MARKET", icon: MarketNavIcon },
 ];

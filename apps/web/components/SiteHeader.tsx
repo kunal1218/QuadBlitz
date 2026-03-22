@@ -16,7 +16,7 @@ type NavItem = {
 
 const baseNavItems: NavItem[] = [
   { href: "/", label: "Home" },
-  { href: "/friends", label: "Friends" },
+  { href: "/friends", label: "Chat" },
   { href: "/map", label: "Map" },
   { href: "/requests", label: "Requests" },
   { href: "/challenges", label: "Challenges" },
@@ -124,7 +124,8 @@ export const SiteHeader = () => {
     isEmbedded ||
     pathname === "/" ||
     pathname === "/play" ||
-    pathname === "/challenges"
+    pathname === "/challenges" ||
+    pathname === "/friends"
   ) {
     return null;
   }

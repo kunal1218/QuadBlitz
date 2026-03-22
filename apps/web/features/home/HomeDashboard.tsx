@@ -155,7 +155,7 @@ const navItems: Array<{
 }> = [
   { href: "/", label: "HOME", icon: HomeNavIcon, active: true },
   { href: "/challenges", label: "CHALLENGES", icon: ChallengeNavIcon },
-  { href: "/notifications", label: "CHAT", icon: ChatNavIcon },
+  { href: "/friends", label: "CHAT", icon: ChatNavIcon },
   { href: "/map", label: "MAPS", icon: MapsNavIcon },
   { href: "/marketplace", label: "MARKET", icon: MarketNavIcon },
 ];

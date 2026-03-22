@@ -766,7 +766,7 @@ function FriendsPageContent() {
   const profilePoints = formatCompactPoints(user?.coins ?? 0);
 
   return (
-    <div className={`${outfit.className} min-h-screen bg-white text-[#181d25]`}>
+    <div className={`${outfit.className} h-screen overflow-hidden bg-white text-[#181d25]`}>
       <header className="sticky top-0 z-30 border-b border-[#eef1f6] bg-[linear-gradient(90deg,rgba(255,255,255,0.98)_0%,rgba(255,255,255,0.98)_24%,rgba(241,246,255,0.98)_56%,rgba(255,255,255,0.98)_88%)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-[1880px] items-center justify-between gap-6 px-[28px] py-[15px] xl:px-[30px]">
           <div className="flex items-center gap-[54px]">
@@ -839,8 +839,8 @@ function FriendsPageContent() {
         </div>
       </header>
 
-      <div className="mx-auto grid min-h-[calc(100vh-81px)] max-w-[1920px] lg:grid-cols-[324px_minmax(0,1fr)]">
-        <aside className="flex min-h-[calc(100vh-81px)] flex-col border-r border-[#edf0f6] bg-[#fbfcff] px-8 py-8">
+      <div className="mx-auto grid h-[calc(100vh-81px)] max-w-[1920px] overflow-hidden lg:grid-cols-[324px_minmax(0,1fr)]">
+        <aside className="flex h-full min-h-0 flex-col overflow-hidden border-r border-[#edf0f6] bg-[#fbfcff] px-8 py-8">
           <div>
             <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-[#1456f4]">
               Direct Chat
@@ -890,107 +890,197 @@ function FriendsPageContent() {
           </button>
 
           <div className="mt-8 flex-1 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {!isAuthenticated ? (
-              <div className="rounded-[28px] border border-[#e8edf6] bg-white px-5 py-6 shadow-[0_12px_28px_rgba(18,36,81,0.05)]">
-                <p className="text-[16px] font-semibold tracking-[-0.04em] text-[#20242d]">
-                  Sign in to view your chats
-                </p>
-                <p className="mt-2 text-sm leading-[1.5] text-[#5f697b]">
-                  Your direct messages and friends list stay here once you are in.
-                </p>
-                <button
-                  type="button"
-                  className="mt-5 inline-flex rounded-full bg-[#1756f5] px-5 py-3 text-[12px] font-semibold tracking-[0.16em] text-white"
-                  onClick={() => openAuthModal("login")}
-                >
-                  LOG IN
-                </button>
-              </div>
-            ) : isLoading ? (
-              <p className="text-sm text-[#697387]">Loading friends...</p>
-            ) : error ? (
-              <div className="rounded-[24px] border border-[#f1d4d4] bg-[#fff8f8] px-4 py-4 text-sm font-medium text-[#ab3b3b]">
-                {error}
-              </div>
-            ) : filteredFriends.length > 0 ? (
-              <div className="space-y-3">
-                {filteredFriends.map((friend) => {
-                  const slug = normalizeHandle(friend.handle);
-                  const isActive = slug === selectedHandle;
-                  const collegeLabel = getCollegeLabel(friend);
-                  return (
-                    <button
-                      key={friend.id}
-                      type="button"
-                      className={`w-full rounded-[28px] border px-4 py-4 text-left transition ${
-                        isActive
-                          ? "border-transparent bg-[linear-gradient(90deg,#1456f4,#4b7df8)] text-white shadow-[0_20px_40px_rgba(20,86,244,0.2)]"
-                          : "border-[#e7ecf5] bg-white text-[#20242d] shadow-[0_8px_20px_rgba(18,36,81,0.04)] hover:border-[#dbe2ee] hover:-translate-y-[1px]"
-                      }`}
-                      onClick={() => handleSelectFriend(slug)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="relative shrink-0">
-                          <Avatar
-                            name={friend.name}
-                            size={46}
-                            className={isActive ? "border border-white/20 text-[#202531]" : "border border-[#e5ebf5] text-[#202531]"}
-                          />
-                          <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-[#27c27a]" />
+            <div className="space-y-6">
+              {!isAuthenticated ? (
+                <div className="rounded-[28px] border border-[#e8edf6] bg-white px-5 py-6 shadow-[0_12px_28px_rgba(18,36,81,0.05)]">
+                  <p className="text-[16px] font-semibold tracking-[-0.04em] text-[#20242d]">
+                    Sign in to view your chats
+                  </p>
+                  <p className="mt-2 text-sm leading-[1.5] text-[#5f697b]">
+                    Your direct messages and friends list stay here once you are in.
+                  </p>
+                  <button
+                    type="button"
+                    className="mt-5 inline-flex rounded-full bg-[#1756f5] px-5 py-3 text-[12px] font-semibold tracking-[0.16em] text-white"
+                    onClick={() => openAuthModal("login")}
+                  >
+                    LOG IN
+                  </button>
+                </div>
+              ) : isLoading ? (
+                <p className="text-sm text-[#697387]">Loading friends...</p>
+              ) : error ? (
+                <div className="rounded-[24px] border border-[#f1d4d4] bg-[#fff8f8] px-4 py-4 text-sm font-medium text-[#ab3b3b]">
+                  {error}
+                </div>
+              ) : filteredFriends.length > 0 ? (
+                <div className="space-y-3">
+                  {filteredFriends.map((friend) => {
+                    const slug = normalizeHandle(friend.handle);
+                    const isActive = slug === selectedHandle;
+                    const collegeLabel = getCollegeLabel(friend);
+                    return (
+                      <button
+                        key={friend.id}
+                        type="button"
+                        className={`w-full rounded-[28px] border px-4 py-4 text-left transition ${
+                          isActive
+                            ? "border-transparent bg-[linear-gradient(90deg,#1456f4,#4b7df8)] text-white shadow-[0_20px_40px_rgba(20,86,244,0.2)]"
+                            : "border-[#e7ecf5] bg-white text-[#20242d] shadow-[0_8px_20px_rgba(18,36,81,0.04)] hover:border-[#dbe2ee] hover:-translate-y-[1px]"
+                        }`}
+                        onClick={() => handleSelectFriend(slug)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="relative shrink-0">
+                            <Avatar
+                              name={friend.name}
+                              size={46}
+                              className={isActive ? "border border-white/20 text-[#202531]" : "border border-[#e5ebf5] text-[#202531]"}
+                            />
+                            <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-[#27c27a]" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p
+                              className={`truncate text-[16px] font-[700] tracking-[-0.04em] ${
+                                isActive ? "text-white" : "text-[#20242d]"
+                              }`}
+                            >
+                              {friend.name}
+                            </p>
+                            <p
+                              className={`mt-1 truncate text-[12px] ${
+                                isActive ? "text-white/72" : "text-[#6d778b]"
+                              }`}
+                            >
+                              {friend.handle} {collegeLabel ? `· ${collegeLabel}` : ""}
+                            </p>
+                          </div>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p
-                            className={`truncate text-[16px] font-[700] tracking-[-0.04em] ${
-                              isActive ? "text-white" : "text-[#20242d]"
-                            }`}
-                          >
-                            {friend.name}
-                          </p>
-                          <p
-                            className={`mt-1 truncate text-[12px] ${
-                              isActive ? "text-white/72" : "text-[#6d778b]"
-                            }`}
-                          >
-                            {friend.handle} {collegeLabel ? `· ${collegeLabel}` : ""}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : summary && summary.friends.length > 0 ? (
-              <div className="rounded-[24px] border border-[#e7ecf5] bg-white px-4 py-5 text-sm text-[#697387] shadow-[0_8px_20px_rgba(18,36,81,0.04)]">
-                No friends matched that search.
-              </div>
-            ) : (
-              <div className="rounded-[24px] border border-[#e7ecf5] bg-white px-4 py-5 text-sm text-[#697387] shadow-[0_8px_20px_rgba(18,36,81,0.04)]">
-                Your friends list is empty right now. Accept requests in notifications
-                and your conversations will appear here.
-              </div>
-            )}
-          </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : summary && summary.friends.length > 0 ? (
+                <div className="rounded-[24px] border border-[#e7ecf5] bg-white px-4 py-5 text-sm text-[#697387] shadow-[0_8px_20px_rgba(18,36,81,0.04)]">
+                  No friends matched that search.
+                </div>
+              ) : (
+                <div className="rounded-[24px] border border-[#e7ecf5] bg-white px-4 py-5 text-sm text-[#697387] shadow-[0_8px_20px_rgba(18,36,81,0.04)]">
+                  Your friends list is empty right now. Accept requests in notifications
+                  and your conversations will appear here.
+                </div>
+              )}
 
-          {isAuthenticated && (
-            <div className="mt-6 rounded-[28px] border border-[#e7ecf5] bg-white px-5 py-5 shadow-[0_8px_20px_rgba(18,36,81,0.04)]">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1456f4]">
-                Requests
-              </p>
-              <p className="mt-2 text-sm leading-[1.5] text-[#5f697b]">
-                Incoming requests now live in notifications. Accept or deny them there,
-                then come back here to keep chatting.
-              </p>
-              <Link
-                href="/notifications"
-                className="mt-4 inline-flex text-[12px] font-semibold uppercase tracking-[0.14em] text-[#1456f4]"
-              >
-                OPEN NOTIFICATIONS
-              </Link>
+              {isAuthenticated && (
+                <div className="rounded-[28px] border border-[#e7ecf5] bg-white px-5 py-5 shadow-[0_8px_20px_rgba(18,36,81,0.04)]">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1456f4]">
+                    Requests
+                  </p>
+                  <p className="mt-2 text-sm leading-[1.5] text-[#5f697b]">
+                    Incoming requests now live in notifications. Accept or deny them there,
+                    then come back here to keep chatting.
+                  </p>
+                  <Link
+                    href="/notifications"
+                    className="mt-4 inline-flex text-[12px] font-semibold uppercase tracking-[0.14em] text-[#1456f4]"
+                  >
+                    OPEN NOTIFICATIONS
+                  </Link>
+                </div>
+              )}
+
+              {isAuthenticated && summary && summary.blocked.length > 0 && (
+                <div className="rounded-[28px] border border-[#e7ecf5] bg-white px-5 py-5 shadow-[0_8px_20px_rgba(18,36,81,0.04)]">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1456f4]">
+                      Blocked
+                    </p>
+                    <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-[#7d8697]">
+                      {summary.blocked.length}
+                    </p>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    {summary.blocked.map((blocked) => (
+                      <div
+                        key={blocked.id}
+                        className="rounded-[22px] border border-[#e7ecf5] bg-[#fbfcff] px-4 py-3"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Avatar
+                            name={blocked.name}
+                            size={34}
+                            className="border border-[#e5ebf5]"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[14px] font-[700] tracking-[-0.03em] text-[#20242d]">
+                              {blocked.handle}
+                            </p>
+                            <p className="truncate text-[12px] text-[#6d778b]">
+                              {getCollegeLabel(blocked) || "Campus member"}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="mt-3 rounded-full border border-[#dce3ef] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#586173] transition hover:border-[#ced8e8] hover:text-[#20242d]"
+                          onClick={() => handleUnblock(blocked.handle)}
+                        >
+                          Unblock
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {isAuthenticated && summary && summary.outgoing.length > 0 && (
+                <div className="rounded-[28px] border border-[#e7ecf5] bg-white px-5 py-5 shadow-[0_8px_20px_rgba(18,36,81,0.04)]">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1456f4]">
+                      Pending
+                    </p>
+                    <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-[#7d8697]">
+                      {summary.outgoing.length}
+                    </p>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    {summary.outgoing.map((request) => (
+                      <div
+                        key={request.id}
+                        className="rounded-[22px] border border-[#e7ecf5] bg-[#fbfcff] px-4 py-3"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Avatar
+                            name={request.recipient.name}
+                            size={34}
+                            className="border border-[#e5ebf5]"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[14px] font-[700] tracking-[-0.03em] text-[#20242d]">
+                              {request.recipient.handle}
+                            </p>
+                            <p className="truncate text-[12px] text-[#6d778b]">
+                              Sent {formatRelativeTime(request.createdAt)}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="mt-3 rounded-full border border-[#dce3ef] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#586173] transition hover:border-[#ced8e8] hover:text-[#20242d]"
+                          onClick={() => handleCancelRequest(request.recipient.handle)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </aside>
 
-        <section className="flex min-h-[calc(100vh-81px)] flex-col bg-white">
+        <section className="flex h-full min-h-0 flex-col overflow-hidden bg-white">
           <div className="flex items-center justify-between gap-6 border-b border-[#edf0f6] px-8 py-5">
             <div className="min-w-0">
               {activeUser ? (
@@ -1067,7 +1157,7 @@ function FriendsPageContent() {
 
           <div
             ref={listRef}
-            className="flex-1 overflow-y-auto px-8 py-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="min-h-0 flex-1 overflow-y-auto px-8 py-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
             {!isAuthenticated ? (
               <div className="flex h-full min-h-[420px] items-center justify-center">
@@ -1237,7 +1327,7 @@ function FriendsPageContent() {
           </div>
 
           <form
-            className="border-t border-[#edf0f6] px-6 py-5"
+            className="shrink-0 border-t border-[#edf0f6] px-6 py-5"
             onSubmit={handleSubmit}
           >
             <div className="flex items-end gap-3 rounded-[30px] border border-[#e7ecf5] bg-[#fbfcff] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
@@ -1299,101 +1389,6 @@ function FriendsPageContent() {
           </form>
         </section>
       </div>
-
-      {isAuthenticated && summary && summary.blocked.length > 0 && (
-        <div className="mx-auto max-w-[1560px] px-6 pb-10 pt-8">
-          <div className="rounded-[34px] border border-[#e7ecf5] bg-[#fbfcff] px-6 py-6 shadow-[0_12px_28px_rgba(18,36,81,0.04)]">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1456f4]">
-                  Blocked
-                </p>
-                <h3 className="mt-2 text-[24px] font-[700] tracking-[-0.05em] text-[#20242d]">
-                  Hidden from chat
-                </h3>
-              </div>
-              <p className="text-sm text-[#5f697b]">{summary.blocked.length} blocked</p>
-            </div>
-
-            <div className="mt-5 flex flex-wrap gap-3">
-              {summary.blocked.map((blocked) => {
-                const collegeLabel = getCollegeLabel(blocked);
-                return (
-                  <div
-                    key={blocked.id}
-                    className="flex items-center gap-3 rounded-[24px] border border-[#e7ecf5] bg-white px-4 py-3"
-                  >
-                    <Avatar name={blocked.name} size={36} className="border border-[#e5ebf5]" />
-                    <div>
-                      <p className="text-[14px] font-[700] tracking-[-0.03em] text-[#20242d]">
-                        {blocked.handle}
-                      </p>
-                      <p className="text-[12px] text-[#6d778b]">
-                        {collegeLabel || "Campus member"}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      className="ml-2 rounded-full border border-[#dce3ef] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#586173] transition hover:border-[#ced8e8] hover:text-[#20242d]"
-                      onClick={() => handleUnblock(blocked.handle)}
-                    >
-                      Unblock
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isAuthenticated && summary && summary.outgoing.length > 0 && (
-        <div className="mx-auto max-w-[1560px] px-6 pb-12">
-          <div className="rounded-[34px] border border-[#e7ecf5] bg-white px-6 py-6 shadow-[0_12px_28px_rgba(18,36,81,0.04)]">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1456f4]">
-                  Pending
-                </p>
-                <h3 className="mt-2 text-[24px] font-[700] tracking-[-0.05em] text-[#20242d]">
-                  Outgoing requests
-                </h3>
-              </div>
-              <p className="text-sm text-[#5f697b]">{summary.outgoing.length} waiting</p>
-            </div>
-
-            <div className="mt-5 flex flex-wrap gap-3">
-              {summary.outgoing.map((request) => (
-                <div
-                  key={request.id}
-                  className="flex items-center gap-3 rounded-[24px] border border-[#e7ecf5] bg-[#fbfcff] px-4 py-3"
-                >
-                  <Avatar
-                    name={request.recipient.name}
-                    size={36}
-                    className="border border-[#e5ebf5]"
-                  />
-                  <div>
-                    <p className="text-[14px] font-[700] tracking-[-0.03em] text-[#20242d]">
-                      {request.recipient.handle}
-                    </p>
-                    <p className="text-[12px] text-[#6d778b]">
-                      Sent {formatRelativeTime(request.createdAt)}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="ml-2 rounded-full border border-[#dce3ef] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#586173] transition hover:border-[#ced8e8] hover:text-[#20242d]"
-                    onClick={() => handleCancelRequest(request.recipient.handle)}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {confirmAction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">

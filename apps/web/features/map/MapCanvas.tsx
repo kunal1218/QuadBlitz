@@ -2219,12 +2219,12 @@ export const MapCanvas = ({
             </div>
           )}
 
-          <div className="absolute bottom-10 right-10 z-20 flex flex-col items-end gap-4">
-            <div className="overflow-hidden rounded-[18px] border border-black/5 bg-white/95 shadow-[0_16px_34px_rgba(35,48,79,0.12)] backdrop-blur">
+          <div className="absolute bottom-10 right-10 z-20 flex flex-col items-center gap-4">
+            <div className="overflow-hidden rounded-[16px] border border-black/5 bg-white/95 shadow-[0_16px_34px_rgba(35,48,79,0.12)] backdrop-blur">
               <button
                 type="button"
                 aria-label="Zoom in"
-                className="flex h-[68px] w-[68px] items-center justify-center text-[36px] font-light text-[#20242d] transition hover:bg-[#f5f7fb]"
+                className="flex h-[56px] w-[56px] items-center justify-center text-[30px] font-light text-[#20242d] transition hover:bg-[#f5f7fb]"
                 onClick={zoomIn}
               >
                 +
@@ -2233,7 +2233,7 @@ export const MapCanvas = ({
               <button
                 type="button"
                 aria-label="Zoom out"
-                className="flex h-[68px] w-[68px] items-center justify-center text-[36px] font-light text-[#20242d] transition hover:bg-[#f5f7fb]"
+                className="flex h-[56px] w-[56px] items-center justify-center text-[30px] font-light text-[#20242d] transition hover:bg-[#f5f7fb]"
                 onClick={zoomOut}
               >
                 −
@@ -2243,10 +2243,10 @@ export const MapCanvas = ({
             <button
               type="button"
               aria-label={userLocation ? "Go to my location" : "Go to campus"}
-              className="flex h-[64px] w-[64px] items-center justify-center rounded-[18px] border border-black/5 bg-white/95 text-[#1456f4] shadow-[0_16px_34px_rgba(35,48,79,0.12)] backdrop-blur transition hover:bg-[#f5f7fb]"
+              className="flex h-[56px] w-[56px] items-center justify-center rounded-[16px] border border-black/5 bg-white/95 text-[#1456f4] shadow-[0_16px_34px_rgba(35,48,79,0.12)] backdrop-blur transition hover:bg-[#f5f7fb]"
               onClick={handleHomeClick}
             >
-              <LocateIcon className="h-[28px] w-[28px]" />
+              <LocateIcon className="h-[24px] w-[24px]" />
             </button>
           </div>
 

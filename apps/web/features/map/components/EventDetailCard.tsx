@@ -31,45 +31,8 @@ const formatDistance = (distanceKm?: number | null) => {
 const formatCategoryLabel = (category: EventWithDetails["category"]) =>
   `${category.replace(/-/g, " ")} event`;
 
-const getHeroTheme = (category: EventWithDetails["category"]) => {
-  switch (category) {
-    case "study":
-      return {
-        shell:
-          "bg-[linear-gradient(180deg,#e4efe7_0%,#f6fbf8_58%,#ffffff_100%)]",
-        poster:
-          "bg-[linear-gradient(180deg,#dce8df_0%,#b9cbc0_40%,#8fa295_100%)]",
-      };
-    case "sports":
-      return {
-        shell:
-          "bg-[linear-gradient(180deg,#ffe0a8_0%,#fff2d7_56%,#ffffff_100%)]",
-        poster:
-          "bg-[linear-gradient(180deg,#1d4b42_0%,#143b35_48%,#0d2d28_100%)]",
-      };
-    case "build":
-      return {
-        shell:
-          "bg-[linear-gradient(180deg,#e3e8ff_0%,#f6f8ff_58%,#ffffff_100%)]",
-        poster:
-          "bg-[linear-gradient(180deg,#20345a_0%,#172845_48%,#101a2e_100%)]",
-      };
-    case "social":
-      return {
-        shell:
-          "bg-[linear-gradient(180deg,#ffe0a8_0%,#fff3db_56%,#ffffff_100%)]",
-        poster:
-          "bg-[linear-gradient(180deg,#19473d_0%,#11362f_48%,#0c2824_100%)]",
-      };
-    default:
-      return {
-        shell:
-          "bg-[linear-gradient(180deg,#e9edf3_0%,#f7f9fc_58%,#ffffff_100%)]",
-        poster:
-          "bg-[linear-gradient(180deg,#475569_0%,#334155_48%,#1f2937_100%)]",
-      };
-  }
-};
+const HERO_SHELL =
+  "bg-[linear-gradient(180deg,#ffe0a8_0%,#fff1d1_50%,#ffffff_100%)]";
 
 const CloseIcon = () => (
   <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-[18px] w-[18px]">
@@ -157,7 +120,6 @@ export const EventDetailCard = ({
   const isAtCapacity =
     event.max_attendees != null && event.attendee_count >= event.max_attendees;
   const distanceLabel = useMemo(() => formatDistance(event.distance_km), [event.distance_km]);
-  const heroTheme = useMemo(() => getHeroTheme(event.category), [event.category]);
   const attendeePreview = showAllAttendees ? attendees : attendees.slice(0, 5);
   const aboutCopy =
     event.description?.trim() ||
@@ -373,27 +335,15 @@ export const EventDetailCard = ({
               ? { height: `${modalHeight}px` }
               : undefined
           }
-          className="relative flex w-full max-w-[520px] flex-col overflow-hidden rounded-[32px] border border-[#edf1f6] bg-white shadow-[0_28px_70px_rgba(27,26,23,0.22)] max-h-[88vh] animate-scale-in"
+          className={`relative flex w-full max-w-[520px] flex-col overflow-hidden rounded-[32px] border border-[#edf1f6] bg-white shadow-[0_28px_70px_rgba(27,26,23,0.22)] animate-scale-in ${
+            currentView === "chat" ? "max-h-[88vh]" : ""
+          }`}
         >
           {currentView === "details" ? (
             <>
-              <div className="flex-1 overflow-y-auto">
-                <div className={`relative overflow-hidden px-5 pb-6 pt-5 ${heroTheme.shell}`}>
-                  <div
-                    className={`absolute left-1/2 top-0 h-[194px] w-[164px] -translate-x-1/2 rounded-b-[2px] shadow-[0_20px_40px_rgba(10,24,34,0.18)] ${heroTheme.poster}`}
-                    aria-hidden="true"
-                  >
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.12),transparent_30%)]" />
-                    <div className="relative flex h-full flex-col items-center justify-center px-5 text-center text-white">
-                      <p className="text-[14px] font-medium uppercase tracking-[0.12em] text-white/88">
-                        {event.venue_name ? event.venue_name.split(" ").slice(0, 3).join(" ") : "Campus Event"}
-                      </p>
-                      <p className="mt-2 text-[11px] uppercase tracking-[0.22em] text-white/60">
-                        {formatCategoryLabel(event.category)}
-                      </p>
-                    </div>
-                  </div>
-
+              <div className="shrink-0">
+                <div className={`relative h-[168px] overflow-hidden px-5 pt-5 ${HERO_SHELL}`}>
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_8%,rgba(255,255,255,0.42),transparent_34%),radial-gradient(circle_at_14%_26%,rgba(255,255,255,0.22),transparent_24%),radial-gradient(circle_at_84%_20%,rgba(255,255,255,0.18),transparent_26%)]" />
                   <button
                     type="button"
                     onClick={onClose}
@@ -403,7 +353,7 @@ export const EventDetailCard = ({
                     <CloseIcon />
                   </button>
 
-                  <div className="relative z-10 mt-[150px] flex items-center gap-2 text-[12px] text-[#6e7786]">
+                  <div className="absolute bottom-4 left-5 right-5 z-10 flex items-center gap-2 text-[12px] text-[#6e7786]">
                     <span className="rounded-full bg-[#edf3ff] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#1456f4]">
                       {formatCategoryLabel(event.category)}
                     </span>
@@ -416,19 +366,19 @@ export const EventDetailCard = ({
                   </div>
                 </div>
 
-                <div className="px-6 pb-5">
+                <div className="px-6 pb-4 pt-5">
                   <h2 className="text-[24px] font-[700] tracking-[-0.06em] text-[#252a34]">
                     {event.title}
                   </h2>
 
-                  <div className="mt-3 inline-flex items-center gap-2 text-[14px] font-medium text-[#606a7d]">
+                  <div className="mt-2 inline-flex items-center gap-2 text-[14px] font-medium text-[#606a7d]">
                     <span className="text-[#1456f4]">
                       <CalendarIcon />
                     </span>
                     <span>{formatTime(event.start_time)}</span>
                   </div>
 
-                  <div className="mt-6 grid gap-4 sm:grid-cols-[190px_minmax(0,1fr)]">
+                  <div className="mt-5 grid gap-4 sm:grid-cols-[190px_minmax(0,1fr)]">
                     <button
                       type="button"
                       onClick={handleHostClick}
@@ -466,14 +416,14 @@ export const EventDetailCard = ({
                         {aboutCopy}
                       </p>
                       {event.venue_name && (
-                        <p className="mt-3 text-[12px] font-medium text-[#8891a2]">
+                        <p className="mt-2 text-[12px] font-medium text-[#8891a2]">
                           At {event.venue_name}
                         </p>
                       )}
                     </div>
                   </div>
 
-                  <div className="mt-7">
+                  <div className="mt-6">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-[14px] font-semibold uppercase tracking-[0.08em] text-[#4a5260]">
                         {event.attendee_count} {event.attendee_count === 1 ? "person" : "people"} going
@@ -520,7 +470,7 @@ export const EventDetailCard = ({
                     </div>
                   </div>
 
-                  <div className="mt-7 rounded-[22px] bg-[#eef2f8] px-4 py-4">
+                  <div className="mt-6 rounded-[22px] bg-[#eef2f8] px-4 py-4">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#dce7ff] text-[#1456f4]">
@@ -558,14 +508,14 @@ export const EventDetailCard = ({
                   </div>
 
                   {isAtCapacity && (
-                    <div className="mt-4 rounded-[18px] border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] font-semibold text-amber-700">
+                    <div className="mt-3 rounded-[18px] border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] font-semibold text-amber-700">
                       This event is at capacity ({event.max_attendees} attendees).
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="border-t border-[#edf1f6] bg-white px-6 pb-6 pt-5">
+              <div className="border-t border-[#edf1f6] bg-white px-6 pb-5 pt-4">
                 <div className="grid grid-cols-3 gap-3">
                   <button
                     type="button"

@@ -70,6 +70,9 @@ const MARKER_ANIMATION_MS = 1200;
 const EVENT_FETCH_RADIUS_KM = 5;
 const EVENT_MOVE_THRESHOLD_KM = 1;
 
+type MapCanvasVariant = "default" | "discovery";
+type DiscoveryCategory = "sports" | "study" | "social";
+
 const getMinutesAgo = (timestamp: string) =>
   (Date.now() - new Date(timestamp).getTime()) / 60000;
 
@@ -95,8 +98,194 @@ const distanceKmBetween = (from: mapboxgl.LngLat, to: mapboxgl.LngLat) => {
   return earthRadiusKm * c;
 };
 
-export const MapCanvas = ({ embedded = false }: { embedded?: boolean }) => {
+const getDiscoveryCategory = (
+  category: EventWithDetails["category"]
+): DiscoveryCategory => {
+  if (category === "sports") {
+    return "sports";
+  }
+  if (category === "study") {
+    return "study";
+  }
+  return "social";
+};
+
+const formatDistanceLabel = (distanceKm?: number | null) => {
+  if (typeof distanceKm !== "number" || !Number.isFinite(distanceKm)) {
+    return "Nearby";
+  }
+  if (distanceKm < 1) {
+    return `${Math.max(50, Math.round(distanceKm * 1000))}m`;
+  }
+  if (distanceKm < 10) {
+    return `${distanceKm.toFixed(1)}km`;
+  }
+  return `${Math.round(distanceKm)}km`;
+};
+
+const getDiscoveryPriority = (event: EventWithDetails) => {
+  const status = getEventStatus(event.start_time, event.end_time).status;
+  if (status === "happening-now") {
+    return 0;
+  }
+  if (status === "starting-soon") {
+    return 1;
+  }
+  return 2;
+};
+
+const formatAttendanceLabel = (event: EventWithDetails) => {
+  const count = Math.max(0, Number(event.attendee_count ?? 0));
+  if (typeof event.max_attendees === "number" && event.max_attendees > 0) {
+    return `${count}/${event.max_attendees}`;
+  }
+  if (count <= 0) {
+    return "New";
+  }
+  return `${count} joined`;
+};
+
+const SearchIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className={className}>
+    <circle cx="8.6" cy="8.6" r="5.4" stroke="currentColor" strokeWidth="1.9" />
+    <path d="m12.8 12.8 4 4" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+  </svg>
+);
+
+const SportsIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+    <circle cx="12" cy="12" r="8.3" stroke="currentColor" strokeWidth="2.1" />
+    <path
+      d="M3.9 12h16.2M12 3.9c2.3 2.15 3.45 4.86 3.45 8.1 0 3.24-1.15 5.95-3.45 8.1M12 3.9c-2.3 2.15-3.45 4.86-3.45 8.1 0 3.24 1.15 5.95 3.45 8.1"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+const StudyIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+    <path
+      d="M5.1 6.25 11 4.6l7.9 2.05v10.9L13 15.95l-7.9 1.65V6.25Z"
+      stroke="currentColor"
+      strokeWidth="1.95"
+      strokeLinejoin="round"
+    />
+    <path d="M11 4.6v11.35" stroke="currentColor" strokeWidth="1.95" />
+  </svg>
+);
+
+const SocialIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+    <circle cx="8" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.9" />
+    <circle cx="16.3" cy="9.2" r="2.2" stroke="currentColor" strokeWidth="1.9" />
+    <path
+      d="M4.8 18.2c.55-2.45 2.45-3.9 5.2-3.9 2.8 0 4.7 1.45 5.25 3.9M13.7 14.45c1.95.16 3.35 1.02 4.18 2.63"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+const TrophyIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+    <path
+      d="M7.2 5.3h9.6v2.25a3.3 3.3 0 0 1-3.3 3.3h-3a3.3 3.3 0 0 1-3.3-3.3V5.3Z"
+      stroke="currentColor"
+      strokeWidth="1.95"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M9.1 18.7h5.8M12 10.85v7.85M8 5.3V3.8M16 5.3V3.8"
+      stroke="currentColor"
+      strokeWidth="1.95"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+const DiningIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+    <path
+      d="M8.2 4.4v7.1M15.7 4.4v7.1M6.8 4.4h2.8M14.3 4.4h2.8M8.2 11.5v8.1M15.7 11.5v8.1"
+      stroke="currentColor"
+      strokeWidth="1.95"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const PinIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+    <path
+      d="M12 20.2s5.5-5.38 5.5-10.05A5.5 5.5 0 0 0 6.5 10.15C6.5 14.82 12 20.2 12 20.2Z"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinejoin="round"
+    />
+    <circle cx="12" cy="10.15" r="1.95" fill="currentColor" />
+  </svg>
+);
+
+const UsersIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+    <circle cx="8.1" cy="9.3" r="2.25" stroke="currentColor" strokeWidth="1.85" />
+    <circle cx="15.95" cy="8.7" r="2" stroke="currentColor" strokeWidth="1.85" />
+    <path
+      d="M5.2 17.4c.52-2.2 2.24-3.48 4.75-3.48 2.57 0 4.3 1.28 4.8 3.48M13.65 13.95c1.62.14 2.8.85 3.5 2.17"
+      stroke="currentColor"
+      strokeWidth="1.85"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+const PlusCircleIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+    <circle cx="12" cy="12" r="8.6" stroke="currentColor" strokeWidth="1.85" />
+    <path d="M12 8v8M8 12h8" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" />
+  </svg>
+);
+
+const LocateIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+    <circle cx="12" cy="12" r="3.9" stroke="currentColor" strokeWidth="1.9" />
+    <path
+      d="M12 2.9v3.1M12 18v3.1M21.1 12H18M6 12H2.9"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+const getDiscoveryEventIcon = (category: EventWithDetails["category"]) => {
+  switch (category) {
+    case "sports":
+      return <SportsIcon className="h-[22px] w-[22px]" />;
+    case "study":
+      return <StudyIcon className="h-[22px] w-[22px]" />;
+    case "build":
+      return <TrophyIcon className="h-[22px] w-[22px]" />;
+    case "social":
+      return <SocialIcon className="h-[22px] w-[22px]" />;
+    default:
+      return <DiningIcon className="h-[22px] w-[22px]" />;
+  }
+};
+
+export const MapCanvas = ({
+  embedded = false,
+  variant = "default",
+}: {
+  embedded?: boolean;
+  variant?: MapCanvasVariant;
+}) => {
   const { token, isAuthenticated, openAuthModal, user } = useAuth();
+  const isDiscovery = variant === "discovery";
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const [friends, setFriends] = useState<FriendLocation[]>([]);
@@ -143,6 +332,10 @@ export const MapCanvas = ({ embedded = false }: { embedded?: boolean }) => {
     latitude: number;
     longitude: number;
   } | null>(null);
+  const [discoverySearch, setDiscoverySearch] = useState("");
+  const [discoveryCategory, setDiscoveryCategory] =
+    useState<DiscoveryCategory>("sports");
+  const [showAllDiscoveryEvents, setShowAllDiscoveryEvents] = useState(false);
   const [, setTempMarker] = useState<mapboxgl.Marker | null>(null);
   const [eventClock, setEventClock] = useState(0);
   const [mapInstanceKey, setMapInstanceKey] = useState(0);
@@ -150,6 +343,61 @@ export const MapCanvas = ({ embedded = false }: { embedded?: boolean }) => {
     void eventClock;
     return new Date();
   }, [eventClock]);
+  const discoveryEvents = useMemo(() => {
+    const query = discoverySearch.trim().toLowerCase();
+
+    return [...events]
+      .filter((event) =>
+        showAllDiscoveryEvents
+          ? true
+          : getDiscoveryCategory(event.category) === discoveryCategory
+      )
+      .filter((event) => {
+        if (!query) {
+          return true;
+        }
+        return [
+          event.title,
+          event.description ?? "",
+          event.venue_name ?? "",
+          event.creator?.name ?? "",
+        ].some((value) => value.toLowerCase().includes(query));
+      })
+      .sort((left, right) => {
+        const priorityDiff =
+          getDiscoveryPriority(left) - getDiscoveryPriority(right);
+        if (priorityDiff !== 0) {
+          return priorityDiff;
+        }
+
+        const leftDistance =
+          typeof left.distance_km === "number" && Number.isFinite(left.distance_km)
+            ? left.distance_km
+            : Number.POSITIVE_INFINITY;
+        const rightDistance =
+          typeof right.distance_km === "number" && Number.isFinite(right.distance_km)
+            ? right.distance_km
+            : Number.POSITIVE_INFINITY;
+        if (leftDistance !== rightDistance) {
+          return leftDistance - rightDistance;
+        }
+
+        const attendeeDiff =
+          Number(right.attendee_count ?? 0) - Number(left.attendee_count ?? 0);
+        if (attendeeDiff !== 0) {
+          return attendeeDiff;
+        }
+
+        return (
+          new Date(left.start_time).getTime() - new Date(right.start_time).getTime()
+        );
+      });
+  }, [
+    discoveryCategory,
+    discoverySearch,
+    events,
+    showAllDiscoveryEvents,
+  ]);
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
   const missingFieldsLoggedRef = useRef<Set<string>>(new Set());
   const [showPublicConfirm, setShowPublicConfirm] = useState(false);
@@ -404,6 +652,17 @@ export const MapCanvas = ({ embedded = false }: { embedded?: boolean }) => {
       tempMarkerRef.current = null;
     }
   }, []);
+
+  const handleDiscoveryCreateEvent = useCallback(() => {
+    if (!token) {
+      openAuthModal("login");
+      return;
+    }
+    setSelectedEvent(null);
+    setShowEventForm(false);
+    setNewEventLocation(null);
+    setIsPlacingPin((current) => !current);
+  }, [openAuthModal, token]);
 
   const handleMapClick = useCallback(
     (lngLat: { lng: number; lat: number }) => {
@@ -805,11 +1064,12 @@ export const MapCanvas = ({ embedded = false }: { embedded?: boolean }) => {
             isSelected={isSelected}
             tooltip={tooltip}
             onClick={handleEventClick}
+            variant={variant}
           />
         );
       }
     },
-    [buildEventTooltip, handleEventClick]
+    [buildEventTooltip, handleEventClick, variant]
   );
 
   useEffect(() => {
@@ -874,6 +1134,7 @@ export const MapCanvas = ({ embedded = false }: { embedded?: boolean }) => {
             isSelected={selectedEvent?.id === event.id}
             tooltip={buildEventTooltip(event)}
             onClick={handleEventClick}
+            variant={variant}
           />
         );
         rootMap.set(event.id, root);
@@ -901,6 +1162,7 @@ export const MapCanvas = ({ embedded = false }: { embedded?: boolean }) => {
     isMapReady,
     renderEventMarker,
     selectedEvent,
+    variant,
   ]);
 
   useEffect(() => {
@@ -1395,7 +1657,7 @@ export const MapCanvas = ({ embedded = false }: { embedded?: boolean }) => {
   }, [handleMapClick, isMapReady]);
 
   useEffect(() => {
-    if (!mapRef.current || !isMapReady) {
+    if (isDiscovery || !mapRef.current || !isMapReady) {
       return;
     }
     const map = mapRef.current;
@@ -1404,7 +1666,7 @@ export const MapCanvas = ({ embedded = false }: { embedded?: boolean }) => {
       padding: { left: paddingLeft, right: 0 },
       duration: 300,
     });
-  }, [isMapReady, showEventsSidebar]);
+  }, [isDiscovery, isMapReady, showEventsSidebar]);
 
   useEffect(() => {
     if (!mapRef.current || !isMapReady) {
@@ -1700,6 +1962,100 @@ export const MapCanvas = ({ embedded = false }: { embedded?: boolean }) => {
     };
   }, [selectedEvent]);
 
+  const discoveryFilterButtons: Array<{
+    id: DiscoveryCategory;
+    label: string;
+    icon: typeof SportsIcon;
+  }> = [
+    { id: "sports", label: "Sports", icon: SportsIcon },
+    { id: "study", label: "Study", icon: StudyIcon },
+    { id: "social", label: "Social", icon: SocialIcon },
+  ];
+
+  const sharedMapOverlays = (
+    <>
+      {selectedFriend && (
+        <FriendPopup
+          friend={selectedFriend}
+          onClose={() => setSelectedFriend(null)}
+        />
+      )}
+      {selectedPublicUser && (
+        <PublicUserPopup
+          user={selectedPublicUser}
+          onClose={() => setSelectedPublicUser(null)}
+          isFriend={friendIds.has(selectedPublicUser.userId)}
+          onAddFriend={async (userId) => {
+            if (!token) {
+              openAuthModal("login");
+              return;
+            }
+            try {
+              const target =
+                publicUsers.find((user) => user.userId === userId) ??
+                selectedPublicUser;
+              if (!target?.handle) {
+                return;
+              }
+              await apiPost("/friends/requests", { handle: target.handle }, token);
+              refetchPublicUsers();
+            } catch (addError) {
+              if (process.env.NODE_ENV !== "production") {
+                console.error("[map] failed to add friend", addError);
+              }
+              window.alert("Unable to send friend request.");
+            }
+          }}
+        />
+      )}
+      {showPublicConfirm && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-ink/40 backdrop-blur"
+            onClick={() => setShowPublicConfirm(false)}
+          />
+          <div className="relative z-10 w-full max-w-md rounded-3xl border border-card-border/60 bg-white/95 p-6 text-center shadow-[0_24px_60px_rgba(27,26,23,0.25)] backdrop-blur">
+            <h3 className="text-lg font-semibold text-ink">Go public?</h3>
+            <p className="mt-2 text-sm text-muted">
+              Going public lets anyone on campus see your location and profile.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                className="flex-1 rounded-xl border border-card-border/70 px-4 py-3 text-sm font-semibold text-ink/70 transition hover:border-accent/40"
+                onClick={() => setShowPublicConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="flex-1 rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white transition hover:bg-accent/90"
+                onClick={handleConfirmPublic}
+              >
+                Go public
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {selectedEvent && (
+        <EventDetailCard
+          event={selectedEvent}
+          onClose={() => setSelectedEvent(null)}
+          onRSVP={(status) => handleEventRSVP(selectedEvent.id, status)}
+          onDelete={() => handleDeleteEvent(selectedEvent.id)}
+        />
+      )}
+      {showEventForm && newEventLocation && (
+        <EventCreationForm
+          location={newEventLocation}
+          onClose={closeEventForm}
+          onSubmit={handleCreateEvent}
+        />
+      )}
+    </>
+  );
+
   if (!mapboxToken) {
     return (
       <Card className="min-h-[420px]">
@@ -1710,6 +2066,198 @@ export const MapCanvas = ({ embedded = false }: { embedded?: boolean }) => {
           </p>
         </div>
       </Card>
+    );
+  }
+
+  if (isDiscovery) {
+    return (
+      <div className="grid h-full w-full min-h-0 grid-cols-[320px_minmax(0,1fr)] bg-white xl:grid-cols-[360px_minmax(0,1fr)]">
+        <aside className="flex h-full min-h-0 flex-col border-r border-[#edf0f6] bg-[#fbfcff] px-8 py-10">
+          <div>
+            <h1 className="text-[26px] font-[700] tracking-[-0.055em] text-[#20242d]">
+              Event Discovery
+            </h1>
+            <p className="mt-1 text-[14px] text-[#5f697b]">
+              Find what&apos;s happening now
+            </p>
+          </div>
+
+          <label className="mt-8 flex items-center gap-3 rounded-full border border-[#ebeff6] bg-white px-5 py-4 text-[#7a8598] shadow-[0_1px_0_rgba(255,255,255,0.9)_inset]">
+            <SearchIcon className="h-[20px] w-[20px]" />
+            <input
+              type="text"
+              value={discoverySearch}
+              onChange={(event) => setDiscoverySearch(event.target.value)}
+              placeholder="Search campus events..."
+              className="w-full bg-transparent text-[14px] text-[#20242d] outline-none placeholder:text-[#9ba5b7]"
+            />
+          </label>
+
+          <div className="mt-6 flex gap-3">
+            {discoveryFilterButtons.map(({ id, label, icon: Icon }) => {
+              const active = !showAllDiscoveryEvents && discoveryCategory === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => {
+                    setShowAllDiscoveryEvents(false);
+                    setDiscoveryCategory(id);
+                  }}
+                  className={`flex h-[90px] w-[90px] shrink-0 flex-col items-center justify-center rounded-full border text-center transition ${
+                    active
+                      ? "border-[#1456f4] bg-[#1456f4] text-white shadow-[0_16px_30px_rgba(20,86,244,0.25)]"
+                      : "border-[#ecf0f6] bg-white text-[#4d5668] shadow-[0_8px_18px_rgba(34,45,69,0.06)] hover:border-[#dbe3f0]"
+                  }`}
+                >
+                  <Icon className="h-[22px] w-[22px]" />
+                  <span className="mt-3 text-[13px] font-semibold uppercase tracking-[0.08em]">
+                    {label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-8 flex min-h-0 flex-1 flex-col">
+            <div className="flex items-center justify-between">
+              <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-[#4a4f5b]">
+                Trending Nearby
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowAllDiscoveryEvents(true)}
+                className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[#1456f4]"
+              >
+                See All
+              </button>
+            </div>
+
+            <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
+              {!token ? (
+                <div className="rounded-[30px] border border-[#e8edf6] bg-white px-5 py-5 text-[14px] leading-[1.55] text-[#5f697b] shadow-[0_10px_24px_rgba(22,34,65,0.05)]">
+                  Sign in to load your live nearby events and campus markers.
+                </div>
+              ) : discoveryEvents.length === 0 ? (
+                <div className="rounded-[30px] border border-[#e8edf6] bg-white px-5 py-5 text-[14px] leading-[1.55] text-[#5f697b] shadow-[0_10px_24px_rgba(22,34,65,0.05)]">
+                  {discoverySearch.trim()
+                    ? "No nearby events match that search yet."
+                    : "No nearby events in this lane right now."}
+                </div>
+              ) : (
+                <div className="space-y-4 pb-4">
+                  {discoveryEvents.map((event) => {
+                    const status = getEventStatus(event.start_time, event.end_time);
+                    const isSelected = selectedEvent?.id === event.id;
+
+                    return (
+                      <button
+                        key={event.id}
+                        type="button"
+                        onClick={() => {
+                          void handleEventClickById(event.id);
+                        }}
+                        className={`w-full rounded-[30px] border px-5 py-5 text-left shadow-[0_10px_24px_rgba(22,34,65,0.05)] transition ${
+                          isSelected
+                            ? "border-[#cfe0ff] bg-[#f4f8ff]"
+                            : "border-[#e8edf6] bg-white hover:border-[#d7e0ee]"
+                        }`}
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full bg-[#edf3ff] text-[#1456f4]">
+                            {getDiscoveryEventIcon(event.category)}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[15px] font-[700] tracking-[-0.045em] text-[#20242d]">
+                              {event.title}
+                            </p>
+                            <div className="mt-[7px] flex flex-wrap items-center gap-3 text-[12.5px] font-medium text-[#5f697b]">
+                              <span className="inline-flex items-center gap-1.5">
+                                <PinIcon className="h-[14px] w-[14px]" />
+                                {formatDistanceLabel(event.distance_km)}
+                              </span>
+                              <span className="inline-flex items-center gap-1.5">
+                                <UsersIcon className="h-[14px] w-[14px]" />
+                                {formatAttendanceLabel(event)}
+                              </span>
+                            </div>
+                            <p className="mt-[7px] truncate text-[11px] font-semibold uppercase tracking-[0.12em] text-[#7e8797]">
+                              {status.label ?? formatEventTooltipTime(event.start_time)}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleDiscoveryCreateEvent}
+            className="mt-6 inline-flex w-full items-center justify-center gap-3 rounded-full bg-[linear-gradient(90deg,#1456f4_0%,#4d8cff_100%)] px-6 py-5 text-[13px] font-semibold uppercase tracking-[0.12em] text-white shadow-[0_18px_34px_rgba(20,86,244,0.22)] transition hover:brightness-[1.03]"
+          >
+            <PlusCircleIcon className="h-[18px] w-[18px]" />
+            Create Event
+          </button>
+        </aside>
+
+        <div className="relative min-h-0 min-w-0 overflow-hidden">
+          <div
+            ref={mapContainerRef}
+            className="absolute inset-0 z-0 h-full w-full [filter:saturate(0.3)_brightness(1.08)_contrast(0.78)]"
+          />
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(194,217,189,0.55)_0%,rgba(248,240,205,0.74)_49%,rgba(182,214,198,0.6)_100%)]" />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_48%,rgba(255,249,221,0.86),transparent_0%,transparent_44%),radial-gradient(circle_at_82%_34%,rgba(189,213,198,0.38),transparent_28%),radial-gradient(circle_at_18%_18%,rgba(162,192,174,0.22),transparent_26%)]" />
+
+          {error && (
+            <div className="absolute left-6 top-6 z-20 rounded-full bg-white/92 px-4 py-2 text-[12px] font-medium text-[#606b7d] shadow-[0_10px_24px_rgba(28,39,62,0.08)]">
+              {error}
+            </div>
+          )}
+
+          {isPlacingPin && (
+            <div className="pointer-events-none absolute left-1/2 top-8 z-20 -translate-x-1/2 rounded-full bg-[#1456f4] px-6 py-3 text-[13px] font-semibold text-white shadow-[0_18px_34px_rgba(20,86,244,0.24)]">
+              Click anywhere on the map to place your event
+            </div>
+          )}
+
+          <div className="absolute bottom-10 right-10 z-20 flex flex-col items-end gap-4">
+            <div className="overflow-hidden rounded-[18px] border border-black/5 bg-white/95 shadow-[0_16px_34px_rgba(35,48,79,0.12)] backdrop-blur">
+              <button
+                type="button"
+                aria-label="Zoom in"
+                className="flex h-[68px] w-[68px] items-center justify-center text-[36px] font-light text-[#20242d] transition hover:bg-[#f5f7fb]"
+                onClick={zoomIn}
+              >
+                +
+              </button>
+              <div className="h-px w-full bg-[#edf1f6]" />
+              <button
+                type="button"
+                aria-label="Zoom out"
+                className="flex h-[68px] w-[68px] items-center justify-center text-[36px] font-light text-[#20242d] transition hover:bg-[#f5f7fb]"
+                onClick={zoomOut}
+              >
+                −
+              </button>
+            </div>
+
+            <button
+              type="button"
+              aria-label={userLocation ? "Go to my location" : "Go to campus"}
+              className="flex h-[64px] w-[64px] items-center justify-center rounded-[18px] border border-black/5 bg-white/95 text-[#1456f4] shadow-[0_16px_34px_rgba(35,48,79,0.12)] backdrop-blur transition hover:bg-[#f5f7fb]"
+              onClick={handleHomeClick}
+            >
+              <LocateIcon className="h-[28px] w-[28px]" />
+            </button>
+          </div>
+
+          {sharedMapOverlays}
+        </div>
+      </div>
     );
   }
 
@@ -1825,70 +2373,6 @@ export const MapCanvas = ({ embedded = false }: { embedded?: boolean }) => {
           </div>
         </div>
       </div>
-      {selectedFriend && (
-        <FriendPopup
-          friend={selectedFriend}
-          onClose={() => setSelectedFriend(null)}
-        />
-      )}
-      {selectedPublicUser && (
-        <PublicUserPopup
-          user={selectedPublicUser}
-          onClose={() => setSelectedPublicUser(null)}
-          isFriend={friendIds.has(selectedPublicUser.userId)}
-          onAddFriend={async (userId) => {
-            if (!token) {
-              openAuthModal("login");
-              return;
-            }
-            try {
-              const target =
-                publicUsers.find((user) => user.userId === userId) ??
-                selectedPublicUser;
-              if (!target?.handle) {
-                return;
-              }
-              await apiPost("/friends/requests", { handle: target.handle }, token);
-              refetchPublicUsers();
-            } catch (addError) {
-              if (process.env.NODE_ENV !== "production") {
-                console.error("[map] failed to add friend", addError);
-              }
-              window.alert("Unable to send friend request.");
-            }
-          }}
-        />
-      )}
-      {showPublicConfirm && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center px-4">
-          <div
-            className="absolute inset-0 bg-ink/40 backdrop-blur"
-            onClick={() => setShowPublicConfirm(false)}
-          />
-          <div className="relative z-10 w-full max-w-md rounded-3xl border border-card-border/60 bg-white/95 p-6 text-center shadow-[0_24px_60px_rgba(27,26,23,0.25)] backdrop-blur">
-            <h3 className="text-lg font-semibold text-ink">Go public?</h3>
-            <p className="mt-2 text-sm text-muted">
-              Going public lets anyone on campus see your location and profile.
-            </p>
-            <div className="mt-6 flex gap-3">
-              <button
-                type="button"
-                className="flex-1 rounded-xl border border-card-border/70 px-4 py-3 text-sm font-semibold text-ink/70 transition hover:border-accent/40"
-                onClick={() => setShowPublicConfirm(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="flex-1 rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white transition hover:bg-accent/90"
-                onClick={handleConfirmPublic}
-              >
-                Go public
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {showEventsSidebar && (
         <EventsSidebar
           events={events}
@@ -1898,21 +2382,7 @@ export const MapCanvas = ({ embedded = false }: { embedded?: boolean }) => {
           now={now}
         />
       )}
-      {selectedEvent && (
-        <EventDetailCard
-          event={selectedEvent}
-          onClose={() => setSelectedEvent(null)}
-          onRSVP={(status) => handleEventRSVP(selectedEvent.id, status)}
-          onDelete={() => handleDeleteEvent(selectedEvent.id)}
-        />
-      )}
-      {showEventForm && newEventLocation && (
-        <EventCreationForm
-          location={newEventLocation}
-          onClose={closeEventForm}
-          onSubmit={handleCreateEvent}
-        />
-      )}
+      {sharedMapOverlays}
     </div>
   );
 };

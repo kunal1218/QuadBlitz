@@ -127,7 +127,8 @@ export const SiteHeader = () => {
     pathname === "/challenges" ||
     pathname === "/friends" ||
     pathname === "/map" ||
-    pathname === "/notifications"
+    pathname === "/notifications" ||
+    pathname === "/profile"
   ) {
     return null;
   }

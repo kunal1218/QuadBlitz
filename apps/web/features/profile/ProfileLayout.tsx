@@ -127,6 +127,12 @@ type UniversityIdCardProps = {
   leaderboardRank: number | null;
 };
 
+type ConfirmLogoutModalProps = {
+  isOpen: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+};
+
 const outfit = Outfit({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
@@ -527,11 +533,56 @@ const SiteIcon = () => (
 const HeaderWordmark = () => (
   <span className="inline-flex items-center gap-[10px]">
     <SiteIcon />
-    <span className="text-[21px] font-extrabold tracking-[-0.045em] text-[#1456f4] [text-shadow:0_0_0.01px_rgba(20,86,244,0.35)]">
+  <span className="text-[21px] font-extrabold tracking-[-0.045em] text-[#1456f4] [text-shadow:0_0_0.01px_rgba(20,86,244,0.35)]">
       QuadBlitz
     </span>
   </span>
 );
+
+const ConfirmLogoutModal = ({
+  isOpen,
+  onCancel,
+  onConfirm,
+}: ConfirmLogoutModalProps) => {
+  if (!isOpen) {
+    return null;
+  }
+
+  return (
+    <div className="fixed inset-0 z-[160] flex items-center justify-center px-4">
+      <button
+        type="button"
+        aria-label="Close logout confirmation"
+        className="absolute inset-0 bg-black/30"
+        onClick={onCancel}
+      />
+      <div className="relative z-10 w-full max-w-sm rounded-[28px] border border-[#e7ecf5] bg-white p-6 shadow-[0_28px_80px_rgba(18,36,81,0.18)]">
+        <p className="text-[22px] font-[700] tracking-[-0.05em] text-[#20242d]">
+          Are you sure?
+        </p>
+        <p className="mt-3 text-sm leading-[1.55] text-[#5f697b]">
+          Logging out will end your current session on this device.
+        </p>
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            type="button"
+            className="rounded-full border border-[#dce3ef] px-4 py-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-[#586173] transition hover:border-[#ced8e8] hover:text-[#20242d]"
+            onClick={onCancel}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="rounded-full bg-[#1456f4] px-4 py-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-white shadow-[0_12px_24px_rgba(20,86,244,0.2)] transition hover:bg-[#0f49e2]"
+            onClick={onConfirm}
+          >
+            Yes, log out
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const SiteGlyph = () => (
   <svg viewBox="0 0 40 40" aria-hidden="true" className="h-10 w-10">
@@ -661,11 +712,6 @@ const ProfileOverviewCard = ({
             <p className="mt-3 max-w-[560px] text-[15px] leading-[1.7] text-[#616c7e]">
               {displayBio}
             </p>
-            {isEditing && (
-              <p className="mt-4 text-[12px] font-medium text-[#6d778b]">
-                Drag cards around the canvas, then save your layout.
-              </p>
-            )}
             {layoutError && (
               <p className="mt-3 text-[12px] font-semibold text-[#d14f4f]">
                 {layoutError}
@@ -747,7 +793,7 @@ const ProfileOverviewCard = ({
             data-drag-ignore
             onClick={onLogout}
             aria-label={logoutLabel}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#20242d] bg-white text-[#20242d] transition hover:border-[#3d4552] hover:text-[#3d4552]"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#e4e9f2] bg-white text-[#20242d] transition hover:border-[#d6dce8] hover:text-[#20242d]"
           >
             <LogoutIcon className="h-[19px] w-[19px]" />
           </button>
@@ -909,6 +955,7 @@ const ProfileLayoutInner = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [movementMode, setMovementMode] = useState<MovementMode>("relative");
   const [isAnswerEditorOpen, setAnswerEditorOpen] = useState(false);
+  const [isLogoutModalOpen, setLogoutModalOpen] = useState(false);
   const [friendsSummary, setFriendsSummary] = useState<FriendSummary | null>(null);
   const [leaderboardRank, setLeaderboardRank] = useState<number | null>(null);
   const [shareLabel, setShareLabel] = useState("Share");
@@ -1136,7 +1183,8 @@ const ProfileLayoutInner = () => {
     }
   }, []);
 
-  const handleLogout = useCallback(() => {
+  const handleLogoutConfirm = useCallback(() => {
+    setLogoutModalOpen(false);
     logout();
     router.push("/");
   }, [logout, router]);
@@ -1416,7 +1464,7 @@ const ProfileLayoutInner = () => {
             onSaveLayout={handleSave}
             onCancelLayout={handleCancel}
             onShare={handleShare}
-            onLogout={handleLogout}
+            onLogout={() => setLogoutModalOpen(true)}
             shareLabel={shareLabel}
             logoutLabel="Log out"
             layoutError={layoutError}
@@ -1661,6 +1709,11 @@ const ProfileLayoutInner = () => {
       <ProfileQuestionnaireModal
         isOpen={isAnswerEditorOpen}
         onClose={() => setAnswerEditorOpen(false)}
+      />
+      <ConfirmLogoutModal
+        isOpen={isLogoutModalOpen}
+        onCancel={() => setLogoutModalOpen(false)}
+        onConfirm={handleLogoutConfirm}
       />
     </div>
   );

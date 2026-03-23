@@ -871,7 +871,7 @@ export default function NotificationsPage() {
                                 className={
                                   direction === "incoming"
                                     ? secondaryActionClasses
-                                    : ghostActionClasses
+                                    : primaryActionClasses
                                 }
                                 onClick={() =>
                                   direction === "incoming"
@@ -1054,9 +1054,22 @@ export default function NotificationsPage() {
                                 </Link>
                               )}
 
-                            {notification.type === "request_help" && statusLabel && (
-                              <span className={ghostActionClasses}>{statusLabel}</span>
-                            )}
+                            {notification.type === "request_help" &&
+                              relationship === "friends" &&
+                              actorSlug && (
+                                <Link
+                                  href={`/friends?handle=${encodeURIComponent(actorSlug)}`}
+                                  className={primaryActionClasses}
+                                >
+                                  Reply Now
+                                </Link>
+                              )}
+
+                            {notification.type === "request_help" &&
+                              statusLabel &&
+                              relationship !== "friends" && (
+                                <span className={ghostActionClasses}>{statusLabel}</span>
+                              )}
 
                             {notification.type === "request_help" && canConnect && (
                               <button

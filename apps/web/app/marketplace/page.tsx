@@ -26,17 +26,6 @@ const SearchIcon = (props: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-const MessageStackIcon = (props: SVGProps<SVGSVGElement>) => (
-  <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" {...props}>
-    <path
-      d="M4.1 5.1h11.8a1 1 0 0 1 1 1v7.1a1 1 0 0 1-1 1H9.4L6 16.8v-2.6H4.1a1 1 0 0 1-1-1V6.1a1 1 0 0 1 1-1Z"
-      stroke="currentColor"
-      strokeWidth="1.55"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
 const ListingsIcon = (props: SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" {...props}>
     <path
@@ -141,13 +130,6 @@ export default function MarketplacePage() {
             </div>
 
             <div className="flex flex-wrap gap-3 lg:justify-end">
-              <Link
-                href="/marketplace/messages"
-                className="inline-flex h-10 items-center gap-2 rounded-full bg-[#f8f9fc] px-4 text-[11px] font-semibold text-[#4f5563] shadow-[inset_0_0_0_1px_rgba(231,236,244,1)] transition hover:bg-white hover:text-[#20242d]"
-              >
-                <MessageStackIcon className="h-[13px] w-[13px]" />
-                <span>Marketplace Messages</span>
-              </Link>
               <Link
                 href="/marketplace/my-listings"
                 className="inline-flex h-10 items-center gap-2 rounded-full bg-[#f8f9fc] px-4 text-[11px] font-semibold text-[#4f5563] shadow-[inset_0_0_0_1px_rgba(231,236,244,1)] transition hover:bg-white hover:text-[#20242d]"

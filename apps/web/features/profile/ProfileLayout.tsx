@@ -14,6 +14,7 @@ import type {
   SVGProps,
 } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Outfit } from "next/font/google";
 import { Avatar } from "@/components/Avatar";
 import { useAuth } from "@/features/auth";
@@ -100,7 +101,9 @@ type OverviewCardProps = {
   onSaveLayout: () => void;
   onCancelLayout: () => void;
   onShare: () => void;
+  onLogout: () => void;
   shareLabel: string;
+  logoutLabel: string;
   layoutError?: string | null;
 };
 
@@ -133,6 +136,7 @@ const GRID_COLUMNS = 12;
 const GRID_GAP = 20;
 const GRID_SNAP = 1;
 const layoutStorageKey = (userId: string) => `lockedin_profile_layout:${userId}`;
+const LOCKED_BLOCK_IDS = ["profile-header"] as const;
 
 const shellCardClasses =
   "rounded-[30px] border border-[#e7edf6] bg-white/94 shadow-[0_24px_60px_rgba(24,35,61,0.08)]";
@@ -233,6 +237,27 @@ const buildDefaultPositions = (mode: LayoutMode) => {
     positions[block.id] = { x: layout.x, y: layout.y };
   });
   return positions;
+};
+
+const normalizeLockedPositions = (
+  positions: Record<string, BlockPosition>,
+  defaults: Record<string, BlockPosition>
+) => {
+  const nextPositions = { ...positions };
+
+  LOCKED_BLOCK_IDS.forEach((blockId) => {
+    const defaultPosition = defaults[blockId];
+    if (!defaultPosition) {
+      return;
+    }
+
+    nextPositions[blockId] = {
+      x: defaultPosition.x,
+      y: defaultPosition.y,
+    };
+  });
+
+  return nextPositions;
 };
 
 const loadLeaderboardRank = async (token: string | null, userId: string) => {
@@ -455,6 +480,25 @@ const ShareIcon = (props: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+const LogoutIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+    <path
+      d="M10.1 5.2H7.7a1.8 1.8 0 0 0-1.8 1.8v10a1.8 1.8 0 0 0 1.8 1.8h2.4"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M13.1 8.1 17 12l-3.9 3.9M10.6 12H17"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 const SiteIcon = () => (
   <svg
     viewBox="0 0 40 40"
@@ -586,7 +630,9 @@ const ProfileOverviewCard = ({
   onSaveLayout,
   onCancelLayout,
   onShare,
+  onLogout,
   shareLabel,
+  logoutLabel,
   layoutError,
 }: OverviewCardProps) => {
   return (
@@ -695,6 +741,15 @@ const ProfileOverviewCard = ({
             className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#e4e9f2] bg-white text-[#5e6778] transition hover:border-[#d6dce8] hover:text-[#20242d]"
           >
             <ShareIcon className="h-[18px] w-[18px]" />
+          </button>
+          <button
+            type="button"
+            data-drag-ignore
+            onClick={onLogout}
+            aria-label={logoutLabel}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#20242d] bg-white text-[#20242d] transition hover:border-[#3d4552] hover:text-[#3d4552]"
+          >
+            <LogoutIcon className="h-[19px] w-[19px]" />
           </button>
         </div>
       </div>
@@ -835,7 +890,8 @@ const UniversityIdCard = ({
 };
 
 const ProfileLayoutInner = () => {
-  const { user, token, isAuthenticated, openAuthModal } = useAuth();
+  const router = useRouter();
+  const { user, token, isAuthenticated, openAuthModal, logout } = useAuth();
   const { answers, isLoaded } = useProfileAnswers();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
@@ -921,7 +977,10 @@ const ProfileLayoutInner = () => {
           }>(`/profile/layout?mode=${layoutMode}`, token);
 
           if (response.layout?.positions) {
-            remotePositions = response.layout.positions;
+            remotePositions = normalizeLockedPositions(
+              response.layout.positions,
+              defaultPositions
+            );
           }
         } catch {
           remotePositions = null;
@@ -941,7 +1000,10 @@ const ProfileLayoutInner = () => {
             mode?: LayoutMode;
           };
           if (parsed?.positions && parsed.mode === layoutMode) {
-            localPositions = parsed.positions;
+            localPositions = normalizeLockedPositions(
+              parsed.positions,
+              defaultPositions
+            );
           }
         } catch {
           // Ignore malformed stored layouts.
@@ -949,10 +1011,13 @@ const ProfileLayoutInner = () => {
       }
 
       const chosenPositions = localPositions ?? remotePositions ?? {};
-      const merged = {
-        ...defaultPositions,
-        ...chosenPositions,
-      };
+      const merged = normalizeLockedPositions(
+        {
+          ...defaultPositions,
+          ...chosenPositions,
+        },
+        defaultPositions
+      );
 
       const shouldSync =
         token &&
@@ -1071,6 +1136,11 @@ const ProfileLayoutInner = () => {
     }
   }, []);
 
+  const handleLogout = useCallback(() => {
+    logout();
+    router.push("/");
+  }, [logout, router]);
+
   const setContainerNode = useCallback((node: HTMLDivElement | null) => {
     resizeObserverRef.current?.disconnect();
     resizeObserverRef.current = null;
@@ -1106,14 +1176,17 @@ const ProfileLayoutInner = () => {
       return;
     }
 
+    const nextSavedPositions = normalizeLockedPositions(positions, defaultPositions);
+
     setLayoutError(null);
-    setSavedPositions(positions);
+    setPositions(nextSavedPositions);
+    setSavedPositions(nextSavedPositions);
 
     if (user?.id && typeof window !== "undefined") {
       window.localStorage.setItem(
         layoutStorageKey(user.id),
         JSON.stringify({
-          positions,
+          positions: nextSavedPositions,
           mode: layoutMode,
         })
       );
@@ -1122,7 +1195,7 @@ const ProfileLayoutInner = () => {
     if (user?.id && token) {
       void apiPost(
         "/profile/layout",
-        { positions, mode: layoutMode },
+        { positions: nextSavedPositions, mode: layoutMode },
         token
       ).catch(() => {
         // Keep local layout even if the save fails.
@@ -1134,9 +1207,9 @@ const ProfileLayoutInner = () => {
 
   const handleCancel = useCallback(() => {
     setLayoutError(null);
-    setPositions(savedPositions);
+    setPositions(normalizeLockedPositions(savedPositions, defaultPositions));
     setIsEditing(false);
-  }, [savedPositions]);
+  }, [defaultPositions, savedPositions]);
 
   const canvasHeight = useMemo(() => {
     const bottoms = BLOCK_TEMPLATES.map((block) => {
@@ -1151,6 +1224,9 @@ const ProfileLayoutInner = () => {
     event: ReactPointerEvent<HTMLDivElement>
   ) => {
     if (!isEditing || !containerRef.current) {
+      return;
+    }
+    if (LOCKED_BLOCK_IDS.includes(id as (typeof LOCKED_BLOCK_IDS)[number])) {
       return;
     }
     if (event.button !== 0 || isInteractiveElement(event.target)) {
@@ -1340,7 +1416,9 @@ const ProfileLayoutInner = () => {
             onSaveLayout={handleSave}
             onCancelLayout={handleCancel}
             onShare={handleShare}
+            onLogout={handleLogout}
             shareLabel={shareLabel}
+            logoutLabel="Log out"
             layoutError={layoutError}
           />
         );
@@ -1519,7 +1597,12 @@ const ProfileLayoutInner = () => {
           )}
 
           {BLOCK_TEMPLATES.map((block) => {
-            const pos = positions[block.id] ?? { x: 0, y: 0 };
+            const isLockedBlock = LOCKED_BLOCK_IDS.includes(
+              block.id as (typeof LOCKED_BLOCK_IDS)[number]
+            );
+            const pos = isLockedBlock
+              ? defaultPositions[block.id] ?? { x: 0, y: 0 }
+              : positions[block.id] ?? { x: 0, y: 0 };
             const width = getBlockWidth(block);
             const height = blockHeights[block.id] ?? "auto";
             const style = {
@@ -1533,7 +1616,7 @@ const ProfileLayoutInner = () => {
               <div
                 key={block.id}
                 className={`absolute pointer-events-auto transition ${
-                  isEditing ? "cursor-grab select-none" : ""
+                  isEditing && !isLockedBlock ? "cursor-grab select-none" : ""
                 } ${
                   draggingId === block.id
                     ? "z-40"
@@ -1543,7 +1626,9 @@ const ProfileLayoutInner = () => {
                 }`}
                 style={style}
                 onPointerDown={
-                  isEditing ? (event) => handlePointerDown(block.id, event) : undefined
+                  isEditing && !isLockedBlock
+                    ? (event) => handlePointerDown(block.id, event)
+                    : undefined
                 }
               >
                 <BlockSizer

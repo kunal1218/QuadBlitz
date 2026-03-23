@@ -6,7 +6,6 @@ import Link from "next/link";
 import { Outfit } from "next/font/google";
 import { CreateListingModal } from "@/features/marketplace/CreateListingModal";
 import { MarketplaceGridCard } from "@/features/marketplace/MarketplaceGridCard";
-import { MarketplaceHeader } from "@/features/marketplace/MarketplaceHeader";
 import { fetchListings } from "@/lib/api/marketplace";
 import type { Listing } from "@/features/marketplace/types";
 
@@ -129,8 +128,6 @@ export default function MarketplacePage() {
 
   return (
     <div className={`${outfit.className} min-h-screen bg-white text-[#181d25]`}>
-      <MarketplaceHeader />
-
       <main className="mx-auto max-w-[1180px] px-5 pb-16 pt-7 sm:px-6 lg:px-8">
         <section className="border-b border-[#edf1f6] pb-8">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">

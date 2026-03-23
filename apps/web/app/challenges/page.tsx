@@ -8,6 +8,7 @@ import { Outfit } from "next/font/google";
 import { createPortal } from "react-dom";
 import type { DailyChallenge as DailyChallengeType } from "@lockedin/shared";
 import { Avatar } from "@/components/Avatar";
+import { GroupsNavIcon } from "@/components/GroupsNavIcon";
 import { useAuth } from "@/features/auth";
 import { apiGet, apiPost } from "@/lib/api";
 import { formatHeaderPoints } from "@/lib/points";
@@ -140,6 +141,7 @@ const headerNavItems: Array<{
   { href: "/challenges", label: "CHALLENGES", icon: ChallengeNavIcon, active: true },
   { href: "/friends", label: "CHAT", icon: ChatNavIcon },
   { href: "/map", label: "MAPS", icon: MapsNavIcon },
+  { href: "/clubs", label: "GROUPS", icon: GroupsNavIcon },
   { href: "/marketplace", label: "MARKET", icon: MarketNavIcon },
 ];
 

@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Outfit } from "next/font/google";
 import { Avatar } from "@/components/Avatar";
+import { GroupsNavIcon } from "@/components/GroupsNavIcon";
 import { useAuth } from "@/features/auth";
 import { connectSocket, disconnectSocket } from "@/lib/socket";
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
@@ -247,6 +248,7 @@ const headerNavItems: Array<{
   { href: "/challenges", label: "CHALLENGES", icon: ChallengeNavIcon },
   { href: "/friends", label: "CHAT", icon: ChatNavIcon, active: true },
   { href: "/map", label: "MAPS", icon: MapsNavIcon },
+  { href: "/clubs", label: "GROUPS", icon: GroupsNavIcon },
   { href: "/marketplace", label: "MARKET", icon: MarketNavIcon },
 ];
 

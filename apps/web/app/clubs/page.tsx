@@ -11,15 +11,18 @@ import {
   BookOpen,
   CheckCircle2,
   ChevronRight,
+  Globe,
   Gamepad2,
   Heart,
   Landmark,
+  MapPin,
   Palette,
   Plus,
   Rocket,
   Search,
   SlidersHorizontal,
   Users,
+  Wifi,
   X,
 } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
@@ -55,12 +58,6 @@ const categoryOptions: Array<{ label: string; value: ClubCategoryFilter }> = [
   { label: "Sports", value: "sports" },
   { label: "Creative", value: "creative" },
   { label: "Wellness", value: "wellness" },
-];
-
-const proximityOptions: Array<{ label: string; value: ClubProximityFilter }> = [
-  { label: "Everywhere", value: "all" },
-  { label: "Nearby", value: "nearby" },
-  { label: "Remote", value: "remote" },
 ];
 
 const sortOptions: Array<{ label: string; value: ClubSortOption }> = [
@@ -130,6 +127,9 @@ const categoryThemes: Record<ClubCategory, CategoryTheme> = {
 
 const filterChipBaseClasses =
   "inline-flex items-center rounded-full border px-3.5 py-2 text-[12px] font-semibold transition";
+
+const modalSectionLabelClasses =
+  "text-[10px] font-semibold uppercase tracking-[0.22em] text-[#8b93a0]";
 
 const compareRecency = (a: Club, b: Club) =>
   new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -338,6 +338,11 @@ export default function ClubsPage() {
   const [proximity, setProximity] = useState<ClubProximityFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isFilterOpen, setFilterOpen] = useState(false);
+  const [draftRecency, setDraftRecency] = useState<ClubRecencyFilter>("all");
+  const [draftCategory, setDraftCategory] = useState<ClubCategoryFilter>("all");
+  const [draftProximity, setDraftProximity] =
+    useState<ClubProximityFilter>("all");
+  const [draftSortBy, setDraftSortBy] = useState<ClubSortOption>("members");
   const [isComposerOpen, setComposerOpen] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
   const [joiningIds, setJoiningIds] = useState<Set<string>>(new Set());
@@ -556,12 +561,42 @@ export default function ClubsPage() {
     [showAllRows, studentOrgClubs]
   );
 
-  const hasActiveFilters =
-    normalizedSearchQuery.length > 0 ||
+  const hasSearchQuery = normalizedSearchQuery.length > 0;
+
+  const hasAppliedFilters =
     recency !== "all" ||
     category !== "all" ||
     proximity !== "all" ||
     sortBy !== "members";
+
+  const hasActiveFilters = hasSearchQuery || hasAppliedFilters;
+
+  const openFilterModal = () => {
+    setDraftRecency(recency);
+    setDraftCategory(category);
+    setDraftProximity(proximity);
+    setDraftSortBy(sortBy);
+    setFilterOpen(true);
+  };
+
+  const closeFilterModal = () => {
+    setFilterOpen(false);
+  };
+
+  const handleApplyFilters = () => {
+    setRecency(draftRecency);
+    setCategory(draftCategory);
+    setProximity(draftProximity);
+    setSortBy(draftSortBy);
+    setFilterOpen(false);
+  };
+
+  const handleResetDraftFilters = () => {
+    setDraftRecency("all");
+    setDraftCategory("all");
+    setDraftProximity("all");
+    setDraftSortBy("members");
+  };
 
   const handleResetFilters = () => {
     setSearchQuery("");
@@ -569,6 +604,7 @@ export default function ClubsPage() {
     setCategory("all");
     setProximity("all");
     setSortBy("members");
+    handleResetDraftFilters();
     setFilterOpen(false);
   };
 
@@ -622,117 +658,15 @@ export default function ClubsPage() {
                 type="button"
                 aria-label="Toggle filters"
                 className={`flex h-14 w-14 items-center justify-center rounded-full border transition ${
-                  isFilterOpen || hasActiveFilters
+                  isFilterOpen || hasAppliedFilters
                     ? "border-[#dbe5ff] bg-[#1456f4] text-white shadow-[0_14px_28px_rgba(20,86,244,0.18)]"
                     : "border-[#e5e8ee] bg-white text-[#515a68] shadow-[0_12px_30px_rgba(30,40,60,0.05)]"
                 }`}
-                onClick={() => setFilterOpen((prev) => !prev)}
+                onClick={openFilterModal}
               >
                 <SlidersHorizontal className="h-4 w-4" />
               </button>
             </div>
-
-            {isFilterOpen && (
-              <div className="mt-4 rounded-[30px] border border-[#e5e8ee] bg-white/95 p-5 shadow-[0_26px_60px_rgba(18,25,38,0.08)] backdrop-blur">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b93a0]">
-                      Filter feed
-                    </p>
-                    <p className="mt-1 text-[14px] text-[#4f5763]">
-                      Refine communities by category, time, and access.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="flex h-9 w-9 items-center justify-center rounded-full border border-[#e5e8ee] text-[#717b88] transition hover:bg-[#f7f9fc]"
-                    onClick={() => setFilterOpen(false)}
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <div className="mt-5 space-y-5">
-                  <div className="space-y-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b93a0]">
-                      Recency
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {recencyOptions.map((option) => (
-                        <FilterChip
-                          key={option.value}
-                          isActive={recency === option.value}
-                          onClick={() => setRecency(option.value)}
-                        >
-                          {option.label}
-                        </FilterChip>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b93a0]">
-                      Category
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {categoryOptions.map((option) => (
-                        <FilterChip
-                          key={option.value}
-                          isActive={category === option.value}
-                          onClick={() => setCategory(option.value)}
-                        >
-                          {option.label}
-                        </FilterChip>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b93a0]">
-                      Proximity
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {proximityOptions.map((option) => (
-                        <FilterChip
-                          key={option.value}
-                          isActive={proximity === option.value}
-                          onClick={() => setProximity(option.value)}
-                        >
-                          {option.label}
-                        </FilterChip>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8b93a0]">
-                      Sort by
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {sortOptions.map((option) => (
-                        <FilterChip
-                          key={option.value}
-                          isActive={sortBy === option.value}
-                          onClick={() => setSortBy(option.value)}
-                        >
-                          {option.label}
-                        </FilterChip>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {hasActiveFilters && (
-                  <button
-                    type="button"
-                    className="mt-5 text-[13px] font-semibold text-[#1456f4] transition hover:text-[#0f49e2]"
-                    onClick={handleResetFilters}
-                  >
-                    Clear filters
-                  </button>
-                )}
-              </div>
-            )}
           </div>
         </section>
 
@@ -1083,6 +1017,156 @@ export default function ClubsPage() {
           </div>
         )}
       </div>
+
+      {isFilterOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[85] flex items-center justify-center px-4 py-8">
+            <div
+              className="absolute inset-0 bg-[rgba(245,247,251,0.45)] backdrop-blur-[8px]"
+              onClick={closeFilterModal}
+              aria-hidden="true"
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Filter Feed"
+              className="relative z-10 w-full max-w-[370px] rounded-[30px] border border-white/80 bg-white px-5 py-4 shadow-[0_30px_90px_rgba(21,29,44,0.16)] sm:px-6 sm:py-5"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="font-display text-[1.75rem] font-semibold tracking-[-0.05em] text-[#2f363d]">
+                    Filter Feed
+                  </h2>
+                  <p className="mt-1 text-[12px] leading-5 text-[#8b93a0]">
+                    Refine your community discovery
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-[#6f7782] transition hover:bg-[#f4f7fb]"
+                  onClick={closeFilterModal}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="mt-6 space-y-6">
+                <div className="space-y-3">
+                  <p className={modalSectionLabelClasses}>Recency</p>
+                  <div className="flex flex-wrap gap-2">
+                    {recencyOptions.map((option) => (
+                      <FilterChip
+                        key={option.value}
+                        isActive={draftRecency === option.value}
+                        onClick={() => setDraftRecency(option.value)}
+                      >
+                        {option.label}
+                      </FilterChip>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <p className={modalSectionLabelClasses}>Category</p>
+                  <div className="flex flex-wrap gap-2">
+                    {categoryOptions.map((option) => (
+                      <FilterChip
+                        key={option.value}
+                        isActive={draftCategory === option.value}
+                        onClick={() => setDraftCategory(option.value)}
+                      >
+                        {option.label}
+                      </FilterChip>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <p className={modalSectionLabelClasses}>Proximity</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: "Everywhere", value: "all" as const, icon: Globe },
+                      { label: "Nearby", value: "nearby" as const, icon: MapPin },
+                      { label: "Remote", value: "remote" as const, icon: Wifi },
+                    ].map(({ label, value, icon: Icon }) => {
+                      const isActive = draftProximity === value;
+
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          className={`flex min-h-[66px] flex-col items-center justify-center rounded-[18px] border px-2 py-3 text-[11px] font-semibold transition ${
+                            isActive
+                              ? "border-[#3f6fff] bg-[#eef4ff] text-[#1456f4] shadow-[inset_0_0_0_1px_rgba(20,86,244,0.18)]"
+                              : "border-transparent bg-[#f3f4f6] text-[#5a6270] hover:bg-[#eceef2]"
+                          }`}
+                          onClick={() => setDraftProximity(value)}
+                        >
+                          <Icon className="mb-1.5 h-4 w-4" />
+                          <span>{label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <p className={modalSectionLabelClasses}>Sort By</p>
+                  <div className="space-y-2">
+                    {sortOptions.map((option) => {
+                      const isActive = draftSortBy === option.value;
+
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          className={`flex w-full items-center justify-between rounded-full border px-4 py-3 text-[12px] font-semibold transition ${
+                            isActive
+                              ? "border-[#cfe0ff] bg-[#eef4ff] text-[#1456f4]"
+                              : "border-[#edf0f4] bg-[#f8f9fb] text-[#5b6471] hover:bg-white"
+                          }`}
+                          onClick={() => setDraftSortBy(option.value)}
+                        >
+                          <span>{option.label}</span>
+                          <span
+                            className={`flex h-4 w-4 items-center justify-center rounded-full border ${
+                              isActive
+                                ? "border-[#1456f4]"
+                                : "border-[#c9d0da] bg-white"
+                            }`}
+                          >
+                            {isActive && (
+                              <span className="h-2 w-2 rounded-full bg-[#1456f4]" />
+                            )}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-7 flex items-center gap-3">
+                <button
+                  type="button"
+                  className="inline-flex h-12 flex-1 items-center justify-center rounded-full border border-[#e4e8ef] bg-white text-[13px] font-semibold text-[#4f5763] transition hover:border-[#d7dde7]"
+                  onClick={handleResetDraftFilters}
+                >
+                  Reset
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex h-12 flex-[1.55] items-center justify-center rounded-full bg-[#1456f4] px-5 text-[13px] font-semibold text-white shadow-[0_16px_30px_rgba(20,86,244,0.22)] transition hover:bg-[#0f49e2]"
+                  onClick={handleApplyFilters}
+                >
+                  Apply Filters
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
 
       <button
         type="button"

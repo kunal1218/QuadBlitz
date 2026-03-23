@@ -12,6 +12,7 @@ import { useSearchParams } from "next/navigation";
 import { Outfit } from "next/font/google";
 import { Avatar } from "@/components/Avatar";
 import { useAuth } from "@/features/auth";
+import { connectSocket, disconnectSocket } from "@/lib/socket";
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
 import { deriveCollegeFromDomain } from "@/lib/college";
 import { formatHeaderPoints } from "@/lib/points";
@@ -25,6 +26,7 @@ type FriendUser = {
   avatarUrl?: string | null;
   collegeName?: string | null;
   collegeDomain?: string | null;
+  isOnline?: boolean;
 };
 
 type FriendRequest = {
@@ -304,6 +306,19 @@ function FriendsPageContent() {
     }
     refreshSummary();
   }, [refreshSummary, token]);
+
+  useEffect(() => {
+    if (!token) {
+      disconnectSocket();
+      return;
+    }
+
+    connectSocket(token);
+
+    return () => {
+      disconnectSocket();
+    };
+  }, [token]);
 
   useEffect(() => {
     if (!token) {
@@ -724,6 +739,7 @@ function FriendsPageContent() {
       (friend) => normalizeHandle(friend.handle) === selectedHandle
     ) ?? null;
   const activeUser = threadUser ?? selectedFriend;
+  const activeUserOnline = Boolean(selectedFriend?.isOnline);
   const activeCollegeLabel = selectedFriend ? getCollegeLabel(selectedFriend) : "";
   const filteredFriends =
     summary?.friends.filter((friend) => {
@@ -816,7 +832,7 @@ function FriendsPageContent() {
         </div>
       </header>
 
-      <div className="mx-auto grid h-[calc(100vh-81px)] max-w-[1920px] overflow-hidden lg:grid-cols-[324px_minmax(0,1fr)]">
+      <div className="grid h-[calc(100vh-81px)] w-full overflow-hidden lg:grid-cols-[324px_minmax(0,1fr)]">
         <aside className="flex h-full min-h-0 flex-col overflow-hidden border-r border-[#edf0f6] bg-[#fbfcff] px-8 py-8">
           <div>
             <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-[#1456f4]">
@@ -896,7 +912,11 @@ function FriendsPageContent() {
                               size={46}
                               className={isActive ? "border border-white/20 text-[#202531]" : "border border-[#e5ebf5] text-[#202531]"}
                             />
-                            <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-[#27c27a]" />
+                            <span
+                              className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white ${
+                                friend.isOnline ? "bg-[#27c27a]" : "bg-[#c6ceda]"
+                              }`}
+                            />
                           </div>
                           <div className="min-w-0 flex-1">
                             <p
@@ -989,7 +1009,11 @@ function FriendsPageContent() {
                     <h2 className="truncate text-[18px] font-[700] tracking-[-0.05em] text-[#20242d]">
                       {normalizeHandle(activeUser.handle)}
                     </h2>
-                    <span className="h-[6px] w-[6px] rounded-full bg-[#27c27a]" />
+                    <span
+                      className={`h-[6px] w-[6px] rounded-full ${
+                        activeUserOnline ? "bg-[#27c27a]" : "bg-[#c6ceda]"
+                      }`}
+                    />
                     <p className="truncate text-[12px] font-semibold uppercase tracking-[0.12em] text-[#5f697b]">
                       {activeCollegeLabel || "Campus Member"}
                     </p>

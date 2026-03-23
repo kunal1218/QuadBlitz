@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { db } from "../db";
 import { ensureUsersTable } from "./authService";
+import { isUserOnline } from "./socketService";
 
 export type FriendUser = {
   id: string;
@@ -9,6 +10,7 @@ export type FriendUser = {
   avatarUrl?: string | null;
   collegeName?: string | null;
   collegeDomain?: string | null;
+  isOnline?: boolean;
 };
 
 export type FriendRequest = {
@@ -40,6 +42,7 @@ type FriendUserRow = {
   profile_picture_url?: string | null;
   college_name?: string | null;
   college_domain?: string | null;
+  is_online?: boolean | null;
 };
 
 type FriendRequestRow = {
@@ -87,6 +90,7 @@ const mapUser = (row: FriendUserRow): FriendUser => ({
   avatarUrl: row.profile_picture_url ?? null,
   collegeName: row.college_name ?? null,
   collegeDomain: row.college_domain ?? null,
+  isOnline: Boolean(row.is_online),
 });
 
 const mapRequest = (row: FriendRequestRow): FriendRequest => ({
@@ -299,7 +303,12 @@ export const fetchFriendSummary = async (userId: string): Promise<FriendSummary>
   );
 
   return {
-    friends: (friendsResult.rows as FriendUserRow[]).map(mapUser),
+    friends: (friendsResult.rows as FriendUserRow[]).map((row) =>
+      mapUser({
+        ...row,
+        is_online: isUserOnline(row.id),
+      })
+    ),
     incoming: (incomingResult.rows as FriendRequestRow[]).map(mapRequest),
     outgoing: (outgoingResult.rows as FriendRequestRow[]).map(mapRequest),
     blocked: (blockedResult.rows as FriendUserRow[]).map(mapUser),

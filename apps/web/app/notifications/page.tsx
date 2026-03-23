@@ -835,7 +835,7 @@ export default function NotificationsPage() {
                                 name={requestUser.name}
                                 avatarUrl={requestUser.avatarUrl}
                                 size={44}
-                                className="border border-[#e7edf5] bg-white text-[#202531]"
+                                className="border border-[#e7edf5] text-[#202531]"
                               />
                             </Link>
                             <span className="pointer-events-none absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#7b61ff] text-white shadow-[0_6px_14px_rgba(123,97,255,0.3)]">
@@ -979,7 +979,7 @@ export default function NotificationsPage() {
                                 name={notification.actor.name}
                                 avatarUrl={notification.actor.avatarUrl}
                                 size={44}
-                                className="border border-[#e7edf5] bg-white text-[#202531]"
+                                className="border border-[#e7edf5] text-[#202531]"
                               />
                             </Link>
                           ) : (

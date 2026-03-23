@@ -74,7 +74,7 @@ export const MarketplaceGridCard = ({ listing }: { listing: Listing }) => {
 
   return (
     <article className="group flex h-full flex-col rounded-[28px] border border-[#e6ebf3] bg-white p-[10px] shadow-[0_20px_38px_rgba(17,24,39,0.06)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_26px_48px_rgba(17,24,39,0.1)]">
-      <div className="relative overflow-hidden rounded-[22px] bg-[#f4f6fb] aspect-[0.93/1] min-h-[190px]">
+      <div className="relative overflow-hidden rounded-[22px] bg-[#f4f6fb] aspect-[1/0.78] min-h-[156px]">
         {imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

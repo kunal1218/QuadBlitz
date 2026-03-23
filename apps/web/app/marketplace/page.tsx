@@ -216,7 +216,7 @@ export default function MarketplacePage() {
                   key={card}
                   className="overflow-hidden rounded-[28px] border border-[#e6ebf3] bg-white p-[10px] shadow-[0_20px_38px_rgba(17,24,39,0.04)]"
                 >
-                  <div className="h-[230px] animate-pulse rounded-[22px] bg-[#eef2f8]" />
+                  <div className="h-[170px] animate-pulse rounded-[22px] bg-[#eef2f8]" />
                   <div className="space-y-3 px-2 pb-2 pt-4">
                     <div className="h-5 w-3/4 animate-pulse rounded-full bg-[#eef2f8]" />
                     <div className="h-4 w-1/2 animate-pulse rounded-full bg-[#eef2f8]" />

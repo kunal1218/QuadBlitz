@@ -592,7 +592,7 @@ export default function ClubsPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-81px)] bg-canvas text-[#1d2530]">
+    <div className="min-h-[calc(100vh-81px)] bg-white text-[#1d2530]">
       <div className="mx-auto max-w-[1180px] px-4 pb-24 pt-8 sm:px-6 lg:px-8">
         <section className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-end">
           <div className="max-w-[560px]">

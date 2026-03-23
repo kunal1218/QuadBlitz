@@ -464,7 +464,7 @@ const HeroSection = ({
           <div className="inline-flex rounded-full bg-white/18 px-[19px] py-[8px] text-[12px] font-semibold tracking-[0.27em] text-white/95">
             DAILY CHALLENGE
           </div>
-          <h1 className="mt-7 text-[46px] font-extrabold leading-[0.92] tracking-[-0.055em] sm:text-[61px]">
+          <h1 className="mt-7 text-[46px] font-extrabold leading-[0.92] tracking-[-0.035em] sm:text-[61px]">
             <span className="block">{headline.first}</span>
             {headline.second && <span className="block">{headline.second}</span>}
           </h1>

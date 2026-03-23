@@ -378,7 +378,7 @@ export const EventDetailCard = ({
                     <span>{formatTime(event.start_time)}</span>
                   </div>
 
-                  <div className="mt-5 grid gap-3 sm:grid-cols-[172px_minmax(0,1fr)]">
+                  <div className="mt-5 grid gap-4 min-[420px]:grid-cols-[176px_minmax(0,1fr)] min-[420px]:items-start min-[420px]:gap-5">
                     <button
                       type="button"
                       onClick={handleHostClick}
@@ -408,7 +408,7 @@ export const EventDetailCard = ({
                       </div>
                     </button>
 
-                    <div className="px-1 py-1">
+                    <div className="px-1 py-1 min-[420px]:pl-1">
                       <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-[#6e7786]">
                         About
                       </p>

@@ -701,7 +701,7 @@ const ProfileOverviewCard = ({
           </div>
 
           <div className="min-w-0">
-            <h1 className="truncate text-[34px] font-[800] leading-[0.96] tracking-[-0.07em] text-[#20242d] sm:text-[40px]">
+            <h1 className="truncate text-[34px] font-[800] leading-[1.06] tracking-[-0.07em] text-[#20242d] sm:text-[40px]">
               {displayName}
             </h1>
             <p className="mt-2 text-[13px] font-medium text-[#7a8394]">

@@ -794,7 +794,7 @@ export const PublicProfileView = ({ handle }: { handle: string }) => {
           </div>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="truncate text-[34px] font-[800] leading-[0.96] tracking-[-0.07em] text-[#20242d] sm:text-[40px]">
+              <h1 className="truncate text-[34px] font-[800] leading-[1.06] tracking-[-0.07em] text-[#20242d] sm:text-[40px]">
                 {user.name}
               </h1>
               {leaderboardRank && (

@@ -1,6 +1,7 @@
 import { profile } from "./mockData";
 import { db } from "../db";
 import { ensureUsersTable } from "./authService";
+import { ensureFriendTables } from "./friendService";
 import { getProfileAnswers } from "./profileAnswersService";
 import {
   LayoutMode,
@@ -81,14 +82,26 @@ export const fetchPublicProfileByHandle = async (
   const row = result.rows[0] as PublicProfileUserRow;
   const requestedMode = mode ?? "default";
   const fallbackMode = requestedMode === "compact" ? "default" : "compact";
+  await ensureFriendTables();
 
-  const [answers, primaryLayout, fallbackLayout] = await Promise.all([
+  const [answers, primaryLayout, fallbackLayout, friendsCountResult] = await Promise.all([
     getProfileAnswers(row.id),
     fetchProfileLayout({ userId: row.id, mode: requestedMode }),
     fetchProfileLayout({ userId: row.id, mode: fallbackMode }),
+    db.query(
+      `SELECT COUNT(*)::text AS count
+       FROM friend_requests
+       WHERE status = 'accepted'
+         AND (requester_id = $1 OR recipient_id = $1)`,
+      [row.id]
+    ),
   ]);
 
   const layout = primaryLayout ?? fallbackLayout;
+  const friendsCount = Number.parseInt(
+    (friendsCountResult.rows[0] as { count?: string } | undefined)?.count ?? "0",
+    10
+  );
 
   const ban = options?.includeBanInfo ? getBanInfo(row) : undefined;
 
@@ -103,6 +116,9 @@ export const fetchPublicProfileByHandle = async (
     },
     answers,
     layout,
+    stats: {
+      friendsCount: Number.isFinite(friendsCount) ? friendsCount : 0,
+    },
     ban,
   };
 };

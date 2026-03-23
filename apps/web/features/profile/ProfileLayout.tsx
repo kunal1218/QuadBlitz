@@ -774,9 +774,10 @@ const ProfileOverviewCard = ({
               type="button"
               data-drag-ignore
               onClick={onEditToggle}
-              className="inline-flex h-11 items-center justify-center rounded-full bg-[#1456f4] px-5 text-[12px] font-semibold text-white shadow-[0_14px_28px_rgba(20,86,244,0.22)] transition hover:bg-[#0f49e2]"
+              aria-label="Edit profile"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[#1456f4] text-white shadow-[0_14px_28px_rgba(20,86,244,0.22)] transition hover:bg-[#0f49e2]"
             >
-              Edit Profile
+              <PencilIcon className="h-[18px] w-[18px]" />
             </button>
           )}
           <button

@@ -437,10 +437,7 @@ export default function MyListingsPage() {
       <div className={`${outfit.className} min-h-screen bg-[#f6f8fc] text-[#181d25]`}>
         <main className="mx-auto max-w-[980px] px-5 pb-16 pt-7 sm:px-6 lg:px-8">
           <section className="rounded-[34px] border border-[#edf1f6] bg-white px-8 py-12 text-center shadow-[0_24px_54px_rgba(20,29,47,0.06)]">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1456f4]">
-              Marketplace Dashboard
-            </p>
-            <h1 className="mt-4 text-[52px] font-[800] leading-[0.92] tracking-[-0.08em] text-[#252933]">
+            <h1 className="text-[52px] font-[800] leading-[0.92] tracking-[-0.08em] text-[#252933]">
               My Listings
             </h1>
             <p className="mx-auto mt-4 max-w-[480px] text-[15px] leading-[1.8] text-[#7d8695]">
@@ -465,10 +462,7 @@ export default function MyListingsPage() {
         <section>
           <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1456f4]">
-                Marketplace Dashboard
-              </p>
-              <h1 className="mt-3 text-[52px] font-[800] leading-[0.92] tracking-[-0.08em] text-[#252933]">
+              <h1 className="text-[52px] font-[800] leading-[0.92] tracking-[-0.08em] text-[#252933]">
                 My Listings
               </h1>
             </div>

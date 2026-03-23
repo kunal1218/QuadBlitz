@@ -686,10 +686,7 @@ export default function ChallengesPage() {
       <div className="mx-auto grid max-w-[1140px] gap-12 px-5 pb-16 pt-10 lg:grid-cols-[1fr_346px] lg:px-0">
         <section>
           <div>
-            <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-[#1456f4]">
-              Campus Missions
-            </p>
-            <h1 className="mt-5 text-[64px] font-[700] leading-[0.91] tracking-[-0.068em] text-[#20242d]">
+            <h1 className="text-[64px] font-[700] leading-[0.91] tracking-[-0.068em] text-[#20242d]">
               Challenge Hub
             </h1>
           </div>

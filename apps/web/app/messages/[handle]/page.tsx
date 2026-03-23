@@ -201,7 +201,7 @@ export default function MessagePage({ params }: MessagePageProps) {
               <div className="flex items-center gap-3">
                 <Link
                   href={getProfileHref(threadUser, user?.id)}
-                  className="rounded-full transition hover:-translate-y-0.5 hover:shadow-sm"
+                  className="block shrink-0 rounded-full transition hover:opacity-90"
                 >
                   <Avatar
                     name={threadUser.name}

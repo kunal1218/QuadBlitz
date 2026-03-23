@@ -26,7 +26,7 @@ export const UniChat = () => {
             <Link
               href={getProfileHref(message.author)}
               aria-label={`View ${message.author.handle} profile`}
-              className="rounded-full transition hover:-translate-y-0.5 hover:shadow-sm"
+              className="block shrink-0 rounded-full transition hover:opacity-90"
             >
               <Avatar
                 name={message.author.name}

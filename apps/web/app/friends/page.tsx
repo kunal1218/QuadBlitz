@@ -1181,7 +1181,7 @@ function FriendsPageContent() {
                         aria-label={`View ${
                           isMine ? user?.handle ?? "your" : message.sender.handle
                         } profile`}
-                        className="mt-1 shrink-0 rounded-full transition hover:-translate-y-0.5 hover:shadow-sm"
+                        className="mt-1 block shrink-0 rounded-full transition hover:opacity-90"
                       >
                         <Avatar
                           name={isMine ? user?.name ?? "You" : message.sender.name}

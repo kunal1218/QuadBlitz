@@ -9,12 +9,14 @@ import { useAuth } from "@/features/auth";
 import { apiDelete, apiGet, apiPost } from "@/lib/api";
 import { deriveCollegeFromDomain } from "@/lib/college";
 import { formatHeaderPoints } from "@/lib/points";
+import { getProfileHref } from "@/lib/profile";
 import { formatRelativeTime } from "@/lib/time";
 
 type NotificationActor = {
   id: string;
   name: string;
   handle: string;
+  avatarUrl?: string | null;
 };
 
 type NotificationItem = {
@@ -665,6 +667,7 @@ export default function NotificationsPage() {
 
   const profileName = user?.name ?? "Profile";
   const profilePoints = formatHeaderPoints(user?.coins ?? 0);
+  const viewerId = user?.id ?? null;
 
   return (
     <div className={`${outfit.className} min-h-screen bg-white text-[#181d25]`}>
@@ -823,13 +826,19 @@ export default function NotificationsPage() {
                       >
                         <div className="grid gap-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-start">
                           <div className="relative">
-                            <Avatar
-                              name={requestUser.name}
-                              avatarUrl={requestUser.avatarUrl}
-                              size={44}
-                              className="border border-[#e7edf5] bg-white text-[#202531]"
-                            />
-                            <span className="absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#7b61ff] text-white shadow-[0_6px_14px_rgba(123,97,255,0.3)]">
+                            <Link
+                              href={getProfileHref(requestUser, viewerId)}
+                              className="block shrink-0 rounded-full transition hover:opacity-90"
+                              aria-label={`View ${requestUser.name}'s profile`}
+                            >
+                              <Avatar
+                                name={requestUser.name}
+                                avatarUrl={requestUser.avatarUrl}
+                                size={44}
+                                className="border border-[#e7edf5] bg-white text-[#202531]"
+                              />
+                            </Link>
+                            <span className="pointer-events-none absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#7b61ff] text-white shadow-[0_6px_14px_rgba(123,97,255,0.3)]">
                               <FriendBadgeIcon />
                             </span>
                           </div>
@@ -961,18 +970,25 @@ export default function NotificationsPage() {
                       <div className="grid gap-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-start">
                         <div className="relative">
                           {notification.actor ? (
-                            <Avatar
-                              name={notification.actor.name}
-                              size={44}
-                              className="border border-[#e7edf5] bg-white text-[#202531]"
-                            />
+                            <Link
+                              href={getProfileHref(notification.actor, viewerId)}
+                              className="block shrink-0 rounded-full transition hover:opacity-90"
+                              aria-label={`View ${notification.actor.name}'s profile`}
+                            >
+                              <Avatar
+                                name={notification.actor.name}
+                                avatarUrl={notification.actor.avatarUrl}
+                                size={44}
+                                className="border border-[#e7edf5] bg-white text-[#202531]"
+                              />
+                            </Link>
                           ) : (
                             <div className="flex h-[44px] w-[44px] items-center justify-center rounded-full border border-[#e7edf5] bg-white text-[#202531]">
                               <BellBadgeIcon />
                             </div>
                           )}
                           <span
-                            className={`absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center rounded-full text-white shadow-[0_6px_14px_rgba(25,36,60,0.18)] ${accentColor}`}
+                            className={`pointer-events-none absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center rounded-full text-white shadow-[0_6px_14px_rgba(25,36,60,0.18)] ${accentColor}`}
                           >
                             {badgeIcon}
                           </span>

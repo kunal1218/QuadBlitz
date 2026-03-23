@@ -2,15 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { Outfit } from "next/font/google";
 import { useParams, usePathname } from "next/navigation";
 import { Avatar } from "@/components/Avatar";
-import { Button } from "@/components/Button";
-import { Card } from "@/components/Card";
 import { useAuth } from "@/features/auth";
+import { MarketplaceHeader } from "@/features/marketplace/MarketplaceHeader";
 import { apiDelete, apiGet, apiPost } from "@/lib/api";
 import { deriveCollegeFromDomain } from "@/lib/college";
-import { ProfileQuestionCard } from "./ProfileQuestionCard";
-import { ProfileCrewCard, ProfileCurrentlyCard } from "./ProfileSidePanel";
 
 type MadlibAnswers = {
   when: string;
@@ -157,6 +155,112 @@ const buildMadlibAnswer = (answers: ProfileAnswers | null) => {
   return `Whenever I'm ${when}, my ${focus} stop and ${action}.`;
 };
 
+const outfit = Outfit({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+});
+
+const shellCardClasses =
+  "rounded-[30px] border border-[#e7edf6] bg-white/94 shadow-[0_24px_60px_rgba(24,35,61,0.08)]";
+
+const primaryButtonClasses =
+  "inline-flex h-11 items-center justify-center rounded-full bg-[#1456f4] px-5 text-[12px] font-semibold text-white shadow-[0_14px_28px_rgba(20,86,244,0.22)] transition hover:bg-[#0f49e2] disabled:cursor-not-allowed disabled:opacity-60";
+
+const secondaryButtonClasses =
+  "inline-flex h-11 items-center justify-center rounded-full border border-[#e4e9f2] bg-white px-5 text-[12px] font-semibold text-[#596274] transition hover:border-[#d6dce8] hover:text-[#20242d] disabled:cursor-not-allowed disabled:opacity-60";
+
+const disabledButtonClasses =
+  "inline-flex h-11 items-center justify-center rounded-full border border-[#e4e9f2] bg-[#f7f9fc] px-5 text-[12px] font-semibold text-[#8a93a3]";
+
+const PublicPromptCard = ({
+  eyebrow,
+  eyebrowClasses,
+  title,
+  answer,
+}: {
+  eyebrow: string;
+  eyebrowClasses: string;
+  title: string;
+  answer?: string;
+}) => {
+  const trimmedAnswer = answer?.trim();
+
+  return (
+    <article className={`${shellCardClasses} flex min-h-[250px] flex-col p-5`}>
+      <span
+        className={`inline-flex h-8 items-center self-start rounded-full px-3 text-[10px] font-semibold uppercase tracking-[0.16em] ${eyebrowClasses}`}
+      >
+        {eyebrow}
+      </span>
+      <h3 className="mt-5 max-w-[260px] text-[22px] font-[800] leading-[1.12] tracking-[-0.06em] text-[#20242d]">
+        {title}
+      </h3>
+      <div className="mt-4 flex-1">
+        <p
+          className={`text-[14px] leading-[1.75] ${
+            trimmedAnswer ? "text-[#616c7e]" : "text-[#96a0b0]"
+          }`}
+        >
+          {trimmedAnswer || "No answer shared yet."}
+        </p>
+      </div>
+    </article>
+  );
+};
+
+const PublicCurrentlyCard = () => (
+  <section className={`${shellCardClasses} p-5`}>
+    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#1456f4]">
+      Currently
+    </p>
+    <p className="mt-3 text-[18px] font-[700] tracking-[-0.04em] text-[#20242d]">
+      Heads down on a campus tools sprint.
+    </p>
+    <p className="mt-2 text-[14px] leading-[1.7] text-[#616c7e]">
+      Open to spontaneous build sessions, campus walks, and ambitious side quests.
+    </p>
+    <div className="mt-5 flex flex-wrap gap-2">
+      {["Co-founder chats", "Hackathons", "Coffee walks"].map((item) => (
+        <span
+          key={item}
+          className="rounded-full bg-[#edf8f6] px-3 py-1 text-[11px] font-semibold tracking-[-0.01em] text-[#1c9d95]"
+        >
+          {item}
+        </span>
+      ))}
+    </div>
+  </section>
+);
+
+const PublicCrewCard = () => (
+  <section className={`${shellCardClasses} p-5`}>
+    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#1456f4]">
+      Social Snapshot
+    </p>
+    <div className="mt-4 grid grid-cols-3 gap-3">
+      {[
+        { label: "friends", value: "24", tone: "bg-[#eef3ff] text-[#1456f4]" },
+        { label: "collabs", value: "7", tone: "bg-[#fff1ea] text-[#d16b38]" },
+        { label: "quests", value: "3", tone: "bg-[#fdebf7] text-[#cc5d9f]" },
+      ].map((item) => (
+        <div
+          key={item.label}
+          className="rounded-[22px] border border-[#edf1f6] bg-[#f8fafd] px-3 py-4 text-center"
+        >
+          <span
+            className={`mx-auto inline-flex h-8 min-w-[32px] items-center justify-center rounded-full px-2 text-[14px] font-[800] tracking-[-0.04em] ${item.tone}`}
+          >
+            {item.value}
+          </span>
+          <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#667183]">
+            {item.label}
+          </p>
+        </div>
+      ))}
+    </div>
+  </section>
+);
+
 export const PublicProfileView = ({ handle }: { handle: string }) => {
   const { user: viewer, token, isAuthenticated, openAuthModal, refreshUser } = useAuth();
   const [profile, setProfile] = useState<PublicProfilePayload | null>(null);
@@ -282,12 +386,12 @@ export const PublicProfileView = ({ handle }: { handle: string }) => {
   const [blockHeights, setBlockHeights] = useState<Record<string, number>>({});
 
   const gridStep = useMemo(() => gridUnit + gridGap, [gridUnit, gridGap]);
-  const isCompact = useMemo(() => {
+  const isCompact = (() => {
     if (!containerRef.current) {
       return false;
     }
     return containerRef.current.offsetWidth < 768;
-  }, [gridUnit]);
+  })();
   const layoutMode: LayoutMode = isCompact ? "compact" : "default";
   const defaultPositions = useMemo(
     () => buildDefaultPositions(layoutMode),
@@ -375,7 +479,7 @@ export const PublicProfileView = ({ handle }: { handle: string }) => {
 
   useEffect(() => {
     setBanStatus(profile?.ban ?? null);
-  }, [profile?.ban?.isActive, profile?.ban?.isIndefinite, profile?.ban?.until]);
+  }, [profile?.ban]);
 
   useEffect(() => {
     if (!token || !profile?.user?.handle) {
@@ -419,7 +523,7 @@ export const PublicProfileView = ({ handle }: { handle: string }) => {
     return () => {
       isActive = false;
     };
-  }, [profile?.user?.handle, token, viewer?.handle]);
+  }, [profile?.user?.handle, profile?.user?.id, token, viewer?.id]);
 
   useEffect(() => {
     const layout = profile?.layout;
@@ -468,20 +572,26 @@ export const PublicProfileView = ({ handle }: { handle: string }) => {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-5xl px-4 pb-16 pt-2">
-        <Card className="py-10 text-center text-sm text-muted">
-          Loading profile...
-        </Card>
+      <div className={`${outfit.className} min-h-screen bg-white text-[#181d25]`}>
+        <MarketplaceHeader activeHref={null} />
+        <div className="mx-auto max-w-[1180px] px-4 pb-16 pt-6">
+          <div className={`${shellCardClasses} px-8 py-12 text-center text-[15px] text-[#667183]`}>
+            Loading profile...
+          </div>
+        </div>
       </div>
     );
   }
 
   if (error || !profile) {
     return (
-      <div className="mx-auto max-w-5xl px-4 pb-16 pt-2">
-        <Card className="border border-accent/30 bg-accent/10 py-6 text-center text-sm font-semibold text-accent">
-          {error ?? "Profile not found."}
-        </Card>
+      <div className={`${outfit.className} min-h-screen bg-white text-[#181d25]`}>
+        <MarketplaceHeader activeHref={null} />
+        <div className="mx-auto max-w-[1180px] px-4 pb-16 pt-6">
+          <div className="rounded-[30px] border border-[#f3d7d7] bg-[#fff8f8] px-8 py-10 text-center text-[15px] font-semibold text-[#b14444] shadow-[0_18px_40px_rgba(20,29,47,0.05)]">
+            {error ?? "Profile not found."}
+          </div>
+        </div>
       </div>
     );
   }
@@ -670,47 +780,52 @@ export const PublicProfileView = ({ handle }: { handle: string }) => {
   };
 
   const renderHeader = () => (
-    <Card className="relative overflow-hidden">
-      <div className="absolute -right-16 -top-12 h-32 w-32 rounded-full bg-accent/20 blur-2xl" />
-      <div className="absolute -bottom-10 left-16 h-24 w-24 rounded-full bg-accent-2/20 blur-2xl" />
-      <div className="relative flex flex-wrap items-center gap-4">
-        <Avatar
-          name={user.name}
-          avatarUrl={user.avatarUrl}
-          size={72}
-          className="text-2xl"
-        />
-        <div className="flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="font-display text-2xl font-semibold text-ink">
-              {user.name}
-            </p>
-            {leaderboardRank && (
-              <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
-                Leaderboard #{leaderboardRank}
-              </span>
-            )}
+    <section className={`${shellCardClasses} px-5 py-5 sm:px-6 sm:py-6`}>
+      <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+        <div className="flex min-w-0 items-start gap-4 sm:gap-5">
+          <div className="relative shrink-0">
+            <Avatar
+              name={user.name}
+              avatarUrl={user.avatarUrl}
+              size={86}
+              className="border-[3px] border-white text-[32px] text-[#202531] shadow-[0_16px_34px_rgba(24,35,61,0.14)]"
+            />
+            <span className="absolute bottom-[6px] right-[6px] flex h-4 w-4 items-center justify-center rounded-full border-[3px] border-white bg-[#1456f4]" />
           </div>
-          <p className="text-sm text-muted">
-            {user.handle}
-            {collegeLabel && (
-              <span className="text-muted">
-                <span className="px-2" aria-hidden="true">
-                  ·
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="truncate text-[34px] font-[800] leading-[0.96] tracking-[-0.07em] text-[#20242d] sm:text-[40px]">
+                {user.name}
+              </h1>
+              {leaderboardRank && (
+                <span className="rounded-full bg-[#fff3df] px-3 py-1 text-[11px] font-semibold text-[#c6721a]">
+                  Leaderboard #{leaderboardRank}
                 </span>
-                {collegeLabel}
-              </span>
-            )}
-          </p>
+              )}
+            </div>
+            <p className="mt-2 text-[13px] font-medium text-[#7a8394]">
+              {user.handle}
+              {collegeLabel && (
+                <>
+                  <span className="px-1.5 text-[#bcc4d1]">•</span>
+                  {collegeLabel}
+                </>
+              )}
+            </p>
+            <p className="mt-3 max-w-[560px] text-[15px] leading-[1.7] text-[#616c7e]">
+              Public profile card for campus connections, shared prompts, and mutual context.
+            </p>
+          </div>
         </div>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
+
+        <div className="flex flex-wrap items-center gap-3 self-start">
           {showAdminTools && (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#667183]">
                 Grant coins
               </span>
               <select
-                className="rounded-full border border-card-border/70 bg-white/90 px-3 py-1 text-xs font-semibold text-ink/70 shadow-sm transition hover:border-accent/40 focus:outline-none focus:ring-2 focus:ring-accent/30"
+                className="rounded-full border border-[#e4e9f2] bg-white px-3 py-2 text-[12px] font-semibold text-[#596274] shadow-[0_10px_24px_rgba(24,35,61,0.06)] transition hover:border-[#d6dce8] focus:outline-none focus:ring-2 focus:ring-[#1456f4]/20"
                 value={coinGrantAmount}
                 onChange={(event) => setCoinGrantAmount(Number(event.target.value))}
                 disabled={isGrantingCoins}
@@ -720,21 +835,21 @@ export const PublicProfileView = ({ handle }: { handle: string }) => {
                 <option value={10000}>+10,000</option>
                 <option value={100000}>+100,000</option>
               </select>
-              <Button
-                variant="outline"
-                requiresAuth={true}
+              <button
+                type="button"
                 onClick={handleGrantCoins}
                 disabled={isGrantingCoins}
+                className={secondaryButtonClasses}
               >
                 Grant
-              </Button>
+              </button>
             </div>
           )}
           {!isSelf && showBanControls && (
             <div className="flex flex-wrap items-center gap-2">
               {!banStatus?.isActive && (
                 <select
-                  className="rounded-full border border-card-border/70 bg-white/90 px-3 py-1 text-xs font-semibold text-ink/70 shadow-sm transition hover:border-accent/40 focus:outline-none focus:ring-2 focus:ring-accent/30"
+                  className="rounded-full border border-[#e4e9f2] bg-white px-3 py-2 text-[12px] font-semibold text-[#596274] shadow-[0_10px_24px_rgba(24,35,61,0.06)] transition hover:border-[#d6dce8] focus:outline-none focus:ring-2 focus:ring-[#1456f4]/20"
                   value={banDuration}
                   onChange={(event) =>
                     setBanDuration(event.target.value as BanDuration)
@@ -747,16 +862,16 @@ export const PublicProfileView = ({ handle }: { handle: string }) => {
                   <option value="forever">Ban forever</option>
                 </select>
               )}
-              <Button
-                variant={banStatus?.isActive ? "outline" : "primary"}
-                requiresAuth={true}
+              <button
+                type="button"
                 onClick={handleBanToggle}
                 disabled={isBanLoading}
+                className={banStatus?.isActive ? secondaryButtonClasses : primaryButtonClasses}
               >
                 {banStatus?.isActive ? "Unban" : "Ban"}
-              </Button>
+              </button>
               {formattedBanUntil && (
-                <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-600">
+                <span className="rounded-full bg-[#fff0f0] px-3 py-2 text-[11px] font-semibold text-[#cf4b49]">
                   {formattedBanUntil}
                 </span>
               )}
@@ -764,107 +879,109 @@ export const PublicProfileView = ({ handle }: { handle: string }) => {
           )}
           {!isSelf &&
             (relationship === "blocked" ? (
-              <Button
-                variant="outline"
-                requiresAuth={true}
+              <button
+                type="button"
                 onClick={handleUnblock}
                 disabled={isRelationshipLoading}
+                className={secondaryButtonClasses}
               >
                 Unblock
-              </Button>
+              </button>
             ) : relationship === "blocked_by" ? (
-              <Button variant="outline" requiresAuth={false} disabled={true}>
+              <span className={disabledButtonClasses}>
                 Blocked
-              </Button>
+              </span>
             ) : relationship === "friends" ? (
               <>
-                <Button
-                  variant="outline"
-                  requiresAuth={true}
+                <button
+                  type="button"
                   onClick={handleRemoveFriend}
                   disabled={isRelationshipLoading}
+                  className={secondaryButtonClasses}
                 >
                   Remove friend
-                </Button>
-                <Button
-                  variant="outline"
-                  requiresAuth={true}
+                </button>
+                <button
+                  type="button"
                   onClick={handleBlock}
                   disabled={isRelationshipLoading}
+                  className={secondaryButtonClasses}
                 >
                   Block
-                </Button>
+                </button>
               </>
             ) : relationship === "incoming" ? (
               <>
-                <Button
-                  requiresAuth={true}
+                <button
+                  type="button"
                   onClick={handleAccept}
                   disabled={isRelationshipLoading}
+                  className={primaryButtonClasses}
                 >
                   Accept
-                </Button>
-                <Button
-                  variant="outline"
-                  requiresAuth={true}
+                </button>
+                <button
+                  type="button"
                   onClick={handleDecline}
                   disabled={isRelationshipLoading}
+                  className={secondaryButtonClasses}
                 >
                   Decline
-                </Button>
+                </button>
               </>
             ) : relationship === "outgoing" ? (
               <>
-                <Button variant="outline" requiresAuth={false} disabled={true}>
+                <span className={disabledButtonClasses}>
                   Pending
-                </Button>
-                <Button
-                  variant="outline"
-                  requiresAuth={true}
+                </span>
+                <button
+                  type="button"
                   onClick={handleDecline}
                   disabled={isRelationshipLoading}
+                  className={secondaryButtonClasses}
                 >
                   Cancel
-                </Button>
+                </button>
               </>
             ) : (
               <>
-                <Button
-                  requiresAuth={true}
+                <button
+                  type="button"
                   onClick={handleConnect}
                   disabled={isRelationshipLoading}
+                  className={primaryButtonClasses}
                 >
                   Connect
-                </Button>
-                <Button
-                  variant="outline"
-                  requiresAuth={true}
+                </button>
+                <button
+                  type="button"
                   onClick={handleBlock}
                   disabled={isRelationshipLoading}
+                  className={secondaryButtonClasses}
                 >
                   Block
-                </Button>
+                </button>
               </>
             ))}
         </div>
       </div>
       {relationshipError && (
-        <p className="mt-3 text-xs font-semibold text-accent">
+        <p className="mt-4 text-[12px] font-semibold text-[#d14f4f]">
           {relationshipError}
         </p>
       )}
       {banError && (
-        <p className="mt-2 text-xs font-semibold text-rose-600">{banError}</p>
+        <p className="mt-2 text-[12px] font-semibold text-[#d14f4f]">{banError}</p>
       )}
       {coinGrantError && (
-        <p className="mt-2 text-xs font-semibold text-rose-600">{coinGrantError}</p>
+        <p className="mt-2 text-[12px] font-semibold text-[#d14f4f]">{coinGrantError}</p>
       )}
       {coinGrantSuccess && (
-        <p className="mt-2 text-xs font-semibold text-emerald-600">
+        <p className="mt-2 text-[12px] font-semibold text-[#23835b]">
           {coinGrantSuccess}
         </p>
       )}
-    </Card>
+    </section>
   );
 
   const renderBlock = (blockId: string) => {
@@ -873,82 +990,91 @@ export const PublicProfileView = ({ handle }: { handle: string }) => {
         return renderHeader();
       case "question-career":
         return (
-          <ProfileQuestionCard
+          <PublicPromptCard
+            eyebrow="Career Prompt"
+            eyebrowClasses="bg-[#edf3ff] text-[#1456f4]"
             title="If you're guaranteed success, what career would you choose?"
             answer={answers?.career}
           />
         );
       case "question-madlib":
         return (
-          <ProfileQuestionCard
+          <PublicPromptCard
+            eyebrow="Madlib Prompt"
+            eyebrowClasses="bg-[#fff1ea] text-[#d16b38]"
             title="Whenever I'm ____, my ____ stop and ____."
             answer={madlibAnswer}
           />
         );
       case "question-memory":
         return (
-          <ProfileQuestionCard
+          <PublicPromptCard
+            eyebrow="Memory Prompt"
+            eyebrowClasses="bg-[#fdebf7] text-[#cc5d9f]"
             title="What's your favorite memory?"
             answer={answers?.memory}
           />
         );
       case "currently":
-        return <ProfileCurrentlyCard />;
+        return <PublicCurrentlyCard />;
       case "crew":
-        return <ProfileCrewCard />;
+        return <PublicCrewCard />;
       default:
         return null;
     }
   };
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-16 pt-2">
-      <div
-        ref={containerRef}
-        className="relative pointer-events-none"
-        style={{ height: canvasHeight }}
-      >
-        {BLOCK_TEMPLATES.map((block) => {
-          const pos = positions[block.id] ?? { x: 0, y: 0 };
-          const width = getBlockWidth(block);
-          const height = blockHeights[block.id] ?? "auto";
-          const style = {
-            left: pos.x * gridStep,
-            top: pos.y * gridStep,
-            width,
-            height,
-          } as const;
+    <div className={`${outfit.className} min-h-screen bg-white text-[#181d25]`}>
+      <MarketplaceHeader activeHref={null} />
+      <div className="relative z-0 mx-auto max-w-[1180px] px-4 pb-16 pt-6">
+        <div
+          ref={containerRef}
+          className="relative z-0 pointer-events-none"
+          style={{ height: canvasHeight }}
+        >
+          {BLOCK_TEMPLATES.map((block) => {
+            const pos = positions[block.id] ?? { x: 0, y: 0 };
+            const width = getBlockWidth(block);
+            const height = blockHeights[block.id] ?? "auto";
+            const style = {
+              left: pos.x * gridStep,
+              top: pos.y * gridStep,
+              width,
+              height,
+            } as const;
 
-          return (
-            <div
-              key={block.id}
-              className="absolute pointer-events-auto"
-              style={style}
-            >
-              <BlockSizer
-                blockId={block.id}
-                onResize={(nextHeight) =>
-                  setBlockHeights((prev) => {
-                    const currentHeight = prev[block.id];
-                    if (
-                      typeof currentHeight === "number" &&
-                      Math.abs(currentHeight - nextHeight) < 0.5
-                    ) {
-                      return prev;
-                    }
-
-                    return {
-                      ...prev,
-                      [block.id]: nextHeight,
-                    };
-                  })
-                }
+            return (
+              <div
+                key={block.id}
+                className="absolute pointer-events-auto"
+                style={style}
               >
-                {renderBlock(block.id)}
-              </BlockSizer>
-            </div>
-          );
-        })}
+                <BlockSizer
+                  blockId={block.id}
+                  onResize={(nextHeight) =>
+                    setBlockHeights((prev) => {
+                      const currentHeight = prev[block.id];
+                      if (
+                        typeof currentHeight === "number" &&
+                        Math.abs(currentHeight - nextHeight) < 0.5
+                      ) {
+                        return prev;
+                      }
+
+                      return {
+                        ...prev,
+                        [block.id]: nextHeight,
+                      };
+                    })
+                  }
+                >
+                  {renderBlock(block.id)}
+                </BlockSizer>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

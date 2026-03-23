@@ -288,6 +288,7 @@ export const MapCanvas = ({
   const isDiscovery = variant === "discovery";
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
+  const hasAutoCenteredRef = useRef(false);
   const [friends, setFriends] = useState<FriendLocation[]>([]);
   const [events, setEvents] = useState<EventWithDetails[]>([]);
   const [settings, setSettings] = useState<MapSettings>({
@@ -1518,6 +1519,19 @@ export const MapCanvas = ({
       }
     );
   }, []);
+
+  useEffect(() => {
+    hasAutoCenteredRef.current = false;
+  }, [mapInstanceKey]);
+
+  useEffect(() => {
+    if (!isMapReady || !mapRef.current || hasAutoCenteredRef.current) {
+      return;
+    }
+
+    hasAutoCenteredRef.current = true;
+    handleHomeClick();
+  }, [handleHomeClick, isMapReady, mapInstanceKey]);
 
   const zoomIn = useCallback(() => {
     if (!mapRef.current) {

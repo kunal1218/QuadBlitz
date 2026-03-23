@@ -129,7 +129,7 @@ export const SiteHeader = () => {
     pathname === "/map" ||
     pathname === "/notifications" ||
     pathname.startsWith("/marketplace") ||
-    pathname === "/profile"
+    pathname.startsWith("/profile")
   ) {
     return null;
   }

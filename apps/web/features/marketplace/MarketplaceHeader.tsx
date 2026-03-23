@@ -132,16 +132,19 @@ const headerNavItems: Array<{
   href: string;
   label: string;
   icon: HeaderIconComponent;
-  active?: boolean;
 }> = [
   { href: "/", label: "HOME", icon: HomeNavIcon },
   { href: "/challenges", label: "CHALLENGES", icon: ChallengeNavIcon },
   { href: "/friends", label: "CHAT", icon: ChatNavIcon },
   { href: "/map", label: "MAPS", icon: MapsNavIcon },
-  { href: "/marketplace", label: "MARKET", icon: MarketNavIcon, active: true },
+  { href: "/marketplace", label: "MARKET", icon: MarketNavIcon },
 ];
 
-export const MarketplaceHeader = () => {
+export const MarketplaceHeader = ({
+  activeHref = "/marketplace",
+}: {
+  activeHref?: string | null;
+} = {}) => {
   const { token, user, isAuthenticated, openAuthModal } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
   const profileName = user?.name ?? "Profile";
@@ -188,22 +191,26 @@ export const MarketplaceHeader = () => {
             <HeaderWordmark />
           </Link>
           <nav className="hidden items-center gap-[44px] lg:flex">
-            {headerNavItems.map(({ href, icon: Icon, label, active }) => (
-              <Link
-                key={label}
-                href={href}
-                className={`inline-flex items-center gap-[9px] text-[14px] font-semibold tracking-[-0.01em] transition ${
-                  active
-                    ? "text-[#1456f4] [text-shadow:0_0_0.01px_rgba(20,86,244,0.35)]"
-                    : "text-[#4b5059] hover:text-[#1456f4]"
-                }`}
-              >
-                <Icon
-                  className={`h-[16px] w-[16px] ${active ? "text-[#1456f4]" : "text-[#4f5560]"}`}
-                />
-                <span>{label}</span>
-              </Link>
-            ))}
+            {headerNavItems.map(({ href, icon: Icon, label }) => {
+              const isActive = Boolean(activeHref) && href === activeHref;
+
+              return (
+                <Link
+                  key={label}
+                  href={href}
+                  className={`inline-flex items-center gap-[9px] text-[14px] font-semibold tracking-[-0.01em] transition ${
+                    isActive
+                      ? "text-[#1456f4] [text-shadow:0_0_0.01px_rgba(20,86,244,0.35)]"
+                      : "text-[#4b5059] hover:text-[#1456f4]"
+                  }`}
+                >
+                  <Icon
+                    className={`h-[16px] w-[16px] ${isActive ? "text-[#1456f4]" : "text-[#4f5560]"}`}
+                  />
+                  <span>{label}</span>
+                </Link>
+              );
+            })}
           </nav>
         </div>
 

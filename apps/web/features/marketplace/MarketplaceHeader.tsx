@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { JSX, SVGProps } from "react";
 import Link from "next/link";
+import { Outfit } from "next/font/google";
 import { Avatar } from "@/components/Avatar";
 import { useAuth } from "@/features/auth";
 import { apiGet } from "@/lib/api";
@@ -13,6 +14,11 @@ type HeaderIconComponent = (props: SVGProps<SVGSVGElement>) => JSX.Element;
 type NotificationCountResponse = {
   count: number;
 };
+
+const outfit = Outfit({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+});
 
 const HomeNavIcon = (props: SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" {...props}>
@@ -184,7 +190,7 @@ export const MarketplaceHeader = ({
   }, [token]);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-[#e7edf6] bg-white">
+    <header className={`${outfit.className} sticky top-0 z-30 border-b border-[#e7edf6] bg-white`}>
       <div className="flex w-full items-center justify-between gap-6 px-[28px] py-[15px] xl:px-[30px]">
         <div className="flex items-center gap-[54px]">
           <Link href="/" className="inline-flex items-center leading-none">

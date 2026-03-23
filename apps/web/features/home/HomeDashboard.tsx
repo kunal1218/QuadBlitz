@@ -447,18 +447,6 @@ const ChallengeProofModal = ({
   );
 };
 
-const HeroFigure = () => (
-  <div className="pointer-events-none absolute inset-y-0 left-1/2 hidden w-[320px] -translate-x-1/2 lg:block">
-    <div className="absolute left-1/2 top-3 h-[138px] w-[138px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle_at_40%_35%,rgba(255,255,255,0.38),rgba(255,255,255,0.08)_70%,transparent_72%)] opacity-80" />
-    <div className="absolute left-1/2 top-24 h-[230px] w-[160px] -translate-x-1/2 rounded-[46%] bg-[linear-gradient(180deg,rgba(255,255,255,0.2),rgba(255,255,255,0.05))] blur-[1px]" />
-    <div className="absolute left-[112px] top-[188px] h-[236px] w-[60px] rotate-[8deg] rounded-full bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.04))]" />
-    <div className="absolute right-[108px] top-[188px] h-[236px] w-[60px] -rotate-[8deg] rounded-full bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.04))]" />
-    <div className="absolute left-[128px] top-[110px] h-[360px] w-[64px] rounded-full bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.04))]" />
-    <div className="absolute right-[122px] top-[118px] h-[352px] w-[64px] rounded-full bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.04))]" />
-    <div className="absolute inset-y-0 left-1/2 w-[120px] -translate-x-1/2 bg-[radial-gradient(circle_at_center,rgba(82,144,255,0.42),transparent_70%)] blur-[36px]" />
-  </div>
-);
-
 const HeroSection = ({
   challenge,
   onSubmitProof,
@@ -471,13 +459,12 @@ const HeroSection = ({
   return (
     <section className="relative overflow-hidden rounded-[58px] bg-[linear-gradient(180deg,#2054cc_0%,#1657ef_100%)] px-6 py-8 text-white shadow-[0_28px_60px_rgba(24,82,235,0.22)] sm:px-10 sm:py-10 lg:min-h-[400px] lg:px-[40px] lg:py-[42px]">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_46%,rgba(85,156,255,0.36),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0))]" />
-      <HeroFigure />
       <div className="relative flex h-full flex-col justify-between gap-10">
         <div className="max-w-[540px] pt-1">
           <div className="inline-flex rounded-full bg-white/18 px-[19px] py-[8px] text-[12px] font-semibold tracking-[0.27em] text-white/95">
             DAILY CHALLENGE
           </div>
-          <h1 className="mt-7 text-[46px] font-extrabold leading-[0.92] tracking-[-0.085em] sm:text-[61px]">
+          <h1 className="mt-7 text-[46px] font-extrabold leading-[0.92] tracking-[-0.055em] sm:text-[61px]">
             <span className="block">{headline.first}</span>
             {headline.second && <span className="block">{headline.second}</span>}
           </h1>

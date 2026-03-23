@@ -36,6 +36,7 @@ type FriendUser = {
   id: string;
   name: string;
   handle: string;
+  avatarUrl?: string | null;
   collegeName?: string | null;
   collegeDomain?: string | null;
 };
@@ -49,6 +50,12 @@ type FriendRequest = {
 
 type FriendSummary = {
   incoming: FriendRequest[];
+  outgoing: FriendRequest[];
+};
+
+type FriendRequestFeedItem = {
+  direction: "incoming" | "outgoing";
+  request: FriendRequest;
 };
 
 type RelationshipStatus =
@@ -69,7 +76,7 @@ type FeedItem =
       kind: "friend_request";
       id: string;
       createdAt: string;
-      request: FriendRequest;
+      requestItem: FriendRequestFeedItem;
     }
   | {
       kind: "notification";
@@ -334,7 +341,7 @@ export default function NotificationsPage() {
   const [activeFilter, setActiveFilter] = useState<NotificationFilter>("all");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
+  const [friendRequests, setFriendRequests] = useState<FriendRequestFeedItem[]>([]);
   const [isLoadingRequests, setIsLoadingRequests] = useState(false);
   const [requestsError, setRequestsError] = useState<string | null>(null);
   const [relationshipByHandle, setRelationshipByHandle] = useState<
@@ -363,7 +370,16 @@ export default function NotificationsPage() {
     setRequestsError(null);
     try {
       const payload = await apiGet<FriendSummary>("/friends/summary", token);
-      setFriendRequests(payload.incoming ?? []);
+      setFriendRequests([
+        ...(payload.incoming ?? []).map((request) => ({
+          direction: "incoming" as const,
+          request,
+        })),
+        ...(payload.outgoing ?? []).map((request) => ({
+          direction: "outgoing" as const,
+          request,
+        })),
+      ]);
     } catch (loadError) {
       setRequestsError(
         loadError instanceof Error
@@ -390,6 +406,23 @@ export default function NotificationsPage() {
       return;
     }
     await apiDelete(`/friends/requests/with/${encodeURIComponent(handle)}`, token);
+    setRelationshipByHandle((prev) => ({
+      ...prev,
+      [handle.replace(/^@/, "")]: "none",
+    }));
+    await refreshFriendRequests();
+  };
+
+  const handleCancelRequest = async (handle: string) => {
+    if (!token) {
+      openAuthModal();
+      return;
+    }
+    await apiDelete(`/friends/requests/with/${encodeURIComponent(handle)}`, token);
+    setRelationshipByHandle((prev) => ({
+      ...prev,
+      [handle.replace(/^@/, "")]: "none",
+    }));
     await refreshFriendRequests();
   };
 
@@ -562,11 +595,11 @@ export default function NotificationsPage() {
   ) as string[];
 
   const feedItems = useMemo<FeedItem[]>(() => {
-    const requestItems: FeedItem[] = friendRequests.map((request) => ({
+    const requestItems: FeedItem[] = friendRequests.map((requestItem) => ({
       kind: "friend_request",
-      id: `friend-request:${request.id}`,
-      createdAt: request.createdAt,
-      request,
+      id: `friend-request:${requestItem.direction}:${requestItem.request.id}`,
+      createdAt: requestItem.request.createdAt,
+      requestItem,
     }));
 
     const notificationItems: FeedItem[] = notifications.map((notification) => ({
@@ -779,8 +812,10 @@ export default function NotificationsPage() {
               <div className="mt-6 space-y-4">
                 {filteredFeedItems.map((item) => {
                   if (item.kind === "friend_request") {
-                    const requester = item.request.requester;
-                    const collegeLabel = getCollegeLabel(requester);
+                    const { direction, request } = item.requestItem;
+                    const requestUser =
+                      direction === "incoming" ? request.requester : request.recipient;
+                    const collegeLabel = getCollegeLabel(requestUser);
                     return (
                       <div
                         key={item.id}
@@ -789,7 +824,8 @@ export default function NotificationsPage() {
                         <div className="grid gap-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-start">
                           <div className="relative">
                             <Avatar
-                              name={requester.name}
+                              name={requestUser.name}
+                              avatarUrl={requestUser.avatarUrl}
                               size={44}
                               className="border border-[#e7edf5] bg-white text-[#202531]"
                             />
@@ -801,28 +837,40 @@ export default function NotificationsPage() {
                           <div className="min-w-0">
                             <p className="text-[15px] leading-[1.45] text-[#4b5463]">
                               <span className="font-[700] tracking-[-0.04em] text-[#262b35]">
-                                {requester.name}
+                                {requestUser.name}
                               </span>{" "}
-                              sent you a friend request
+                              {direction === "incoming"
+                                ? "sent you a friend request"
+                                : "hasn’t responded to your friend request yet"}
                             </p>
                             <p className="mt-1 text-[12px] text-[#8891a1]">
                               {collegeLabel ? `${collegeLabel} · ` : ""}
                               {formatRelativeTime(item.createdAt)}
                             </p>
                             <div className="mt-4 flex flex-wrap gap-2">
+                              {direction === "incoming" ? (
+                                <button
+                                  type="button"
+                                  className={primaryActionClasses}
+                                  onClick={() => handleAcceptRequest(requestUser.handle)}
+                                >
+                                  Accept
+                                </button>
+                              ) : null}
                               <button
                                 type="button"
-                                className={primaryActionClasses}
-                                onClick={() => handleAcceptRequest(requester.handle)}
+                                className={
+                                  direction === "incoming"
+                                    ? secondaryActionClasses
+                                    : ghostActionClasses
+                                }
+                                onClick={() =>
+                                  direction === "incoming"
+                                    ? handleDeclineRequest(requestUser.handle)
+                                    : handleCancelRequest(requestUser.handle)
+                                }
                               >
-                                Accept
-                              </button>
-                              <button
-                                type="button"
-                                className={secondaryActionClasses}
-                                onClick={() => handleDeclineRequest(requester.handle)}
-                              >
-                                Decline
+                                {direction === "incoming" ? "Decline" : "Cancel"}
                               </button>
                             </div>
                           </div>

@@ -519,15 +519,6 @@ function FriendsPageContent() {
     }
   };
 
-  const handleCancelRequest = async (handle: string) => {
-    if (!token) {
-      openAuthModal();
-      return;
-    }
-    await apiDelete(`/friends/requests/with/${encodeURIComponent(handle)}`, token);
-    refreshSummary();
-  };
-
   const performRemove = async (handle: string) => {
     if (!token) {
       openAuthModal();
@@ -984,50 +975,6 @@ function FriendsPageContent() {
                 </div>
               )}
 
-              {isAuthenticated && summary && summary.outgoing.length > 0 && (
-                <div className="rounded-[28px] border border-[#e7ecf5] bg-white px-5 py-5 shadow-[0_8px_20px_rgba(18,36,81,0.04)]">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1456f4]">
-                      Pending
-                    </p>
-                    <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-[#7d8697]">
-                      {summary.outgoing.length}
-                    </p>
-                  </div>
-                  <div className="mt-4 space-y-3">
-                    {summary.outgoing.map((request) => (
-                      <div
-                        key={request.id}
-                        className="rounded-[22px] border border-[#e7ecf5] bg-[#fbfcff] px-4 py-3"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Avatar
-                            name={request.recipient.name}
-                            avatarUrl={request.recipient.avatarUrl}
-                            size={34}
-                            className="border border-[#e5ebf5]"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-[14px] font-[700] tracking-[-0.03em] text-[#20242d]">
-                              {request.recipient.handle}
-                            </p>
-                            <p className="truncate text-[12px] text-[#6d778b]">
-                              Sent {formatRelativeTime(request.createdAt)}
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          className="mt-3 rounded-full border border-[#dce3ef] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#586173] transition hover:border-[#ced8e8] hover:text-[#20242d]"
-                          onClick={() => handleCancelRequest(request.recipient.handle)}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </aside>

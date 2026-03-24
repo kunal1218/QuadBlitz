@@ -15,6 +15,7 @@ export type Club = {
   location: string;
   isRemote: boolean;
   joinPolicy: "open" | "application";
+  isOfficial?: boolean;
   distanceKm?: number | null;
   memberCount: number;
   createdAt: string;

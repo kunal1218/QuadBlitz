@@ -6,10 +6,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { type AuthPayload, type AuthUser, getMe, login, signup } from "./src/api/actions";
 import { AuthScreen } from "./src/screens/AuthScreen";
 import { FeedTab } from "./src/screens/tabs/FeedTab";
+import { ChallengesTab } from "./src/screens/tabs/ChallengesTab";
+import { FriendsTab } from "./src/screens/tabs/FriendsTab";
 import { GroupsTab } from "./src/screens/tabs/GroupsTab";
 import { MarketplaceTab } from "./src/screens/tabs/MarketplaceTab";
 import { MapTab } from "./src/screens/tabs/MapTab";
-import { ProfileTab } from "./src/screens/tabs/ProfileTab";
 import { formatError } from "./src/lib/errors";
 import { persistAuth, readStoredAuth } from "./src/lib/storage";
 import { styles } from "./src/styles/ui";
@@ -17,24 +18,24 @@ import { styles } from "./src/styles/ui";
 type TabIconName = ComponentProps<typeof Ionicons>["name"];
 
 const appTabs: ReadonlyArray<{
-  id: "home" | "groups" | "map" | "marketplace" | "profile";
+  id: "home" | "challenges" | "map" | "groups" | "marketplace";
   label: string;
   icon: TabIconName;
   iconActive: TabIconName;
 }> = [
   { id: "home", label: "Home", icon: "home-outline", iconActive: "home" },
+  { id: "challenges", label: "Challenges", icon: "trophy-outline", iconActive: "trophy" },
+  { id: "map", label: "Maps", icon: "map-outline", iconActive: "map" },
   { id: "groups", label: "Groups", icon: "people-outline", iconActive: "people" },
-  { id: "map", label: "Map", icon: "locate-outline", iconActive: "locate" },
   {
     id: "marketplace",
-    label: "Marketplace",
+    label: "Market",
     icon: "storefront-outline",
     iconActive: "storefront",
   },
-  { id: "profile", label: "Profile", icon: "person-circle-outline", iconActive: "person-circle" },
 ] as const;
 
-type AppTab = (typeof appTabs)[number]["id"];
+type AppTab = (typeof appTabs)[number]["id"] | "chat";
 
 export default function App() {
   const [auth, setAuth] = useState<AuthPayload | null>(null);
@@ -127,19 +128,6 @@ export default function App() {
     void handleLogout();
   }, [handleLogout]);
 
-  const handleUserRefresh = useCallback(
-    async (user: AuthUser) => {
-      if (!auth) {
-        return;
-      }
-      await updateAuth({
-        token: auth.token,
-        user,
-      });
-    },
-    [auth, updateAuth]
-  );
-
   const activeSession = useMemo(() => {
     if (!auth?.token || !auth.user) {
       return null;
@@ -179,9 +167,31 @@ export default function App() {
       edges={activeTab === "map" ? ["left", "right"] : ["top", "left", "right"]}
     >
       <StatusBar style="dark" />
-      <View style={[styles.body, activeTab !== "map" ? styles.bodyWithBottomInset : null]}>
+      <View
+        style={[
+          styles.body,
+          activeTab !== "map" && activeTab !== "home" && activeTab !== "groups"
+            ? styles.bodyWithBottomInset
+            : null,
+        ]}
+      >
         {activeTab === "home" ? (
           <FeedTab
+            token={activeSession.token}
+            user={activeSession.user}
+            onAuthExpired={handleAuthExpired}
+            onOpenChat={() => setActiveTab("chat")}
+          />
+        ) : null}
+        {activeTab === "challenges" ? (
+          <ChallengesTab
+            token={activeSession.token}
+            user={activeSession.user}
+            onAuthExpired={handleAuthExpired}
+          />
+        ) : null}
+        {activeTab === "chat" ? (
+          <FriendsTab
             token={activeSession.token}
             user={activeSession.user}
             onAuthExpired={handleAuthExpired}
@@ -208,49 +218,29 @@ export default function App() {
             onAuthExpired={handleAuthExpired}
           />
         ) : null}
-        {activeTab === "profile" ? (
-          <ProfileTab
-            token={activeSession.token}
-            user={activeSession.user}
-            onAuthExpired={handleAuthExpired}
-            onLogout={handleLogout}
-            onUserRefresh={handleUserRefresh}
-          />
-        ) : null}
       </View>
 
       <View style={styles.bottomNavOuter}>
         <View style={styles.bottomNav}>
           {appTabs.map((tab) => {
             const isActive = activeTab === tab.id;
-            const isCenterTab = tab.id === "map";
 
             return (
               <Pressable
                 key={tab.id}
                 onPress={() => setActiveTab(tab.id)}
-                style={[styles.bottomTab, isCenterTab && styles.bottomTabCenter]}
+                style={[styles.bottomTab, isActive ? styles.bottomTabActive : null]}
               >
-                {isCenterTab ? (
-                  <View
-                    style={[
-                      styles.bottomCenterIconWrap,
-                      isActive && styles.bottomCenterIconWrapActive,
-                    ]}
-                  >
-                    <Ionicons
-                      name={isActive ? tab.iconActive : tab.icon}
-                      size={18}
-                      color={isActive ? "#111827" : "#64748b"}
-                    />
-                  </View>
-                ) : (
+                <View style={[styles.bottomTabIconWrap, isActive ? styles.bottomTabIconWrapActive : null]}>
                   <Ionicons
                     name={isActive ? tab.iconActive : tab.icon}
-                    size={30}
-                    color={isActive ? "#111827" : "#98a2b3"}
+                    size={20}
+                    color={isActive ? "#ffffff" : "#98a2b3"}
                   />
-                )}
+                </View>
+                <Text style={[styles.bottomTabText, isActive ? styles.bottomTabTextActive : null]}>
+                  {tab.label}
+                </Text>
               </Pressable>
             );
           })}

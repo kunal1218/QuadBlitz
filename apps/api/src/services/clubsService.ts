@@ -16,6 +16,7 @@ export type ClubSummary = {
   isRemote: boolean;
   joinPolicy: ClubJoinPolicy;
   imageUrl: string | null;
+  isOfficial: boolean;
   createdAt: string;
   memberCount: number;
   joinedByUser: boolean;
@@ -37,6 +38,7 @@ type ClubRow = {
   is_remote?: boolean | null;
   join_policy?: string | null;
   image_url?: string | null;
+  is_official?: boolean | null;
   created_at: string | Date;
   creator_id: string;
   creator_name: string;
@@ -75,6 +77,7 @@ const ensureClubsTable = async () => {
       city text,
       is_remote boolean NOT NULL DEFAULT false,
       join_policy text NOT NULL DEFAULT 'open',
+      is_official boolean NOT NULL DEFAULT false,
       image_url text,
       created_at timestamptz NOT NULL DEFAULT now()
     );
@@ -85,6 +88,7 @@ const ensureClubsTable = async () => {
     ADD COLUMN IF NOT EXISTS city text,
     ADD COLUMN IF NOT EXISTS is_remote boolean NOT NULL DEFAULT false,
     ADD COLUMN IF NOT EXISTS join_policy text NOT NULL DEFAULT 'open',
+    ADD COLUMN IF NOT EXISTS is_official boolean NOT NULL DEFAULT false,
     ADD COLUMN IF NOT EXISTS image_url text;
   `);
 
@@ -144,6 +148,7 @@ const mapClub = (row: ClubRow): ClubSummary => ({
   isRemote: Boolean(row.is_remote),
   joinPolicy: normalizeJoinPolicy(row.join_policy),
   imageUrl: row.image_url ?? null,
+  isOfficial: Boolean(row.is_official),
   createdAt: toIsoString(row.created_at),
   memberCount: Number(row.member_count ?? 0) || 0,
   joinedByUser: Boolean(row.joined_by_user),
@@ -162,6 +167,7 @@ const fetchClubRow = async (clubId: string) => {
             c.creator_id,
             c.title,
             c.join_policy,
+            c.is_official,
             c.image_url,
             u.name AS creator_name,
             u.handle AS creator_handle
@@ -176,6 +182,7 @@ const fetchClubRow = async (clubId: string) => {
         creator_id: string;
         title: string;
         join_policy: string;
+        is_official: boolean;
         image_url: string | null;
         creator_name: string;
         creator_handle: string;
@@ -203,6 +210,7 @@ export const fetchClubs = async (params: {
             c.city,
             c.is_remote,
             c.join_policy,
+            c.is_official,
             c.image_url,
             c.created_at,
             u.id AS creator_id,
@@ -243,6 +251,7 @@ export const fetchClubById = async (params: {
             c.city,
             c.is_remote,
             c.join_policy,
+            c.is_official,
             c.image_url,
             c.created_at,
             u.id AS creator_id,
@@ -273,6 +282,7 @@ export const createClub = async (params: {
   city?: string | null;
   isRemote?: boolean;
   joinPolicy?: string;
+  isOfficial?: boolean;
   imageUrl?: string | null;
 }): Promise<ClubSummary> => {
   await ensureClubsTable();
@@ -287,6 +297,7 @@ export const createClub = async (params: {
     (params.location ?? params.city ?? "").trim() ||
     (isRemote ? "Remote" : "");
   const joinPolicy = normalizeJoinPolicy(params.joinPolicy);
+  const isOfficial = Boolean(params.isOfficial);
   const imageUrl = params.imageUrl?.trim() || null;
 
   if (!title) {
@@ -302,8 +313,8 @@ export const createClub = async (params: {
   const id = randomUUID();
   await db.query(
     `INSERT INTO clubs (
-      id, creator_id, title, description, category, location, city, is_remote, join_policy, image_url
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      id, creator_id, title, description, category, location, city, is_remote, join_policy, is_official, image_url
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
     [
       id,
       params.creatorId,
@@ -314,6 +325,7 @@ export const createClub = async (params: {
       city,
       isRemote,
       joinPolicy,
+      isOfficial,
       imageUrl,
     ]
   );

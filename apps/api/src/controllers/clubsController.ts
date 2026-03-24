@@ -111,6 +111,7 @@ export const postClub = async (req: Request, res: Response) => {
       city: payload.city ?? payload.location,
       isRemote: payload.isRemote ?? payload.is_remote,
       joinPolicy: payload.joinPolicy ?? payload.join_policy,
+      isOfficial: payload.isOfficial ?? payload.is_official,
       imageUrl: payload.imageUrl ?? payload.image_url,
     });
     res.json({ club });

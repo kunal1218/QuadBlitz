@@ -1,93 +1,121 @@
+import { Ionicons } from "@expo/vector-icons";
+import type { DailyChallenge, FeedPost, PollOption } from "@lockedin/shared";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { DailyChallenge, FeedComment, FeedPost, PollOption } from "@lockedin/shared";
 import {
   ActivityIndicator,
   Alert,
+  type DimensionValue,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
-  createFeedComment,
-  createFeedPost,
-  deleteFeedComment,
-  deleteFeedPost,
   getDailyChallenge,
   getFeed,
-  getFeedComments,
-  toggleFeedCommentLike,
   toggleFeedLike,
   voteOnFeedPollOption,
 } from "../../api/actions";
-import { Card } from "../../components/Card";
 import { formatError, isAuthError } from "../../lib/errors";
-import { formatDateTime } from "../../lib/time";
 import type { SessionProps } from "../../types/session";
-import { styles } from "../../styles/ui";
 
-type PostCommentsState = {
-  items: FeedComment[];
-  loading: boolean;
-  loaded: boolean;
-  draft: string;
-  submitting: boolean;
-  error: string | null;
+type AudienceFilter = "global" | "local";
+type SortFilter = "top" | "fresh";
+
+type PulseCard = {
+  id: string;
+  title: string;
+  subtitle: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  accent: string;
+  tint: string;
 };
 
 const fallbackChallenge: DailyChallenge = {
   id: "challenge-1",
-  title: "Start a new micro-club in 24 hours",
-  description: "Find 3 people. Pick a silly theme. Meet tonight. Post proof.",
-  endsAt: new Date(Date.now() + 1000 * 60 * 60 * 6).toISOString(),
-  participants: 86,
+  title: "Snap a photo with the Founder's Statue",
+  description: "Find the bronze heart of campus and share your moment.",
+  endsAt: new Date(Date.now() + 1000 * 60 * 60 * 8).toISOString(),
+  participants: 500,
 };
 
-const pulseItems = [
-  { label: "Cofounder search", count: 12, tone: "accent" as const },
-  { label: "Basketball runs", count: 7, tone: "sun" as const },
-  { label: "Late-night diner", count: 9, tone: "mint" as const },
-  { label: "Design collab", count: 5, tone: "default" as const },
-];
-
-const chatMessages = [
+const fallbackPosts: FeedPost[] = [
   {
-    id: "chat-1",
-    handle: "@samirawins",
-    initials: "S",
-    message: "Daily challenge: pitching a campus snack club. Need ops + memes.",
-    color: "#f3c58b",
-    createdAt: new Date(Date.now() - 1000 * 60 * 6).toISOString(),
-  },
-  {
-    id: "chat-2",
-    handle: "@milesmoves",
-    initials: "M",
-    message: "Anyone want to co-work at the library in 30?",
-    color: "#9ec6f5",
-    createdAt: new Date(Date.now() - 1000 * 60 * 4).toISOString(),
-  },
-  {
-    id: "chat-3",
-    handle: "@averycodes",
-    initials: "A",
-    message: "Trying to start a midnight pancake society. Yes this is serious.",
-    color: "#9dddb9",
+    id: "fallback-1",
+    type: "update",
+    content:
+      "Finally finished the prototype for the Blitz Bot! Who's ready for the Engineering Expo tomorrow?",
     createdAt: new Date(Date.now() - 1000 * 60 * 2).toISOString(),
+    likeCount: 1200,
+    commentCount: 84,
+    author: {
+      id: "maya",
+      name: "Maya Chen",
+      handle: "mayachen",
+      collegeName: "Engineering",
+    },
+  },
+  {
+    id: "fallback-2",
+    type: "update",
+    content:
+      "The lighting at the Founder's Square right now is absolutely ethereal. Perfect for today's challenge!",
+    createdAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
+    likeCount: 452,
+    commentCount: 12,
+    author: {
+      id: "jordan",
+      name: "Jordan Smith",
+      handle: "jordansmith",
+      collegeName: "Arts & Media",
+    },
   },
 ];
 
-const emptyCommentState = (): PostCommentsState => ({
-  items: [],
-  loading: false,
-  loaded: false,
-  draft: "",
-  submitting: false,
-  error: null,
-});
+const pulseCards: PulseCard[] = [
+  {
+    id: "hottest",
+    title: "Hottest Topics",
+    subtitle: "What campus is talking about",
+    icon: "briefcase",
+    accent: "#1263ff",
+    tint: "#eef4ff",
+  },
+  {
+    id: "founders",
+    title: "Top Founders",
+    subtitle: "Fast-moving builders nearby",
+    icon: "camera",
+    accent: "#5f6ad9",
+    tint: "#f1f2ff",
+  },
+  {
+    id: "events",
+    title: "Global Events",
+    subtitle: "Big things happening tonight",
+    icon: "people",
+    accent: "#b13d87",
+    tint: "#fff0f8",
+  },
+];
+
+const visualPalettes = [
+  {
+    background: "#102a5b",
+    panel: "#143c7d",
+    shape: "#85f0ff",
+    glow: "rgba(133, 240, 255, 0.25)",
+  },
+  {
+    background: "#213f65",
+    panel: "#33557f",
+    shape: "#ffa97f",
+    glow: "rgba(255, 169, 127, 0.22)",
+  },
+];
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
@@ -130,70 +158,217 @@ const formatRelativeTime = (timestamp: string) => {
   return `${days}d ago`;
 };
 
-const getTimeLeft = (endsAt: string) => {
-  const diff = Math.max(0, Date.parse(endsAt) - Date.now());
-  const totalSeconds = Math.floor(diff / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  return {
-    hours,
-    minutes,
-    seconds,
-  };
+const formatCompactCount = (value: number) => {
+  if (value >= 1000) {
+    return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}k`;
+  }
+  return String(value);
 };
 
-const pad2 = (value: number) => value.toString().padStart(2, "0");
+const getInitials = (name: string) =>
+  name
+    .split(" ")
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("");
 
-export const FeedTab = ({ token, user, onAuthExpired }: SessionProps) => {
+const getChallengePoints = (participants: number) => Math.max(100, participants);
+
+const ChallengeHero = ({
+  challenge,
+  loading,
+}: {
+  challenge: DailyChallenge;
+  loading: boolean;
+}) => (
+  <View style={feedStyles.heroCard}>
+    <View style={feedStyles.heroGlow} />
+    <View style={feedStyles.heroStatue} />
+    <View style={feedStyles.heroBadge}>
+      <Ionicons name="star" size={12} color="#ffffff" />
+      <Text style={feedStyles.heroBadgeText}>+{getChallengePoints(challenge.participants)} PTS</Text>
+    </View>
+
+    <Text style={feedStyles.heroTitle}>{challenge.title}</Text>
+    <Text style={feedStyles.heroDescription}>
+      Daily Challenge: {challenge.description}
+    </Text>
+
+    <Pressable
+      onPress={() => Alert.alert("Submit proof", "Hooking up photo submission is next on the mobile flow.")}
+      style={feedStyles.heroButton}
+    >
+      <Text style={feedStyles.heroButtonLabel}>
+        {loading ? "Loading..." : "Submit Proof"}
+      </Text>
+    </Pressable>
+  </View>
+);
+
+const PulseSection = () => (
+  <View style={feedStyles.sectionBlock}>
+    <View style={feedStyles.sectionHeader}>
+      <Text style={feedStyles.sectionTitle}>Campus Pulse</Text>
+      <Pressable>
+        <Text style={feedStyles.sectionLink}>View all</Text>
+      </Pressable>
+    </View>
+
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={feedStyles.pulseRow}
+    >
+      {pulseCards.map((card) => (
+        <Pressable key={card.id} style={[feedStyles.pulseCard, { backgroundColor: card.tint }]}>
+          <View style={[feedStyles.pulseIconWrap, { backgroundColor: card.accent }]}>
+            <Ionicons name={card.icon} size={15} color="#ffffff" />
+          </View>
+          <Text style={feedStyles.pulseTitle}>{card.title}</Text>
+          <Text style={feedStyles.pulseSubtitle}>{card.subtitle}</Text>
+        </Pressable>
+      ))}
+    </ScrollView>
+  </View>
+);
+
+const PostVisual = ({ index }: { index: number }) => {
+  const palette = visualPalettes[index % visualPalettes.length];
+  const isEven = index % 2 === 0;
+
+  return (
+    <View style={[feedStyles.postVisual, { backgroundColor: palette.background }]}>
+      <View style={[feedStyles.postVisualGlow, { backgroundColor: palette.glow }]} />
+      {isEven ? (
+        <>
+          <View style={[feedStyles.radarRingLarge, { borderColor: "rgba(133, 240, 255, 0.25)" }]} />
+          <View style={[feedStyles.radarRingMedium, { borderColor: "rgba(133, 240, 255, 0.35)" }]} />
+          <View style={[feedStyles.radarRingSmall, { borderColor: palette.shape }]} />
+          <View style={[feedStyles.radarCenter, { backgroundColor: palette.shape }]} />
+          <View style={feedStyles.radarLineVertical} />
+          <View style={feedStyles.radarLineHorizontal} />
+        </>
+      ) : (
+        <>
+          <View style={[feedStyles.posterBackdrop, { backgroundColor: palette.panel }]} />
+          <View style={[feedStyles.posterColumn, { backgroundColor: palette.shape }]} />
+          <Text style={feedStyles.posterTitle}>CAMPUS LIFE</Text>
+        </>
+      )}
+    </View>
+  );
+};
+
+const PollOptions = ({
+  options,
+  onVote,
+}: {
+  options: PollOption[];
+  onVote: (optionId: string) => void;
+}) => {
+  const totalVotes = options.reduce((sum, option) => sum + option.votes, 0);
+
+  return (
+    <View style={feedStyles.pollList}>
+      {options.map((option) => {
+        const fill = totalVotes > 0 ? ((option.votes / totalVotes) * 100).toFixed(2) : "0";
+        const fillWidth = `${fill}%` as DimensionValue;
+        return (
+          <Pressable key={option.id} onPress={() => onVote(option.id)} style={feedStyles.pollOption}>
+            <View style={[feedStyles.pollFill, { width: fillWidth }]} />
+            <Text style={feedStyles.pollLabel}>{option.label}</Text>
+            <Text style={feedStyles.pollVotes}>{option.votes}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+};
+
+const FeedCard = ({
+  index,
+  post,
+  onLike,
+  onVote,
+}: {
+  index: number;
+  post: FeedPost;
+  onLike: () => void;
+  onVote: (optionId: string) => void;
+}) => {
+  const department = post.author.collegeName?.toUpperCase() ?? "STUDENT";
+
+  return (
+    <View style={feedStyles.feedCard}>
+      <View style={feedStyles.feedCardHeader}>
+        <View style={feedStyles.feedAuthorRow}>
+          {post.author.avatarUrl ? (
+            <Image source={{ uri: post.author.avatarUrl }} style={feedStyles.feedAvatar} />
+          ) : (
+            <View style={feedStyles.feedAvatarFallback}>
+              <Text style={feedStyles.feedAvatarInitials}>{getInitials(post.author.name)}</Text>
+            </View>
+          )}
+          <View style={feedStyles.feedAuthorMeta}>
+            <Text style={feedStyles.feedAuthorName}>{post.author.name}</Text>
+            <Text style={feedStyles.feedAuthorSubline}>
+              {department} · {formatRelativeTime(post.createdAt)}
+            </Text>
+          </View>
+        </View>
+        <Pressable hitSlop={10}>
+          <Ionicons name="ellipsis-horizontal" size={18} color="#525866" />
+        </Pressable>
+      </View>
+
+      <Text style={feedStyles.feedBody}>{post.content}</Text>
+
+      {post.pollOptions?.length ? (
+        <PollOptions options={post.pollOptions} onVote={onVote} />
+      ) : (
+        <PostVisual index={index} />
+      )}
+
+      <View style={feedStyles.feedActions}>
+        <Pressable onPress={onLike} style={feedStyles.feedAction}>
+          <Ionicons
+            name={post.likedByUser ? "heart" : "heart-outline"}
+            size={18}
+            color={post.likedByUser ? "#1263ff" : "#5c6474"}
+          />
+          <Text style={feedStyles.feedActionText}>{formatCompactCount(post.likeCount)}</Text>
+        </Pressable>
+        <Pressable style={feedStyles.feedAction}>
+          <Ionicons name="chatbubble" size={17} color="#5c6474" />
+          <Text style={feedStyles.feedActionText}>{formatCompactCount(post.commentCount ?? 0)}</Text>
+        </Pressable>
+        <Pressable style={[feedStyles.feedAction, feedStyles.feedActionShare]}>
+          <Ionicons name="share-social-outline" size={18} color="#5c6474" />
+        </Pressable>
+      </View>
+    </View>
+  );
+};
+
+type FeedTabProps = SessionProps & {
+  onOpenChat?: () => void;
+};
+
+export const FeedTab = ({ token, user, onAuthExpired, onOpenChat }: FeedTabProps) => {
   const insets = useSafeAreaInsets();
   const [posts, setPosts] = useState<FeedPost[]>([]);
-  const [draft, setDraft] = useState("");
-  const [sort, setSort] = useState<"fresh" | "top">("fresh");
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [commentsByPost, setCommentsByPost] = useState<Record<string, PostCommentsState>>({});
-  const [openCommentPosts, setOpenCommentPosts] = useState<Record<string, boolean>>({});
-  const [pollVoteInFlight, setPollVoteInFlight] = useState<Set<string>>(new Set());
-
   const [challenge, setChallenge] = useState<DailyChallenge>(fallbackChallenge);
+  const [loading, setLoading] = useState(true);
   const [challengeLoading, setChallengeLoading] = useState(true);
-  const [timeLeft, setTimeLeft] = useState(() => getTimeLeft(fallbackChallenge.endsAt));
-
-  const updateCommentState = (
-    postId: string,
-    updater: (current: PostCommentsState) => PostCommentsState
-  ) => {
-    setCommentsByPost((prev) => {
-      const current = prev[postId] ?? emptyCommentState();
-      return {
-        ...prev,
-        [postId]: updater(current),
-      };
-    });
-  };
-
-  const bumpCommentCount = (postId: string, delta: number) => {
-    setPosts((prev) =>
-      prev.map((post) =>
-        post.id === postId
-          ? {
-              ...post,
-              commentCount: Math.max(0, (post.commentCount ?? 0) + delta),
-            }
-          : post
-      )
-    );
-  };
+  const [error, setError] = useState<string | null>(null);
+  const [audience, setAudience] = useState<AudienceFilter>("global");
+  const [sort, setSort] = useState<SortFilter>("top");
 
   const loadFeed = useCallback(async () => {
     setLoading(true);
     setError(null);
-
     try {
-      const nextPosts = await getFeed(sort, token);
+      const nextPosts = await getFeed(sort === "top" ? "top" : "fresh", token);
       setPosts(nextPosts);
     } catch (loadError) {
       if (isAuthError(loadError)) {
@@ -208,50 +383,15 @@ export const FeedTab = ({ token, user, onAuthExpired }: SessionProps) => {
 
   const loadChallenge = useCallback(async () => {
     setChallengeLoading(true);
-
     try {
       const payload = await getDailyChallenge(token);
-      const parsed = parseChallenge(payload);
-      setChallenge(parsed ?? fallbackChallenge);
+      setChallenge(parseChallenge(payload) ?? fallbackChallenge);
     } catch {
       setChallenge(fallbackChallenge);
     } finally {
       setChallengeLoading(false);
     }
   }, [token]);
-
-  const loadComments = useCallback(
-    async (postId: string) => {
-      updateCommentState(postId, (current) => ({
-        ...current,
-        loading: true,
-        error: null,
-      }));
-
-      try {
-        const comments = await getFeedComments(postId, token);
-        updateCommentState(postId, (current) => ({
-          ...current,
-          items: comments,
-          loaded: true,
-          loading: false,
-          error: null,
-        }));
-      } catch (loadError) {
-        if (isAuthError(loadError)) {
-          onAuthExpired();
-          return;
-        }
-
-        updateCommentState(postId, (current) => ({
-          ...current,
-          loading: false,
-          error: formatError(loadError),
-        }));
-      }
-    },
-    [onAuthExpired, token]
-  );
 
   useEffect(() => {
     void loadFeed();
@@ -261,1081 +401,617 @@ export const FeedTab = ({ token, user, onAuthExpired }: SessionProps) => {
     void loadChallenge();
   }, [loadChallenge]);
 
-  useEffect(() => {
-    setTimeLeft(getTimeLeft(challenge.endsAt));
-    const interval = setInterval(() => {
-      setTimeLeft(getTimeLeft(challenge.endsAt));
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [challenge.endsAt]);
-
-  const sortedPosts = useMemo(() => {
-    if (sort === "fresh") {
-      return posts;
+  const displayedPosts = useMemo(() => {
+    const base = posts.length > 0 ? posts : fallbackPosts;
+    if (audience === "local") {
+      return base.slice(0, Math.max(1, Math.min(2, base.length)));
     }
+    return base;
+  }, [audience, posts]);
 
-    const next = [...posts];
-    next.sort((a, b) => {
-      if ((b.likeCount ?? 0) !== (a.likeCount ?? 0)) {
-        return (b.likeCount ?? 0) - (a.likeCount ?? 0);
-      }
-      return Date.parse(b.createdAt) - Date.parse(a.createdAt);
-    });
-    return next;
-  }, [posts, sort]);
-
-  const submitPost = async () => {
-    const content = draft.trim();
-    if (!content) {
-      return;
-    }
-
-    setSubmitting(true);
-    setError(null);
-
-    try {
-      const created = await createFeedPost(
-        {
-          type: "text",
-          content,
-          tags: [],
-        },
-        token
-      );
-      setPosts((prev) => [created, ...prev]);
-      setDraft("");
-    } catch (submitError) {
-      if (isAuthError(submitError)) {
-        onAuthExpired();
-        return;
-      }
-
-      setError(formatError(submitError));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleLike = async (postId: string) => {
-    try {
-      const response = await toggleFeedLike(postId, token);
-      setPosts((prev) =>
-        prev.map((post) =>
+  const handleLike = useCallback(
+    async (postId: string) => {
+      const previous = posts;
+      setPosts((current) =>
+        current.map((post) =>
           post.id === postId
             ? {
                 ...post,
-                likeCount: response.likeCount,
-                likedByUser: response.liked,
+                likedByUser: !post.likedByUser,
+                likeCount: Math.max(0, post.likeCount + (post.likedByUser ? -1 : 1)),
               }
             : post
         )
       );
-    } catch (likeError) {
-      if (isAuthError(likeError)) {
-        onAuthExpired();
-        return;
+
+      try {
+        const result = await toggleFeedLike(postId, token);
+        setPosts((current) =>
+          current.map((post) =>
+            post.id === postId
+              ? { ...post, likeCount: result.likeCount, likedByUser: result.liked }
+              : post
+          )
+        );
+      } catch (likeError) {
+        if (isAuthError(likeError)) {
+          onAuthExpired();
+          return;
+        }
+        setPosts(previous);
       }
-      setError(formatError(likeError));
-    }
-  };
+    },
+    [onAuthExpired, posts, token]
+  );
 
-  const handlePollVote = async (postId: string, optionId: string) => {
-    if (pollVoteInFlight.has(postId)) {
-      return;
-    }
-
-    setPollVoteInFlight((prev) => new Set(prev).add(postId));
-
-    try {
-      const options = await voteOnFeedPollOption(postId, optionId, token);
-      setPosts((prev) =>
-        prev.map((post) =>
-          post.id === postId
-            ? {
-                ...post,
-                pollOptions: options,
-              }
-            : post
-        )
-      );
-    } catch (voteError) {
-      if (isAuthError(voteError)) {
-        onAuthExpired();
-        return;
+  const handlePollVote = useCallback(
+    async (postId: string, optionId: string) => {
+      try {
+        const options = await voteOnFeedPollOption(postId, optionId, token);
+        setPosts((current) =>
+          current.map((post) => (post.id === postId ? { ...post, pollOptions: options } : post))
+        );
+      } catch (voteError) {
+        if (isAuthError(voteError)) {
+          onAuthExpired();
+        }
       }
-      setError(formatError(voteError));
-    } finally {
-      setPollVoteInFlight((prev) => {
-        const next = new Set(prev);
-        next.delete(postId);
-        return next;
-      });
-    }
-  };
-
-  const handleDelete = async (postId: string) => {
-    try {
-      await deleteFeedPost(postId, token);
-      setPosts((prev) => prev.filter((post) => post.id !== postId));
-      setCommentsByPost((prev) => {
-        const next = { ...prev };
-        delete next[postId];
-        return next;
-      });
-      setOpenCommentPosts((prev) => {
-        const next = { ...prev };
-        delete next[postId];
-        return next;
-      });
-    } catch (deleteError) {
-      if (isAuthError(deleteError)) {
-        onAuthExpired();
-        return;
-      }
-      setError(formatError(deleteError));
-    }
-  };
-
-  const toggleComments = async (postId: string) => {
-    const currentlyOpen = Boolean(openCommentPosts[postId]);
-    setOpenCommentPosts((prev) => ({
-      ...prev,
-      [postId]: !currentlyOpen,
-    }));
-
-    if (currentlyOpen) {
-      return;
-    }
-
-    const commentsState = commentsByPost[postId] ?? emptyCommentState();
-    if (!commentsState.loaded && !commentsState.loading) {
-      await loadComments(postId);
-    }
-  };
-
-  const submitComment = async (postId: string) => {
-    const draftValue = (commentsByPost[postId]?.draft ?? "").trim();
-    if (!draftValue) {
-      return;
-    }
-
-    updateCommentState(postId, (current) => ({
-      ...current,
-      submitting: true,
-      error: null,
-    }));
-
-    try {
-      const comment = await createFeedComment(postId, draftValue, token);
-      updateCommentState(postId, (current) => ({
-        ...current,
-        submitting: false,
-        draft: "",
-        loaded: true,
-        items: [comment, ...current.items],
-      }));
-      bumpCommentCount(postId, 1);
-    } catch (submitError) {
-      if (isAuthError(submitError)) {
-        onAuthExpired();
-        return;
-      }
-
-      updateCommentState(postId, (current) => ({
-        ...current,
-        submitting: false,
-        error: formatError(submitError),
-      }));
-    }
-  };
-
-  const handleCommentLike = async (postId: string, commentId: string) => {
-    try {
-      const response = await toggleFeedCommentLike(commentId, token);
-      updateCommentState(postId, (current) => ({
-        ...current,
-        items: current.items.map((comment) =>
-          comment.id === commentId
-            ? {
-                ...comment,
-                likeCount: response.likeCount,
-                likedByUser: response.liked,
-              }
-            : comment
-        ),
-      }));
-    } catch (likeError) {
-      if (isAuthError(likeError)) {
-        onAuthExpired();
-        return;
-      }
-
-      updateCommentState(postId, (current) => ({
-        ...current,
-        error: formatError(likeError),
-      }));
-    }
-  };
-
-  const handleCommentDelete = async (postId: string, commentId: string) => {
-    try {
-      await deleteFeedComment(commentId, token);
-      updateCommentState(postId, (current) => ({
-        ...current,
-        items: current.items.filter((comment) => comment.id !== commentId),
-      }));
-      bumpCommentCount(postId, -1);
-    } catch (deleteError) {
-      if (isAuthError(deleteError)) {
-        onAuthExpired();
-        return;
-      }
-
-      updateCommentState(postId, (current) => ({
-        ...current,
-        error: formatError(deleteError),
-      }));
-    }
-  };
+    },
+    [onAuthExpired, token]
+  );
 
   return (
-    <ScrollView
-      style={[homeStyles.page, { marginTop: -insets.top }]}
-      contentContainerStyle={[homeStyles.container, { paddingTop: 14 + insets.top }]}
-      keyboardShouldPersistTaps="handled"
-    >
-      <View style={homeStyles.backgroundWrap}>
-        <View style={homeStyles.orbA} />
-        <View style={homeStyles.orbB} />
-        <View style={homeStyles.orbC} />
-      </View>
-
-      <Card style={homeStyles.challengeCard}>
-        <View style={homeStyles.challengeTopRow}>
-          <View style={homeStyles.challengeBadge}>
-            <Text style={homeStyles.challengeBadgeText}>Daily Challenge</Text>
+    <View style={feedStyles.screen}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          feedStyles.content,
+          { paddingBottom: insets.bottom + 132 },
+        ]}
+      >
+        <View style={feedStyles.topBar}>
+          <View style={feedStyles.headerAvatar}>
+            <Text style={feedStyles.headerAvatarText}>{getInitials(user.name)}</Text>
           </View>
-          <Text style={homeStyles.challengePeople}>
-            {challenge.participants} people in today
-          </Text>
-        </View>
-
-        <Text style={homeStyles.challengeTitle}>{challenge.title}</Text>
-        <Text style={homeStyles.challengeDescription}>{challenge.description}</Text>
-
-        <View style={homeStyles.countdownRow}>
-          <View style={[homeStyles.countdownPill, homeStyles.countdownPillPrimary]}>
-            <Text style={homeStyles.countdownValue}>{pad2(timeLeft.hours)}</Text>
-            <Text style={homeStyles.countdownLabel}>hrs</Text>
-          </View>
-          <View style={[homeStyles.countdownPill, homeStyles.countdownPillSecondary]}>
-            <Text style={homeStyles.countdownValue}>{pad2(timeLeft.minutes)}</Text>
-            <Text style={homeStyles.countdownLabel}>min</Text>
-          </View>
-          <View style={[homeStyles.countdownPill, homeStyles.countdownPillTertiary]}>
-            <Text style={homeStyles.countdownValue}>{pad2(timeLeft.seconds)}</Text>
-            <Text style={homeStyles.countdownLabel}>sec</Text>
-          </View>
-        </View>
-
-        <View style={homeStyles.challengeActionRow}>
-          <Pressable
-            style={homeStyles.primaryAction}
-            onPress={() => {
-              Alert.alert("Daily challenge", "Challenge submissions on mobile are coming next.");
-            }}
-          >
-            <Text style={homeStyles.primaryActionLabel}>Join the chaos</Text>
-          </Pressable>
-          <Pressable
-            style={homeStyles.secondaryAction}
-            onPress={() => {
-              void loadChallenge();
-            }}
-          >
-            <Text style={homeStyles.secondaryActionLabel}>
-              {challengeLoading ? "Refreshing..." : "Refresh challenge"}
-            </Text>
-          </Pressable>
-        </View>
-      </Card>
-
-      <View style={homeStyles.feedHeaderRow}>
-        <View>
-          <Text style={homeStyles.sectionTitle}>Global Feed</Text>
-          <Text style={homeStyles.sectionSubtitle}>What your campus is up to right now.</Text>
-        </View>
-        <View style={homeStyles.sortRow}>
-          {(["fresh", "top"] as const).map((option) => (
-            <Pressable
-              key={option}
-              style={[homeStyles.sortPill, sort === option && homeStyles.sortPillActive]}
-              onPress={() => setSort(option)}
-            >
-              <Text style={[homeStyles.sortPillLabel, sort === option && homeStyles.sortPillLabelActive]}>
-                {option === "fresh" ? "Fresh" : "Top"}
-              </Text>
+          <Text style={feedStyles.brand}>QUADBLITZ</Text>
+          <View style={feedStyles.headerActions}>
+            <Pressable style={feedStyles.headerIconButton}>
+              <Ionicons name="notifications" size={18} color="#7d8ba3" />
             </Pressable>
+            <Pressable style={feedStyles.headerIconButton} onPress={onOpenChat}>
+              <Ionicons name="chatbubble-ellipses-outline" size={18} color="#7d8ba3" />
+            </Pressable>
+          </View>
+        </View>
+
+        <ChallengeHero challenge={challenge} loading={challengeLoading} />
+        <PulseSection />
+
+        <View style={feedStyles.segmentOuter}>
+          {(["global", "local"] as const).map((value) => {
+            const active = audience === value;
+            return (
+              <Pressable
+                key={value}
+                onPress={() => setAudience(value)}
+                style={[feedStyles.segmentButton, active ? feedStyles.segmentButtonActive : null]}
+              >
+                <Text
+                  style={[feedStyles.segmentText, active ? feedStyles.segmentTextActive : null]}
+                >
+                  {value === "global" ? "Global" : "Local"}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View style={feedStyles.filterRow}>
+          {(["top", "fresh"] as const).map((value) => {
+            const active = sort === value;
+            return (
+              <Pressable
+                key={value}
+                onPress={() => setSort(value)}
+                style={feedStyles.filterButton}
+              >
+                <Text
+                  style={[feedStyles.filterText, active ? feedStyles.filterTextActive : null]}
+                >
+                  {value === "top" ? "Trending" : "Recent"}
+                </Text>
+                {active ? <View style={feedStyles.filterUnderline} /> : null}
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {error ? <Text style={feedStyles.errorText}>{error}</Text> : null}
+
+        {loading && posts.length === 0 ? (
+          <View style={feedStyles.loaderWrap}>
+            <ActivityIndicator color="#1263ff" size="large" />
+          </View>
+        ) : null}
+
+        <View style={feedStyles.feedList}>
+          {displayedPosts.map((post, index) => (
+            <FeedCard
+              key={post.id}
+              index={index}
+              post={post}
+              onLike={() => void handleLike(post.id)}
+              onVote={(optionId) => void handlePollVote(post.id, optionId)}
+            />
           ))}
         </View>
-      </View>
+      </ScrollView>
 
-      <Card style={homeStyles.composerCard}>
-        <TextInput
-          style={homeStyles.composerInput}
-          value={draft}
-          onChangeText={setDraft}
-          placeholder="Share a quick update, invite collaborators, or start a poll later..."
-          multiline
-        />
-        <Pressable
-          style={[homeStyles.primaryAction, submitting && homeStyles.actionDisabled]}
-          onPress={() => {
-            void submitPost();
-          }}
-          disabled={submitting}
-        >
-          <Text style={homeStyles.primaryActionLabel}>{submitting ? "Posting..." : "Post to feed"}</Text>
-        </Pressable>
-      </Card>
-
-      {error ? (
-        <Card style={homeStyles.errorCard}>
-          <Text style={styles.errorText}>{error}</Text>
-        </Card>
-      ) : null}
-
-      {loading ? <ActivityIndicator color="#2563eb" /> : null}
-
-      {!loading && sortedPosts.length === 0 ? (
-        <Card>
-          <Text style={styles.emptyText}>No posts yet. Be the first to start the conversation.</Text>
-        </Card>
-      ) : null}
-
-      {sortedPosts.map((post) => {
-        const isOwn = post.author.id === user.id;
-        const commentsState = commentsByPost[post.id] ?? emptyCommentState();
-        const commentsOpen = Boolean(openCommentPosts[post.id]);
-        const commentCount = post.commentCount ?? commentsState.items.length;
-
-        return (
-          <Card key={post.id} style={homeStyles.postCard}>
-            <View style={homeStyles.postHeader}>
-              <View>
-                <Text style={homeStyles.postHandle}>{post.author.handle}</Text>
-                <Text style={homeStyles.postMeta}>{formatRelativeTime(post.createdAt)}</Text>
-              </View>
-              <Text style={homeStyles.postType}>{post.type.toUpperCase()}</Text>
-            </View>
-
-            <Text style={homeStyles.postBody}>{post.content}</Text>
-
-            {post.tags?.length ? (
-              <View style={homeStyles.tagRow}>
-                {post.tags.map((tag) => (
-                  <View key={tag} style={homeStyles.tagPill}>
-                    <Text style={homeStyles.tagLabel}>#{tag}</Text>
-                  </View>
-                ))}
-              </View>
-            ) : null}
-
-            {post.type === "poll" && post.pollOptions?.length ? (
-              <View style={homeStyles.pollWrap}>
-                <Text style={homeStyles.pollTitle}>Poll options</Text>
-                {post.pollOptions.map((option: PollOption) => (
-                  <Pressable
-                    key={option.id}
-                    style={homeStyles.pollOption}
-                    disabled={pollVoteInFlight.has(post.id)}
-                    onPress={() => {
-                      void handlePollVote(post.id, option.id);
-                    }}
-                  >
-                    <Text style={homeStyles.pollOptionLabel}>{option.label}</Text>
-                    <Text style={homeStyles.pollOptionVotes}>{option.votes} votes</Text>
-                  </Pressable>
-                ))}
-              </View>
-            ) : null}
-
-            <View style={homeStyles.postActionRow}>
-              <Pressable
-                style={[homeStyles.iconAction, post.likedByUser && homeStyles.iconActionActive]}
-                onPress={() => {
-                  void handleLike(post.id);
-                }}
-              >
-                <Text style={[homeStyles.iconActionLabel, post.likedByUser && homeStyles.iconActionLabelActive]}>
-                  {post.likedByUser ? "♥" : "♡"} {post.likeCount}
-                </Text>
-              </Pressable>
-              <Pressable
-                style={homeStyles.iconAction}
-                onPress={() => {
-                  void toggleComments(post.id);
-                }}
-              >
-                <Text style={homeStyles.iconActionLabel}>
-                  {commentsOpen ? "Hide" : "Comments"} {commentCount}
-                </Text>
-              </Pressable>
-              {(isOwn || user.isAdmin) && (
-                <Pressable
-                  style={[homeStyles.iconAction, homeStyles.dangerAction]}
-                  onPress={() => {
-                    Alert.alert("Delete post", "This cannot be undone.", [
-                      { text: "Cancel", style: "cancel" },
-                      {
-                        text: "Delete",
-                        style: "destructive",
-                        onPress: () => {
-                          void handleDelete(post.id);
-                        },
-                      },
-                    ]);
-                  }}
-                >
-                  <Text style={homeStyles.dangerActionLabel}>Delete</Text>
-                </Pressable>
-              )}
-            </View>
-
-            {commentsOpen ? (
-              <View style={styles.commentsContainer}>
-                <Text style={styles.cardTitle}>Comments</Text>
-
-                {commentsState.loading ? <ActivityIndicator color="#2563eb" /> : null}
-                {commentsState.error ? <Text style={styles.errorText}>{commentsState.error}</Text> : null}
-
-                {commentsState.items.map((comment) => {
-                  const canDelete = comment.author.id === user.id || Boolean(user.isAdmin);
-
-                  return (
-                    <View key={comment.id} style={styles.commentCard}>
-                      <View style={styles.rowBetween}>
-                        <Text style={styles.cardTitle}>{comment.author.handle}</Text>
-                        <Text style={styles.timestamp}>{formatDateTime(comment.createdAt)}</Text>
-                      </View>
-                      <Text style={styles.commentText}>{comment.content}</Text>
-                      <View style={styles.inlineActions}>
-                        <Pressable
-                          style={homeStyles.smallAction}
-                          onPress={() => {
-                            void handleCommentLike(post.id, comment.id);
-                          }}
-                        >
-                          <Text style={homeStyles.smallActionLabel}>
-                            {comment.likedByUser ? "♥" : "♡"} {comment.likeCount}
-                          </Text>
-                        </Pressable>
-                        {canDelete ? (
-                          <Pressable
-                            style={[homeStyles.smallAction, homeStyles.smallActionDanger]}
-                            onPress={() => {
-                              void handleCommentDelete(post.id, comment.id);
-                            }}
-                          >
-                            <Text style={homeStyles.smallActionDangerLabel}>Delete</Text>
-                          </Pressable>
-                        ) : null}
-                      </View>
-                    </View>
-                  );
-                })}
-
-                {!commentsState.loading && commentsState.items.length === 0 ? (
-                  <Text style={styles.emptyText}>No comments yet.</Text>
-                ) : null}
-
-                <View style={styles.composeRow}>
-                  <TextInput
-                    style={[styles.input, styles.compactInput]}
-                    value={commentsState.draft}
-                    onChangeText={(value) => {
-                      updateCommentState(post.id, (current) => ({
-                        ...current,
-                        draft: value,
-                      }));
-                    }}
-                    placeholder="Write a comment"
-                    multiline
-                  />
-                  <Pressable
-                    style={[homeStyles.smallPrimaryAction, commentsState.submitting && homeStyles.actionDisabled]}
-                    onPress={() => {
-                      void submitComment(post.id);
-                    }}
-                    disabled={commentsState.submitting}
-                  >
-                    <Text style={homeStyles.smallPrimaryActionLabel}>
-                      {commentsState.submitting ? "Sending..." : "Send"}
-                    </Text>
-                  </Pressable>
-                </View>
-              </View>
-            ) : null}
-          </Card>
-        );
-      })}
-
-      <Card style={homeStyles.sideCard}>
-        <View style={homeStyles.sideHeaderRow}>
-          <View style={homeStyles.uniChatTag}>
-            <Text style={homeStyles.uniChatTagText}>Uni Chat</Text>
-          </View>
-          <Text style={homeStyles.onlineCount}>{chatMessages.length} online</Text>
-        </View>
-
-        <Text style={homeStyles.sideSubtitle}>Global chat. Keep it light, invite people in.</Text>
-
-        {chatMessages.map((message) => (
-          <View key={message.id} style={homeStyles.chatRow}>
-            <View style={[homeStyles.chatAvatar, { backgroundColor: message.color }]}>
-              <Text style={homeStyles.chatAvatarText}>{message.initials}</Text>
-            </View>
-            <View style={homeStyles.chatMessageWrap}>
-              <Text style={homeStyles.chatMeta}>
-                {message.handle} • {formatRelativeTime(message.createdAt)}
-              </Text>
-              <Text style={homeStyles.chatBody}>{message.message}</Text>
-            </View>
-          </View>
-        ))}
-
-        <View style={homeStyles.chatInputBox}>
-          <Text style={homeStyles.chatInputLabel}>Say something</Text>
-          <TextInput
-            style={homeStyles.chatInput}
-            placeholder="Drop a plan, a question, or a vibe..."
-          />
-          <Text style={homeStyles.chatInputHint}>TODO: wire real-time chat</Text>
-        </View>
-      </Card>
-
-      <Card style={homeStyles.sideCard}>
-        <Text style={homeStyles.sectionTitle}>Campus Pulse</Text>
-        <Text style={homeStyles.sideSubtitle}>What is popping in the last hour.</Text>
-
-        {pulseItems.map((item) => (
-          <View key={item.label} style={homeStyles.pulseRow}>
-            <Text style={homeStyles.pulseLabel}>{item.label}</Text>
-            <View
-              style={[
-                homeStyles.pulseTag,
-                item.tone === "accent"
-                  ? homeStyles.pulseTagAccent
-                  : item.tone === "mint"
-                  ? homeStyles.pulseTagMint
-                  : item.tone === "sun"
-                  ? homeStyles.pulseTagSun
-                  : homeStyles.pulseTagDefault,
-              ]}
-            >
-              <Text style={homeStyles.pulseTagText}>{item.count} posts</Text>
-            </View>
-          </View>
-        ))}
-      </Card>
-    </ScrollView>
+      <Pressable
+        onPress={() => Alert.alert("Create post", "The quick post composer is the next mobile interaction to wire up.")}
+        style={[feedStyles.fab, { bottom: insets.bottom + 88 }]}
+      >
+        <Ionicons name="add" size={28} color="#ffffff" />
+      </Pressable>
+    </View>
   );
 };
 
-const homeStyles = StyleSheet.create({
-  page: {
+const feedStyles = StyleSheet.create({
+  screen: {
     flex: 1,
-    backgroundColor: "#f7f8fb",
+    backgroundColor: "#f7f7f8",
   },
-  container: {
-    padding: 14,
-    gap: 12,
-    paddingBottom: 36,
+  content: {
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    gap: 18,
   },
-  backgroundWrap: {
-    position: "absolute",
-    top: -28,
-    left: 0,
-    right: 0,
-    height: 288,
-    zIndex: -1,
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingBottom: 4,
   },
-  orbA: {
-    position: "absolute",
-    width: 240,
-    height: 240,
-    borderRadius: 999,
-    top: -80,
-    left: -90,
-    backgroundColor: "rgba(255, 133, 87, 0.22)",
+  headerAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "#142c4c",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 3,
+    borderColor: "#f5d5b2",
   },
-  orbB: {
+  headerAvatarText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  brand: {
+    color: "#1263ff",
+    fontSize: 28,
+    fontWeight: "900",
+    letterSpacing: 0.6,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  headerIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  heroCard: {
+    position: "relative",
+    overflow: "hidden",
+    borderRadius: 34,
+    backgroundColor: "#1263ff",
+    paddingHorizontal: 26,
+    paddingTop: 34,
+    paddingBottom: 28,
+    minHeight: 346,
+  },
+  heroGlow: {
     position: "absolute",
     width: 220,
     height: 220,
-    borderRadius: 999,
-    top: 25,
-    right: -100,
-    backgroundColor: "rgba(124, 117, 244, 0.12)",
+    borderRadius: 110,
+    backgroundColor: "rgba(53, 202, 255, 0.18)",
+    bottom: -50,
+    left: -20,
   },
-  orbC: {
+  heroStatue: {
     position: "absolute",
-    width: 160,
-    height: 160,
-    borderRadius: 999,
-    top: 180,
-    left: 160,
-    backgroundColor: "rgba(111, 198, 159, 0.12)",
+    right: 22,
+    top: 32,
+    width: 120,
+    height: 210,
+    borderRadius: 60,
+    backgroundColor: "rgba(255,255,255,0.10)",
+    transform: [{ rotate: "4deg" }],
   },
-  challengeCard: {
-    borderColor: "#f6c6ae",
-    backgroundColor: "#fff8f5",
-    gap: 12,
-  },
-  challengeTopRow: {
+  heroBadge: {
+    alignSelf: "flex-start",
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    gap: 10,
-  },
-  challengeBadge: {
-    borderRadius: 999,
-    backgroundColor: "rgba(255, 133, 87, 0.16)",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  challengeBadgeText: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#cf5f35",
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-  },
-  challengePeople: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#8c5d4a",
-  },
-  challengeTitle: {
-    fontSize: 24,
-    lineHeight: 30,
-    fontWeight: "800",
-    color: "#1b1a17",
-  },
-  challengeDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: "#6b7280",
-  },
-  countdownRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  countdownPill: {
-    flex: 1,
-    borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    alignItems: "center",
-  },
-  countdownPillPrimary: {
-    backgroundColor: "rgba(255, 133, 87, 0.16)",
-  },
-  countdownPillSecondary: {
-    backgroundColor: "rgba(111, 198, 159, 0.16)",
-  },
-  countdownPillTertiary: {
-    backgroundColor: "rgba(124, 117, 244, 0.14)",
-  },
-  countdownValue: {
-    fontSize: 19,
-    fontWeight: "800",
-    color: "#1f2937",
-  },
-  countdownLabel: {
-    marginTop: 2,
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#6b7280",
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-  },
-  challengeActionRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 2,
-  },
-  primaryAction: {
-    flex: 1,
-    borderRadius: 999,
-    backgroundColor: "#ff8557",
-    paddingVertical: 11,
-    alignItems: "center",
-    shadowColor: "#ff8557",
-    shadowOpacity: 0.26,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 3,
-  },
-  primaryActionLabel: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: "#ffffff",
-  },
-  secondaryAction: {
-    flex: 1,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#ead6cc",
-    backgroundColor: "#fff",
-    paddingVertical: 11,
-    alignItems: "center",
-  },
-  secondaryActionLabel: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#5c6470",
-  },
-  actionDisabled: {
-    opacity: 0.65,
-  },
-  feedHeaderRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-    gap: 12,
-  },
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#1f2937",
-  },
-  sectionSubtitle: {
-    marginTop: 2,
-    fontSize: 13,
-    color: "#6b7280",
-  },
-  sortRow: {
-    flexDirection: "row",
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 999,
-    padding: 2,
-    backgroundColor: "#fff",
-  },
-  sortPill: {
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  sortPillActive: {
-    backgroundColor: "#ff8557",
-  },
-  sortPillLabel: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#6b7280",
-  },
-  sortPillLabelActive: {
-    color: "#fff",
-  },
-  composerCard: {
-    backgroundColor: "#ffffff",
-  },
-  composerInput: {
-    minHeight: 92,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 16,
-    backgroundColor: "#fbfbfd",
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    fontSize: 15,
-    lineHeight: 20,
-    color: "#111827",
-    textAlignVertical: "top",
-  },
-  errorCard: {
-    borderColor: "#fecaca",
-    backgroundColor: "#fef2f2",
-  },
-  postCard: {
-    backgroundColor: "#fff",
-    borderColor: "#e8eaf0",
-  },
-  postHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: 8,
-  },
-  postHandle: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#111827",
-  },
-  postMeta: {
-    marginTop: 2,
-    fontSize: 11,
-    color: "#6b7280",
-  },
-  postType: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#9ca3af",
-    letterSpacing: 0.7,
-  },
-  postBody: {
-    marginTop: 4,
-    fontSize: 15,
-    lineHeight: 21,
-    color: "#1f2937",
-  },
-  tagRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
     gap: 6,
-  },
-  tagPill: {
-    borderRadius: 999,
-    backgroundColor: "#f3f4f6",
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-  },
-  tagLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#4b5563",
-  },
-  pollWrap: {
-    gap: 8,
-    marginTop: 2,
-  },
-  pollTitle: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#6b7280",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  pollOption: {
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 12,
-    backgroundColor: "#f9fafb",
-    paddingHorizontal: 11,
-    paddingVertical: 9,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 8,
-  },
-  pollOptionLabel: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#1f2937",
-  },
-  pollOptionVotes: {
-    fontSize: 12,
-    color: "#6b7280",
-  },
-  postActionRow: {
-    marginTop: 2,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  iconAction: {
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    backgroundColor: "#fff",
-    borderRadius: 999,
-    paddingHorizontal: 11,
+    paddingHorizontal: 12,
     paddingVertical: 7,
-  },
-  iconActionActive: {
-    borderColor: "#ffccb9",
-    backgroundColor: "#fff3ef",
-  },
-  iconActionLabel: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#4b5563",
-  },
-  iconActionLabelActive: {
-    color: "#cb5a32",
-  },
-  dangerAction: {
-    borderColor: "#fecaca",
-    backgroundColor: "#fff5f5",
-  },
-  dangerActionLabel: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#b91c1c",
-  },
-  smallAction: {
-    borderWidth: 1,
-    borderColor: "#dbe2f0",
-    backgroundColor: "#f8fafc",
     borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    marginBottom: 26,
   },
-  smallActionLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#475569",
-  },
-  smallActionDanger: {
-    borderColor: "#fecaca",
-    backgroundColor: "#fff1f2",
-  },
-  smallActionDangerLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#be123c",
-  },
-  smallPrimaryAction: {
-    borderRadius: 999,
-    backgroundColor: "#2563eb",
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    alignItems: "center",
-  },
-  smallPrimaryActionLabel: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#fff",
-  },
-  sideCard: {
-    backgroundColor: "#fff",
-  },
-  sideHeaderRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 8,
-  },
-  uniChatTag: {
-    borderRadius: 999,
-    backgroundColor: "rgba(111, 198, 159, 0.18)",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  uniChatTagText: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#267b59",
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-  },
-  onlineCount: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#267b59",
-  },
-  sideSubtitle: {
+  heroBadgeText: {
+    color: "#ffffff",
     fontSize: 13,
-    color: "#6b7280",
-    marginTop: 2,
-    marginBottom: 2,
+    fontWeight: "800",
+    letterSpacing: 0.2,
   },
-  chatRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 10,
-    marginTop: 4,
+  heroTitle: {
+    width: "76%",
+    color: "#ffffff",
+    fontSize: 34,
+    lineHeight: 42,
+    fontWeight: "900",
+    marginBottom: 14,
   },
-  chatAvatar: {
-    width: 30,
-    height: 30,
+  heroDescription: {
+    width: "86%",
+    color: "rgba(255,255,255,0.92)",
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  heroButton: {
+    alignSelf: "stretch",
+    backgroundColor: "#ffffff",
+    paddingVertical: 17,
     borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
   },
-  chatAvatarText: {
-    fontSize: 13,
+  heroButtonLabel: {
+    color: "#124eff",
+    fontSize: 16,
     fontWeight: "800",
-    color: "#1f2937",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
-  chatMessageWrap: {
-    flex: 1,
-    gap: 3,
+  sectionBlock: {
+    gap: 14,
   },
-  chatMeta: {
-    fontSize: 11,
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  sectionTitle: {
+    color: "#111111",
+    fontSize: 20,
     fontWeight: "700",
-    color: "#6b7280",
   },
-  chatBody: {
+  sectionLink: {
+    color: "#1263ff",
     fontSize: 13,
-    lineHeight: 18,
-    color: "#1f2937",
-  },
-  chatInputBox: {
-    marginTop: 4,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 14,
-    backgroundColor: "#fbfbfd",
-    paddingHorizontal: 11,
-    paddingVertical: 10,
-    gap: 6,
-  },
-  chatInputLabel: {
-    fontSize: 11,
     fontWeight: "700",
-    color: "#6b7280",
-  },
-  chatInput: {
-    fontSize: 13,
-    color: "#111827",
-    paddingVertical: 0,
-  },
-  chatInputHint: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#9ca3af",
     textTransform: "uppercase",
     letterSpacing: 0.6,
   },
   pulseRow: {
+    gap: 14,
+    paddingRight: 14,
+  },
+  pulseCard: {
+    width: 116,
+    height: 136,
+    borderRadius: 26,
+    padding: 14,
+    justifyContent: "flex-end",
+    overflow: "hidden",
+  },
+  pulseIconWrap: {
+    position: "absolute",
+    left: 14,
+    top: 14,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pulseTitle: {
+    color: "#17181c",
+    fontSize: 14,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    lineHeight: 18,
+  },
+  pulseSubtitle: {
+    marginTop: 4,
+    color: "#6b7280",
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  segmentOuter: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f0f1f3",
+    borderRadius: 999,
+    padding: 4,
+  },
+  segmentButton: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 999,
+  },
+  segmentButtonActive: {
+    backgroundColor: "#ffffff",
+  },
+  segmentText: {
+    color: "#535862",
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  segmentTextActive: {
+    color: "#1263ff",
+    fontWeight: "700",
+  },
+  filterRow: {
+    flexDirection: "row",
+    gap: 20,
+  },
+  filterButton: {
+    gap: 8,
+  },
+  filterText: {
+    color: "#262a33",
+    fontSize: 13,
+    fontWeight: "500",
+    textTransform: "uppercase",
+    letterSpacing: 1.2,
+  },
+  filterTextActive: {
+    color: "#1263ff",
+    fontWeight: "700",
+  },
+  filterUnderline: {
+    height: 2,
+    width: "100%",
+    borderRadius: 999,
+    backgroundColor: "#1263ff",
+  },
+  errorText: {
+    color: "#b91c1c",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  loaderWrap: {
+    paddingVertical: 24,
+    alignItems: "center",
+  },
+  feedList: {
+    gap: 18,
+  },
+  feedCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 34,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 16,
+    shadowColor: "#0f172a",
+    shadowOpacity: 0.06,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 5,
+  },
+  feedCardHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 10,
-    marginTop: 6,
+    marginBottom: 14,
   },
-  pulseLabel: {
+  feedAuthorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    flex: 1,
+  },
+  feedAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+  },
+  feedAvatarFallback: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "#f97a56",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  feedAvatarInitials: {
+    color: "#ffffff",
+    fontWeight: "800",
     fontSize: 14,
+  },
+  feedAuthorMeta: {
+    flex: 1,
+  },
+  feedAuthorName: {
+    color: "#10131a",
+    fontSize: 18,
     fontWeight: "700",
-    color: "#1f2937",
   },
-  pulseTag: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  pulseTagDefault: {
-    backgroundColor: "#eef2f7",
-  },
-  pulseTagAccent: {
-    backgroundColor: "rgba(255, 133, 87, 0.17)",
-  },
-  pulseTagMint: {
-    backgroundColor: "rgba(111, 198, 159, 0.18)",
-  },
-  pulseTagSun: {
-    backgroundColor: "rgba(232, 186, 98, 0.24)",
-  },
-  pulseTagText: {
+  feedAuthorSubline: {
+    color: "#737a88",
     fontSize: 11,
-    fontWeight: "700",
-    color: "#374151",
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.9,
+    marginTop: 2,
+  },
+  feedBody: {
+    color: "#383d47",
+    fontSize: 16,
+    lineHeight: 25,
+    marginBottom: 16,
+  },
+  postVisual: {
+    position: "relative",
+    height: 195,
+    borderRadius: 28,
+    overflow: "hidden",
+    marginBottom: 14,
+  },
+  postVisualGlow: {
+    position: "absolute",
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    top: 18,
+    left: 84,
+  },
+  radarRingLarge: {
+    position: "absolute",
+    width: 190,
+    height: 190,
+    borderRadius: 95,
+    borderWidth: 1,
+    alignSelf: "center",
+    top: 2,
+  },
+  radarRingMedium: {
+    position: "absolute",
+    width: 128,
+    height: 128,
+    borderRadius: 64,
+    borderWidth: 1,
+    alignSelf: "center",
+    top: 33,
+  },
+  radarRingSmall: {
+    position: "absolute",
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    borderWidth: 2,
+    alignSelf: "center",
+    top: 70,
+  },
+  radarCenter: {
+    position: "absolute",
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignSelf: "center",
+    top: 89,
+  },
+  radarLineVertical: {
+    position: "absolute",
+    width: 1,
+    height: "100%",
+    backgroundColor: "rgba(133, 240, 255, 0.25)",
+    alignSelf: "center",
+  },
+  radarLineHorizontal: {
+    position: "absolute",
+    height: 1,
+    width: "100%",
+    backgroundColor: "rgba(133, 240, 255, 0.25)",
+    top: "50%",
+  },
+  posterBackdrop: {
+    position: "absolute",
+    inset: 0,
+  },
+  posterColumn: {
+    position: "absolute",
+    width: 62,
+    height: 132,
+    borderRadius: 31,
+    top: 0,
+    alignSelf: "center",
+  },
+  posterTitle: {
+    position: "absolute",
+    bottom: 16,
+    alignSelf: "center",
+    color: "rgba(208, 235, 255, 0.6)",
+    fontSize: 24,
+    letterSpacing: 1.4,
+    fontWeight: "300",
+  },
+  pollList: {
+    gap: 10,
+    marginBottom: 14,
+  },
+  pollOption: {
+    position: "relative",
+    overflow: "hidden",
+    borderRadius: 16,
+    backgroundColor: "#f4f7fb",
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  pollFill: {
+    position: "absolute",
+    inset: 0,
+    backgroundColor: "#dfeaff",
+  },
+  pollLabel: {
+    color: "#18202f",
+    fontSize: 14,
+    fontWeight: "600",
+    zIndex: 1,
+  },
+  pollVotes: {
+    color: "#1263ff",
+    fontSize: 13,
+    fontWeight: "800",
+    zIndex: 1,
+  },
+  feedActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  feedAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    marginRight: 20,
+  },
+  feedActionShare: {
+    marginLeft: "auto",
+    marginRight: 0,
+  },
+  feedActionText: {
+    color: "#4b5563",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  fab: {
+    position: "absolute",
+    right: 18,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "#1263ff",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#1263ff",
+    shadowOpacity: 0.28,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
   },
 });

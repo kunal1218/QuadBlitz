@@ -95,7 +95,13 @@ const distanceKmBetween = (from: mapboxgl.LngLat, to: mapboxgl.LngLat) => {
   return earthRadiusKm * c;
 };
 
-export const MapCanvas = ({ embedded = false }: { embedded?: boolean }) => {
+export const MapCanvas = ({
+  embedded = false,
+  mobileMinimal = false,
+}: {
+  embedded?: boolean;
+  mobileMinimal?: boolean;
+}) => {
   const { token, isAuthenticated, openAuthModal, user } = useAuth();
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -1717,24 +1723,26 @@ export const MapCanvas = ({ embedded = false }: { embedded?: boolean }) => {
     <div className="relative h-full w-full overflow-hidden">
       <div ref={mapContainerRef} className="absolute inset-0 z-0 h-full w-full" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.05),transparent_55%),radial-gradient(circle_at_bottom,rgba(255,134,88,0.2),transparent_45%)] pointer-events-none" />
-      <MapControls
-        isAuthenticated={isAuthenticated}
-        shareLocation={settings.shareLocation}
-        ghostMode={settings.ghostMode}
-        publicMode={settings.publicMode}
-        isEmbedded={embedded}
-        isPlacingPin={isPlacingPin}
-        onToggleShare={handleToggleShare}
-        onToggleGhost={handleToggleGhost}
-        onTogglePublic={handleTogglePublic}
-        onToggleCreateEvent={() => setIsPlacingPin((prev) => !prev)}
-        showCreateEvent={!showEventForm}
-        onLogin={() => openAuthModal("login")}
-        onRetry={handleRetry}
-        error={error}
-        isLoading={isLoading}
-      />
-      {!showEventsSidebar && (
+      {!mobileMinimal ? (
+        <MapControls
+          isAuthenticated={isAuthenticated}
+          shareLocation={settings.shareLocation}
+          ghostMode={settings.ghostMode}
+          publicMode={settings.publicMode}
+          isEmbedded={embedded}
+          isPlacingPin={isPlacingPin}
+          onToggleShare={handleToggleShare}
+          onToggleGhost={handleToggleGhost}
+          onTogglePublic={handleTogglePublic}
+          onToggleCreateEvent={() => setIsPlacingPin((prev) => !prev)}
+          showCreateEvent={!showEventForm}
+          onLogin={() => openAuthModal("login")}
+          onRetry={handleRetry}
+          error={error}
+          isLoading={isLoading}
+        />
+      ) : null}
+      {!mobileMinimal && !showEventsSidebar ? (
         <button
           type="button"
           onClick={() => setShowEventsSidebar(true)}
@@ -1747,13 +1755,14 @@ export const MapCanvas = ({ embedded = false }: { embedded?: boolean }) => {
           <span className={embedded ? "text-base" : "text-xl"}>📍</span>
           View Events{events.length > 0 ? ` (${events.length})` : ""}
         </button>
-      )}
-      {isPlacingPin && (
+      ) : null}
+      {!mobileMinimal && isPlacingPin ? (
         <div className="pointer-events-none absolute left-1/2 top-24 z-30 -translate-x-1/2 rounded-full bg-accent px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(27,26,23,0.25)] animate-bounce">
           📍 Click anywhere on the map to place your event
         </div>
-      )}
-      <div
+      ) : null}
+      {!mobileMinimal ? (
+        <div
         className={`absolute right-4 z-20 flex flex-col gap-2 pointer-events-none ${
           embedded ? "bottom-24" : "bottom-6"
         }`}
@@ -1825,13 +1834,14 @@ export const MapCanvas = ({ embedded = false }: { embedded?: boolean }) => {
           </div>
         </div>
       </div>
-      {selectedFriend && (
+      ) : null}
+      {!mobileMinimal && selectedFriend ? (
         <FriendPopup
           friend={selectedFriend}
           onClose={() => setSelectedFriend(null)}
         />
-      )}
-      {selectedPublicUser && (
+      ) : null}
+      {!mobileMinimal && selectedPublicUser ? (
         <PublicUserPopup
           user={selectedPublicUser}
           onClose={() => setSelectedPublicUser(null)}
@@ -1858,8 +1868,8 @@ export const MapCanvas = ({ embedded = false }: { embedded?: boolean }) => {
             }
           }}
         />
-      )}
-      {showPublicConfirm && (
+      ) : null}
+      {!mobileMinimal && showPublicConfirm ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center px-4">
           <div
             className="absolute inset-0 bg-ink/40 backdrop-blur"
@@ -1888,8 +1898,8 @@ export const MapCanvas = ({ embedded = false }: { embedded?: boolean }) => {
             </div>
           </div>
         </div>
-      )}
-      {showEventsSidebar && (
+      ) : null}
+      {!mobileMinimal && showEventsSidebar ? (
         <EventsSidebar
           events={events}
           onClose={() => setShowEventsSidebar(false)}
@@ -1897,22 +1907,22 @@ export const MapCanvas = ({ embedded = false }: { embedded?: boolean }) => {
           userLocation={userLocation}
           now={now}
         />
-      )}
-      {selectedEvent && (
+      ) : null}
+      {!mobileMinimal && selectedEvent ? (
         <EventDetailCard
           event={selectedEvent}
           onClose={() => setSelectedEvent(null)}
           onRSVP={(status) => handleEventRSVP(selectedEvent.id, status)}
           onDelete={() => handleDeleteEvent(selectedEvent.id)}
         />
-      )}
-      {showEventForm && newEventLocation && (
+      ) : null}
+      {!mobileMinimal && showEventForm && newEventLocation ? (
         <EventCreationForm
           location={newEventLocation}
           onClose={closeEventForm}
           onSubmit={handleCreateEvent}
         />
-      )}
+      ) : null}
     </div>
   );
 };

@@ -1,9 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-<<<<<<< HEAD
-import type { CreateEventRequest } from "@lockedin/shared";
-=======
 import type { CreateEventRequest, EventWithDetails } from "@lockedin/shared";
->>>>>>> 272be6e (Update Mobile App sheesh)
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
@@ -20,11 +16,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
-<<<<<<< HEAD
-import { createEvent } from "../../api/actions";
-=======
 import { createEvent, getEventDetails, getNearbyEvents, rsvpToEvent } from "../../api/actions";
->>>>>>> 272be6e (Update Mobile App sheesh)
 import { formatError, isAuthError } from "../../lib/errors";
 import type { SessionProps } from "../../types/session";
 
@@ -36,11 +28,7 @@ const MAPBOX_TOKEN =
 const MAPBOX_STYLE = "mapbox://styles/mapbox/streets-v12";
 const DEFAULT_CENTER = { lng: -89.4012, lat: 43.0731, zoom: 14 };
 
-<<<<<<< HEAD
-const MAP_HTML = `
-=======
 const buildMapHtml = (mapboxToken: string) => `
->>>>>>> 272be6e (Update Mobile App sheesh)
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -73,11 +61,7 @@ const buildMapHtml = (mapboxToken: string) => `
     <div id="map"></div>
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"></script>
     <script>
-<<<<<<< HEAD
-      mapboxgl.accessToken = "${MAPBOX_TOKEN}";
-=======
       mapboxgl.accessToken = "${mapboxToken}";
->>>>>>> 272be6e (Update Mobile App sheesh)
       const map = new mapboxgl.Map({
         container: "map",
         style: "${MAPBOX_STYLE}",
@@ -92,34 +76,6 @@ const buildMapHtml = (mapboxToken: string) => `
 
       let placementMode = false;
       let tempMarker = null;
-<<<<<<< HEAD
-      const createdMarkers = [];
-
-      const setPlacementMode = (nextValue) => {
-        placementMode = Boolean(nextValue);
-        map.getCanvas().style.cursor = placementMode ? "crosshair" : "";
-      };
-
-      const clearTempMarker = () => {
-        if (tempMarker) {
-          tempMarker.remove();
-          tempMarker = null;
-        }
-      };
-
-      const setTempMarker = (latitude, longitude) => {
-        clearTempMarker();
-        tempMarker = new mapboxgl.Marker({ color: "#ef4444" })
-          .setLngLat([longitude, latitude])
-          .addTo(map);
-      };
-
-      const addCreatedMarker = (latitude, longitude) => {
-        const marker = new mapboxgl.Marker({ color: "#1263ff" })
-          .setLngLat([longitude, latitude])
-          .addTo(map);
-        createdMarkers.push(marker);
-=======
       const eventMarkers = new Map();
 
       const categoryIcons = {
@@ -275,7 +231,6 @@ const buildMapHtml = (mapboxToken: string) => `
             eventMarkers.delete(id);
           }
         });
->>>>>>> 272be6e (Update Mobile App sheesh)
       };
 
       const handleMessage = (rawData) => {
@@ -288,12 +243,6 @@ const buildMapHtml = (mapboxToken: string) => `
             clearTempMarker();
             setPlacementMode(false);
           }
-<<<<<<< HEAD
-          if (message.type === "add-created-marker") {
-            if (message.payload) {
-              addCreatedMarker(message.payload.latitude, message.payload.longitude);
-              clearTempMarker();
-=======
           if (message.type === "set-events") {
             renderEvents(message.payload && Array.isArray(message.payload.events) ? message.payload.events : []);
           }
@@ -303,14 +252,11 @@ const buildMapHtml = (mapboxToken: string) => `
                 center: [message.payload.longitude, message.payload.latitude],
                 duration: 700
               });
->>>>>>> 272be6e (Update Mobile App sheesh)
             }
           }
         } catch (error) {}
       };
 
-<<<<<<< HEAD
-=======
       const postCenter = () => {
         if (!window.ReactNativeWebView) {
           return;
@@ -324,7 +270,6 @@ const buildMapHtml = (mapboxToken: string) => `
         );
       };
 
->>>>>>> 272be6e (Update Mobile App sheesh)
       map.on("click", function(event) {
         if (!placementMode) {
           return;
@@ -344,8 +289,6 @@ const buildMapHtml = (mapboxToken: string) => `
         }
       });
 
-<<<<<<< HEAD
-=======
       map.on("load", function() {
         if (window.ReactNativeWebView) {
           window.ReactNativeWebView.postMessage(JSON.stringify({ type: "map-ready" }));
@@ -357,7 +300,6 @@ const buildMapHtml = (mapboxToken: string) => `
         postCenter();
       });
 
->>>>>>> 272be6e (Update Mobile App sheesh)
       document.addEventListener("message", function(event) {
         handleMessage(event.data);
       });
@@ -371,8 +313,6 @@ const buildMapHtml = (mapboxToken: string) => `
 
 type EventCategory = "all" | "sports" | "study" | "social";
 
-<<<<<<< HEAD
-=======
 const CATEGORY_ICONS: Record<string, string> = {
   study: "🎓",
   social: "🎉",
@@ -389,7 +329,6 @@ const CATEGORY_COLORS: Record<string, string> = {
   other: "#6b7280",
 };
 
->>>>>>> 272be6e (Update Mobile App sheesh)
 const categoryOptions: Array<{ id: EventCategory; label: string }> = [
   { id: "sports", label: "Sports" },
   { id: "study", label: "Study" },
@@ -398,31 +337,6 @@ const categoryOptions: Array<{ id: EventCategory; label: string }> = [
 
 const MAX_PANEL_HEIGHT = 276;
 
-<<<<<<< HEAD
-const nearbyEvents = [
-  {
-    id: "event-1",
-    title: "Pickup Basketball",
-    location: "North Courts",
-    distance: "3 min away",
-    category: "sports" as const,
-  },
-  {
-    id: "event-2",
-    title: "Library Study Sprint",
-    location: "Memorial Library",
-    distance: "5 min away",
-    category: "study" as const,
-  },
-  {
-    id: "event-3",
-    title: "Sunset Social Mixer",
-    location: "Union Terrace",
-    distance: "7 min away",
-    category: "social" as const,
-  },
-];
-=======
 const formatEventDistance = (distanceKm?: number | null) => {
   if (distanceKm == null || !Number.isFinite(distanceKm)) {
     return "Nearby";
@@ -470,7 +384,6 @@ const ensureEventDetailsShape = (event: EventWithDetails): EventWithDetails => (
   user_status: event.user_status ?? null,
   distance_km: event.distance_km ?? null,
 });
->>>>>>> 272be6e (Update Mobile App sheesh)
 
 const toLocalInputValue = (date: Date) => {
   const pad = (value: number) => String(value).padStart(2, "0");
@@ -481,13 +394,6 @@ const toLocalInputValue = (date: Date) => {
 
 const parseLocalInputValue = (value: string) => new Date(value.replace(" ", "T"));
 
-<<<<<<< HEAD
-export const MapTab = ({ token, onAuthExpired }: SessionProps) => {
-  const insets = useSafeAreaInsets();
-  const [query, setQuery] = useState("");
-  const [activeCategory, setActiveCategory] = useState<EventCategory>("all");
-  const [isPlacingPin, setIsPlacingPin] = useState(false);
-=======
 export const MapTab = ({ token, user, onAuthExpired }: SessionProps) => {
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState("");
@@ -504,7 +410,6 @@ export const MapTab = ({ token, user, onAuthExpired }: SessionProps) => {
   const [detailError, setDetailError] = useState<string | null>(null);
   const [isDetailLoading, setDetailLoading] = useState(false);
   const [isRsvping, setRsvping] = useState(false);
->>>>>>> 272be6e (Update Mobile App sheesh)
   const [selectedLocation, setSelectedLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -522,11 +427,7 @@ export const MapTab = ({ token, user, onAuthExpired }: SessionProps) => {
   const [endTime, setEndTime] = useState(toLocalInputValue(defaultEnd));
   const [maxAttendees, setMaxAttendees] = useState("");
   const [visibility, setVisibility] = useState<"public" | "friends-only">("public");
-<<<<<<< HEAD
-  const source = useMemo(() => ({ html: MAP_HTML }), []);
-=======
   const source = useMemo(() => ({ html: buildMapHtml(MAPBOX_TOKEN) }), []);
->>>>>>> 272be6e (Update Mobile App sheesh)
   const webViewRef = useRef<WebView>(null);
   const panelHeight = useRef(new Animated.Value(0)).current;
   const panelHeightRef = useRef(0);
@@ -631,26 +532,15 @@ export const MapTab = ({ token, user, onAuthExpired }: SessionProps) => {
   );
   const filteredEvents = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-<<<<<<< HEAD
-    return nearbyEvents.filter((event) => {
-=======
     return events.filter((event) => {
->>>>>>> 272be6e (Update Mobile App sheesh)
       const matchesCategory =
         activeCategory === "all" || event.category === activeCategory;
       const matchesQuery =
         normalizedQuery.length === 0 ||
-<<<<<<< HEAD
-        `${event.title} ${event.location}`.toLowerCase().includes(normalizedQuery);
-      return matchesCategory && matchesQuery;
-    });
-  }, [activeCategory, query]);
-=======
         `${event.title} ${event.venue_name ?? ""}`.toLowerCase().includes(normalizedQuery);
       return matchesCategory && matchesQuery;
     });
   }, [activeCategory, events, query]);
->>>>>>> 272be6e (Update Mobile App sheesh)
 
   const sendMapMessage = useCallback((message: unknown) => {
     const serialized = JSON.stringify(message);
@@ -660,8 +550,6 @@ export const MapTab = ({ token, user, onAuthExpired }: SessionProps) => {
     `);
   }, []);
 
-<<<<<<< HEAD
-=======
   const openEventDetails = useCallback(
     async (eventId: number) => {
       setDetailModalOpen(true);
@@ -758,7 +646,6 @@ export const MapTab = ({ token, user, onAuthExpired }: SessionProps) => {
     syncVisibleEventsToMap(filteredEvents);
   }, [filteredEvents, syncVisibleEventsToMap]);
 
->>>>>>> 272be6e (Update Mobile App sheesh)
   const resetCreateForm = useCallback(() => {
     setTitle("");
     setDescription("");
@@ -798,8 +685,6 @@ export const MapTab = ({ token, user, onAuthExpired }: SessionProps) => {
     (event: WebViewMessageEvent) => {
       try {
         const message = JSON.parse(event.nativeEvent.data);
-<<<<<<< HEAD
-=======
         if (message.type === "map-ready") {
           setMapReady(true);
           return;
@@ -821,7 +706,6 @@ export const MapTab = ({ token, user, onAuthExpired }: SessionProps) => {
           }
           return;
         }
->>>>>>> 272be6e (Update Mobile App sheesh)
         if (message.type === "map-pin-selected" && message.payload) {
           setIsPlacingPin(false);
           setSelectedLocation({
@@ -835,9 +719,6 @@ export const MapTab = ({ token, user, onAuthExpired }: SessionProps) => {
         return;
       }
     },
-<<<<<<< HEAD
-    [resetCreateForm]
-=======
     [openEventDetails, resetCreateForm]
   );
 
@@ -866,7 +747,6 @@ export const MapTab = ({ token, user, onAuthExpired }: SessionProps) => {
       }
     },
     [onAuthExpired, selectedEvent, token]
->>>>>>> 272be6e (Update Mobile App sheesh)
   );
 
   const handleCreateSubmit = useCallback(async () => {
@@ -919,11 +799,6 @@ export const MapTab = ({ token, user, onAuthExpired }: SessionProps) => {
         visibility,
       };
 
-<<<<<<< HEAD
-      await createEvent(payload, token);
-      sendMapMessage({
-        type: "add-created-marker",
-=======
       const createdEvent = await createEvent(payload, token);
       setEvents((current) => {
         const next = [createdEvent, ...current.filter((event) => event.id !== createdEvent.id)];
@@ -931,7 +806,6 @@ export const MapTab = ({ token, user, onAuthExpired }: SessionProps) => {
       });
       sendMapMessage({
         type: "focus-map",
->>>>>>> 272be6e (Update Mobile App sheesh)
         payload: {
           latitude: selectedLocation.latitude,
           longitude: selectedLocation.longitude,
@@ -1046,14 +920,6 @@ export const MapTab = ({ token, user, onAuthExpired }: SessionProps) => {
               contentContainerStyle={styles.eventList}
             >
               {filteredEvents.map((event) => (
-<<<<<<< HEAD
-                <View key={event.id} style={styles.eventCard}>
-                  <Text style={styles.eventTitle}>{event.title}</Text>
-                  <Text style={styles.eventMeta}>
-                    {event.location} • {event.distance}
-                  </Text>
-                </View>
-=======
                 <Pressable
                   key={event.id}
                   style={styles.eventCard}
@@ -1073,7 +939,6 @@ export const MapTab = ({ token, user, onAuthExpired }: SessionProps) => {
                     {event.venue_name ?? "Campus"} • {formatEventDistance(event.distance_km)}
                   </Text>
                 </Pressable>
->>>>>>> 272be6e (Update Mobile App sheesh)
               ))}
               {filteredEvents.length === 0 ? (
                 <View style={styles.emptyState}>
@@ -1117,8 +982,6 @@ export const MapTab = ({ token, user, onAuthExpired }: SessionProps) => {
       </Pressable>
 
       <Modal
-<<<<<<< HEAD
-=======
         visible={isDetailModalOpen}
         transparent
         animationType="slide"
@@ -1266,7 +1129,6 @@ export const MapTab = ({ token, user, onAuthExpired }: SessionProps) => {
       </Modal>
 
       <Modal
->>>>>>> 272be6e (Update Mobile App sheesh)
         visible={isCreateModalOpen}
         transparent
         animationType="slide"
@@ -1623,113 +1485,6 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: "800",
   },
-<<<<<<< HEAD
-  modalSubtitle: {
-    color: "#6b7280",
-    fontSize: 13,
-    marginTop: 4,
-  },
-  modalCloseButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#d8dde6",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#ffffff",
-  },
-  modalCloseLabel: {
-    color: "#4b5563",
-    fontSize: 24,
-    lineHeight: 24,
-  },
-  modalError: {
-    color: "#b91c1c",
-    fontSize: 13,
-    fontWeight: "600",
-    marginBottom: 10,
-  },
-  modalBody: {
-    flexGrow: 0,
-  },
-  modalBodyContent: {
-    gap: 14,
-    paddingBottom: 18,
-  },
-  fieldGroup: {
-    gap: 8,
-  },
-  fieldLabel: {
-    color: "#6b7280",
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-  },
-  fieldInput: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#d9dee7",
-    backgroundColor: "#ffffff",
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    fontSize: 15,
-    color: "#111827",
-  },
-  fieldTextarea: {
-    minHeight: 96,
-    textAlignVertical: "top",
-  },
-  choiceRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-  },
-  choiceChip: {
-    borderRadius: 999,
-    backgroundColor: "#eef2f7",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  choiceChipActive: {
-    backgroundColor: "#2164ff",
-  },
-  choiceChipText: {
-    color: "#475569",
-    fontSize: 13,
-    fontWeight: "700",
-    textTransform: "capitalize",
-  },
-  choiceChipTextActive: {
-    color: "#ffffff",
-  },
-  modalActions: {
-    flexDirection: "row",
-    gap: 12,
-    paddingTop: 8,
-  },
-  actionButton: {
-    flex: 1,
-    minHeight: 48,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  actionButtonSecondary: {
-    backgroundColor: "#ffffff",
-    borderWidth: 1,
-    borderColor: "#d8dde6",
-  },
-  actionButtonPrimary: {
-    backgroundColor: "#2164ff",
-  },
-  actionButtonSecondaryText: {
-    color: "#475569",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-=======
   detailHeaderCopy: {
     flex: 1,
     gap: 10,
@@ -1911,7 +1666,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
->>>>>>> 272be6e (Update Mobile App sheesh)
   actionButtonPrimaryText: {
     color: "#ffffff",
     fontSize: 14,

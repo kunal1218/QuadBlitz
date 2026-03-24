@@ -17,6 +17,7 @@ export type AuthUser = {
   name: string;
   handle: string;
   email: string;
+  avatarUrl?: string | null;
   collegeName?: string | null;
   collegeDomain?: string | null;
   isAdmin?: boolean;
@@ -85,7 +86,7 @@ const persistAuth = (payload: AuthPayload | null) => {
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [auth, setAuth] = useState<AuthPayload | null>(null);
+  const [auth, setAuth] = useState<AuthPayload | null>(() => readStoredAuth());
   const [isAuthModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<AuthModalMode>("signup");
   const collegeSyncTokenRef = useRef<string | null>(null);
@@ -111,10 +112,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setAuth(normalized);
     persistAuth(normalized);
   }, [normalizeAuthPayload]);
-
-  useEffect(() => {
-    setAuth(readStoredAuth());
-  }, []);
 
   useEffect(() => {
     if (!auth?.token || !auth.user) {

@@ -15,6 +15,7 @@ type FeedPostRow = {
   author_id: string;
   author_name: string;
   author_handle: string;
+  author_avatar_url?: string | null;
   author_college_name?: string | null;
   author_college_domain?: string | null;
   type: FeedPostType;
@@ -40,6 +41,7 @@ type CommentRow = {
   author_id: string;
   author_name: string;
   author_handle: string;
+  author_avatar_url?: string | null;
   content: string;
   created_at: string | Date;
   like_count?: number | string | null;
@@ -163,6 +165,7 @@ const mapPost = (
     id: row.author_id,
     name: row.author_name,
     handle: row.author_handle,
+    avatarUrl: row.author_avatar_url ?? undefined,
     collegeName: row.author_college_name ?? undefined,
     collegeDomain: row.author_college_domain ?? undefined,
   },
@@ -183,6 +186,7 @@ const mapComment = (row: CommentRow): FeedComment => ({
     id: row.author_id,
     name: row.author_name,
     handle: row.author_handle,
+    avatarUrl: row.author_avatar_url ?? undefined,
   },
   content: row.content,
   createdAt: toIsoString(row.created_at),
@@ -254,6 +258,7 @@ export const fetchFeed = async (params: {
             COALESCE(comments.comment_count, 0) AS comment_count,
             users.name AS author_name,
             users.handle AS author_handle,
+            users.profile_picture_url AS author_avatar_url,
             users.college_name AS author_college_name,
             users.college_domain AS author_college_domain,
             (likes.user_id IS NOT NULL) AS liked_by_user
@@ -294,6 +299,7 @@ export const fetchPostById = async (
             COALESCE(comments.comment_count, 0) AS comment_count,
             users.name AS author_name,
             users.handle AS author_handle,
+            users.profile_picture_url AS author_avatar_url,
             users.college_name AS author_college_name,
             users.college_domain AS author_college_domain,
             (likes.user_id IS NOT NULL) AS liked_by_user
@@ -641,6 +647,7 @@ const fetchCommentById = async (
             comments.created_at,
             users.name AS author_name,
             users.handle AS author_handle,
+            users.profile_picture_url AS author_avatar_url,
             COALESCE(like_counts.count, 0) AS like_count,
             (user_likes.user_id IS NOT NULL) AS liked_by_user
      FROM feed_comments comments
@@ -677,6 +684,7 @@ export const fetchComments = async (
             comments.created_at,
             users.name AS author_name,
             users.handle AS author_handle,
+            users.profile_picture_url AS author_avatar_url,
             COALESCE(like_counts.count, 0) AS like_count,
             (user_likes.user_id IS NOT NULL) AS liked_by_user
      FROM feed_comments comments

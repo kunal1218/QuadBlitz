@@ -1,193 +1,252 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { SVGProps } from "react";
 import Link from "next/link";
-import { Button } from "@/components/Button";
+import { Outfit } from "next/font/google";
 import { CreateListingModal } from "@/features/marketplace/CreateListingModal";
-import { ListingCard } from "@/features/marketplace/ListingCard";
-import type { Listing } from "@/features/marketplace/types";
+import { MarketplaceGridCard } from "@/features/marketplace/MarketplaceGridCard";
 import { fetchListings } from "@/lib/api/marketplace";
+import type { Listing } from "@/features/marketplace/types";
 
-const ShoppingBagIcon = ({ className }: { className?: string }) => (
-  <svg
-    viewBox="0 0 24 24"
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.7"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <path d="M6 8V7a6 6 0 0 1 12 0v1" />
-    <path d="M4 8h16l-1.5 12.5a2 2 0 0 1-2 1.5H7.5a2 2 0 0 1-2-1.5L4 8Z" />
-    <path d="M9 11a3 3 0 0 0 6 0" />
+const outfit = Outfit({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+});
+
+const SearchIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+    <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.75" />
+    <path
+      d="M20 20l-3.6-3.6"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+    />
   </svg>
 );
 
-const SearchIcon = ({ className }: { className?: string }) => (
-  <svg
-    viewBox="0 0 24 24"
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.7"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <circle cx="11" cy="11" r="7" />
-    <path d="M20 20l-3.5-3.5" />
+const ListingsIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" {...props}>
+    <path
+      d="M5 4.5h10M5 8.5h10M5 12.5h6"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+    />
+    <rect x="3.5" y="3.5" width="13" height="13" rx="2.5" stroke="currentColor" strokeWidth="1.4" />
   </svg>
 );
 
-const categories = [
-  "All",
-  "Textbooks",
-  "Electronics",
-  "Furniture",
-  "Clothing",
-  "Other",
-];
+const filters = [
+  { id: "all", label: "All Items", queryCategory: undefined },
+  { id: "Textbooks", label: "Textbooks", queryCategory: "Textbooks" },
+  { id: "Electronics", label: "Electronics", queryCategory: "Electronics" },
+  { id: "Furniture", label: "Furniture", queryCategory: "Furniture" },
+  { id: "Clothing", label: "Clothing", queryCategory: "Clothing" },
+  { id: "Kitchen", label: "Kitchen", queryCategory: "Other" },
+  { id: "Sporting Goods", label: "Sporting Goods", queryCategory: "Other" },
+] as const satisfies ReadonlyArray<{
+  id: string;
+  label: string;
+  queryCategory: Listing["category"] | undefined;
+}>;
+
+type FilterId = (typeof filters)[number]["id"];
+
+const cardSkeletons = Array.from({ length: 8 }, (_, index) => index);
 
 export default function MarketplacePage() {
-  const [selectedCategory, setSelectedCategory] = useState<string>("All");
-  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [selectedFilter, setSelectedFilter] = useState<FilterId>("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [listings, setListings] = useState<Listing[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
-  const loadListings = useCallback(async () => {
-    try {
-      const next = await fetchListings({
-        category: selectedCategory,
-        search: searchQuery,
-      });
-      setListings(next);
-    } catch (error) {
-      console.error("Fetch error:", error);
-      setListings([]);
-    }
-  }, [searchQuery, selectedCategory]);
+  const activeFilter = useMemo(
+    () => filters.find((filter) => filter.id === selectedFilter) ?? filters[0],
+    [selectedFilter]
+  );
 
   useEffect(() => {
-    void loadListings();
-  }, [loadListings]);
+    let isActive = true;
+    const timeoutId = window.setTimeout(async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const nextListings = await fetchListings({
+          category: activeFilter.queryCategory,
+          search: searchQuery,
+        });
+
+        if (!isActive) {
+          return;
+        }
+
+        setListings(nextListings);
+      } catch (loadError) {
+        if (!isActive) {
+          return;
+        }
+
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Unable to load marketplace listings."
+        );
+        setListings([]);
+      } finally {
+        if (isActive) {
+          setIsLoading(false);
+        }
+      }
+    }, searchQuery.trim() ? 160 : 0);
+
+    return () => {
+      isActive = false;
+      window.clearTimeout(timeoutId);
+    };
+  }, [activeFilter.queryCategory, refreshNonce, searchQuery]);
+
+  const resultsLabel = isLoading
+    ? "Refreshing listings"
+    : `${listings.length} listing${listings.length === 1 ? "" : "s"}`;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-8 pt-2">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="font-display text-4xl font-bold text-ink">
-            Marketplace
-          </h1>
-          <p className="mt-2 text-base text-gray-600">
-            Buy and sell with ease
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <Link
-            href="/marketplace/messages"
-            className="inline-flex items-center justify-center rounded-full border border-card-border bg-white/80 px-4 py-2 text-sm font-semibold text-ink transition hover:border-accent/60"
-          >
-            Marketplace Messages
-          </Link>
-          <Link
-            href="/marketplace/my-listings"
-            className="inline-flex items-center justify-center rounded-full border border-card-border bg-white/80 px-4 py-2 text-sm font-semibold text-ink transition hover:border-accent/60"
-          >
-            My Listings
-          </Link>
-          <Button requiresAuth={false} onClick={() => setIsModalOpen(true)}>
-            Post Listing
-          </Button>
-        </div>
-      </div>
-
-      <div className="mb-6">
-        <div className="relative">
-          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search for textbooks, furniture, electronics..."
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 pl-10 text-sm text-gray-900 placeholder:text-gray-400 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
-          />
-        </div>
-      </div>
-
-      <div>
-        <p className="mb-3 text-xs font-semibold uppercase text-gray-500">
-          Categories
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {categories.map((category) => {
-            const isActive = category === selectedCategory;
-            return (
-              <button
-                key={category}
-                type="button"
-                onClick={() => setSelectedCategory(category)}
-                className={`cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition-colors duration-200 ${
-                  isActive
-                    ? "bg-orange-100 text-orange-600"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
-              >
-                {category}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {listings.length === 0 ? (
-          <div className="col-span-full flex items-center justify-center py-16">
-            <div className="text-center">
-              <ShoppingBagIcon className="mx-auto mb-4 h-20 w-20 text-orange-500" />
-              <h2 className="mb-2 text-xl font-semibold text-gray-900">
-                {searchQuery.trim() && selectedCategory !== "All"
-                  ? `No ${selectedCategory} found matching '${searchQuery.trim()}'`
-                  : searchQuery.trim()
-                    ? `No results found for '${searchQuery.trim()}'`
-                    : selectedCategory === "All"
-                      ? "No listings yet"
-                      : `No ${selectedCategory} found`}
-              </h2>
-              <p className="mb-6 text-sm text-gray-600">
-                Be the first to sell something!
+    <div className={`${outfit.className} min-h-screen bg-white text-[#181d25]`}>
+      <main className="mx-auto max-w-[1180px] px-5 pb-16 pt-7 sm:px-6 lg:px-8">
+        <section className="border-b border-[#edf1f6] pb-8">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+            <div className="max-w-[380px]">
+              <h1 className="text-[44px] font-[800] tracking-[-0.08em] text-[#252933] sm:text-[52px]">
+                Marketplace
+              </h1>
+              <p className="mt-2 max-w-[300px] text-[14px] leading-[1.6] text-[#7d8695] sm:text-[15px]">
+                Buy and sell within your campus community with ease and trust.
               </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3 lg:justify-end">
+              <Link
+                href="/marketplace/my-listings"
+                className="inline-flex h-10 items-center gap-2 rounded-full bg-[#f8f9fc] px-4 text-[11px] font-semibold text-[#4f5563] shadow-[inset_0_0_0_1px_rgba(231,236,244,1)] transition hover:bg-white hover:text-[#20242d]"
+              >
+                <ListingsIcon className="h-[13px] w-[13px]" />
+                <span>My Listings</span>
+              </Link>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(true)}
-                className="inline-flex items-center justify-center rounded-lg border-2 border-orange-500 px-5 py-2.5 text-sm font-semibold text-orange-500 transition hover:bg-orange-50"
+                className="inline-flex h-10 items-center justify-center rounded-full bg-[#1456f4] px-6 text-[11px] font-semibold text-white shadow-[0_14px_28px_rgba(20,86,244,0.22)] transition hover:bg-[#0f49e2]"
               >
                 Post Listing
               </button>
             </div>
           </div>
-        ) : (
-          listings.map((listing) => (
-            <Link
-              key={listing.id}
-              href={`/marketplace/${listing.id}`}
-              className="block no-underline"
-            >
-              <div className="transition-all duration-200 hover:scale-[1.02]">
-                <ListingCard listing={listing} />
-              </div>
-            </Link>
-          ))
-        )}
-      </div>
+
+          <div className="relative mt-7 max-w-[940px]">
+            <SearchIcon className="pointer-events-none absolute left-5 top-1/2 h-[16px] w-[16px] -translate-y-1/2 text-[#a2aabc]" />
+            <input
+              type="text"
+              placeholder="What are you looking for today?"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              className="h-14 w-full rounded-full bg-[#fbfbfd] pl-14 pr-5 text-[14px] text-[#20242d] shadow-[inset_0_0_0_1px_rgba(238,242,247,1)] outline-none transition placeholder:text-[#adb4c2] focus:bg-white focus:ring-4 focus:ring-[#1456f4]/8"
+            />
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2.5">
+            {filters.map((filter) => {
+              const isActive = filter.id === selectedFilter;
+              return (
+                <button
+                  key={filter.id}
+                  type="button"
+                  onClick={() => setSelectedFilter(filter.id)}
+                  className={`inline-flex h-9 items-center rounded-full px-4 text-[10px] font-semibold transition ${
+                    isActive
+                      ? "bg-[#1456f4] text-white shadow-[0_12px_24px_rgba(20,86,244,0.22)]"
+                      : "bg-[#fbfbfd] text-[#6f7684] shadow-[inset_0_0_0_1px_rgba(231,236,244,1)] hover:bg-white hover:text-[#20242d]"
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="mt-8">
+          <div className="mb-4 flex items-center justify-between gap-4 px-1">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7e8798]">
+              {resultsLabel}
+            </p>
+            {error && (
+              <p className="rounded-full bg-[#fff1eb] px-3 py-1 text-[11px] font-semibold text-[#b15b24]">
+                {error}
+              </p>
+            )}
+          </div>
+
+          {isLoading ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {cardSkeletons.map((card) => (
+                <div
+                  key={card}
+                  className="overflow-hidden rounded-[28px] border border-[#e6ebf3] bg-white p-[10px] shadow-[0_20px_38px_rgba(17,24,39,0.04)]"
+                >
+                  <div className="h-[170px] animate-pulse rounded-[22px] bg-[#eef2f8]" />
+                  <div className="space-y-3 px-2 pb-2 pt-4">
+                    <div className="h-5 w-3/4 animate-pulse rounded-full bg-[#eef2f8]" />
+                    <div className="h-4 w-1/2 animate-pulse rounded-full bg-[#eef2f8]" />
+                    <div className="h-10 w-28 animate-pulse rounded-full bg-[#eef2f8]" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : listings.length === 0 ? (
+            <div className="rounded-[30px] border border-dashed border-[#dbe3ef] bg-white/80 px-6 py-16 text-center shadow-[0_20px_45px_rgba(15,23,42,0.05)]">
+              <p className="text-[28px] font-[800] tracking-[-0.06em] text-[#20242d]">
+                Nothing matches that search yet.
+              </p>
+              <p className="mx-auto mt-3 max-w-[520px] text-[15px] leading-[1.7] text-[#6b7587]">
+                Try a broader search, switch categories, or post the first listing in this lane.
+              </p>
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(true)}
+                className="mt-7 inline-flex h-11 items-center justify-center rounded-full bg-[#1456f4] px-5 text-[12px] font-semibold text-white shadow-[0_16px_30px_rgba(20,86,244,0.24)] transition hover:bg-[#0f49e2]"
+              >
+                Post Listing
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {listings.map((listing) => (
+                <Link
+                  key={listing.id}
+                  href={`/marketplace/${listing.id}`}
+                  className="block h-full"
+                >
+                  <MarketplaceGridCard listing={listing} />
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      </main>
 
       <CreateListingModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSuccess={() => {
           setIsModalOpen(false);
-          void loadListings();
+          setSelectedFilter("all");
+          setSearchQuery("");
+          setRefreshNonce((value) => value + 1);
         }}
       />
     </div>

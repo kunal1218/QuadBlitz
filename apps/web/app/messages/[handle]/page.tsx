@@ -9,12 +9,14 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { useAuth } from "@/features/auth";
 import { apiGet, apiPost } from "@/lib/api";
+import { getProfileHref } from "@/lib/profile";
 import { formatRelativeTime } from "@/lib/time";
 
 type MessageUser = {
   id: string;
   name: string;
   handle: string;
+  avatarUrl?: string | null;
 };
 
 type DirectMessage = {
@@ -198,12 +200,14 @@ export default function MessagePage({ params }: MessagePageProps) {
             {threadUser ? (
               <div className="flex items-center gap-3">
                 <Link
-                  href={`/profile/${encodeURIComponent(
-                    threadUser.handle.replace(/^@/, "")
-                  )}`}
-                  className="rounded-full transition hover:-translate-y-0.5 hover:shadow-sm"
+                  href={getProfileHref(threadUser, user?.id)}
+                  className="block shrink-0 rounded-full transition hover:opacity-90"
                 >
-                  <Avatar name={threadUser.name} size={44} />
+                  <Avatar
+                    name={threadUser.name}
+                    avatarUrl={threadUser.avatarUrl}
+                    size={44}
+                  />
                 </Link>
                 <div>
                   <p className="text-sm font-semibold text-ink">

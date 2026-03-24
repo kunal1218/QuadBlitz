@@ -12,6 +12,8 @@ export interface Listing {
     id: string;
     username: string;
     name: string;
+    avatarUrl?: string | null;
+    createdAt?: string | null;
   };
   createdAt: string;
 }

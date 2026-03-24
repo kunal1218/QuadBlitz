@@ -1,6 +1,7 @@
 import { profile } from "./mockData";
 import { db } from "../db";
 import { ensureUsersTable } from "./authService";
+import { ensureFriendTables } from "./friendService";
 import { getProfileAnswers } from "./profileAnswersService";
 import {
   LayoutMode,
@@ -11,6 +12,7 @@ type PublicProfileUserRow = {
   id: string;
   name: string;
   handle: string;
+  profile_picture_url?: string | null;
   college_name?: string | null;
   college_domain?: string | null;
   banned_until?: string | Date | null;
@@ -59,7 +61,7 @@ export const fetchPublicProfileByHandle = async (
   let result;
   if (isUuid(trimmed)) {
     result = await db.query(
-      "SELECT id, name, handle, college_name, college_domain, banned_until, banned_indefinitely FROM users WHERE id = $1",
+      "SELECT id, name, handle, profile_picture_url, college_name, college_domain, banned_until, banned_indefinitely FROM users WHERE id = $1",
       [trimmed]
     );
   } else {
@@ -68,7 +70,7 @@ export const fetchPublicProfileByHandle = async (
       return null;
     }
     result = await db.query(
-      "SELECT id, name, handle, college_name, college_domain, banned_until, banned_indefinitely FROM users WHERE handle = $1",
+      "SELECT id, name, handle, profile_picture_url, college_name, college_domain, banned_until, banned_indefinitely FROM users WHERE handle = $1",
       [normalized]
     );
   }
@@ -80,14 +82,26 @@ export const fetchPublicProfileByHandle = async (
   const row = result.rows[0] as PublicProfileUserRow;
   const requestedMode = mode ?? "default";
   const fallbackMode = requestedMode === "compact" ? "default" : "compact";
+  await ensureFriendTables();
 
-  const [answers, primaryLayout, fallbackLayout] = await Promise.all([
+  const [answers, primaryLayout, fallbackLayout, friendsCountResult] = await Promise.all([
     getProfileAnswers(row.id),
     fetchProfileLayout({ userId: row.id, mode: requestedMode }),
     fetchProfileLayout({ userId: row.id, mode: fallbackMode }),
+    db.query(
+      `SELECT COUNT(*)::text AS count
+       FROM friend_requests
+       WHERE status = 'accepted'
+         AND (requester_id = $1 OR recipient_id = $1)`,
+      [row.id]
+    ),
   ]);
 
   const layout = primaryLayout ?? fallbackLayout;
+  const friendsCount = Number.parseInt(
+    (friendsCountResult.rows[0] as { count?: string } | undefined)?.count ?? "0",
+    10
+  );
 
   const ban = options?.includeBanInfo ? getBanInfo(row) : undefined;
 
@@ -96,11 +110,15 @@ export const fetchPublicProfileByHandle = async (
       id: row.id,
       name: row.name,
       handle: row.handle,
+      avatarUrl: row.profile_picture_url ?? null,
       collegeName: row.college_name ?? null,
       collegeDomain: row.college_domain ?? null,
     },
     answers,
     layout,
+    stats: {
+      friendsCount: Number.isFinite(friendsCount) ? friendsCount : 0,
+    },
     ban,
   };
 };

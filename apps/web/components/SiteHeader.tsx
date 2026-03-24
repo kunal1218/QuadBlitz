@@ -1,7 +1,7 @@
 "use client";
 
 import type { MouseEvent } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/features/auth";
@@ -16,16 +16,15 @@ type NavItem = {
 
 const baseNavItems: NavItem[] = [
   { href: "/", label: "Home" },
-  { href: "/friends", label: "Friends" },
+  { href: "/friends", label: "Chat" },
   { href: "/map", label: "Map" },
   { href: "/requests", label: "Requests" },
-  { href: "/play", label: "Play" },
+  { href: "/challenges", label: "Challenges" },
   { href: "/clubs", label: "Groups" },
   { href: "/marketplace", label: "Marketplace" },
 ];
 
 const BRAND_LABEL = "Quad Blitz";
-const BRAND_TYPING_STEP_MS = 85;
 
 const BrandMark = ({
   className,
@@ -68,8 +67,6 @@ export const SiteHeader = () => {
   const searchParams = useSearchParams();
   const { isAuthenticated, user, token } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
-  const [brandLabel, setBrandLabel] = useState(BRAND_LABEL);
-  const brandTypingTimerRef = useRef<number | null>(null);
   const profileName = user?.name ?? "Profile";
   const navItems = user?.isAdmin
     ? [...baseNavItems, { href: "/admin", label: "Admin" }]
@@ -88,29 +85,8 @@ export const SiteHeader = () => {
       }
     };
 
-  const stopBrandTyping = useCallback(() => {
-    if (brandTypingTimerRef.current !== null) {
-      window.clearInterval(brandTypingTimerRef.current);
-      brandTypingTimerRef.current = null;
-    }
-  }, []);
-
-  const startBrandTyping = useCallback(() => {
-    stopBrandTyping();
-    let index = 0;
-    setBrandLabel("");
-    brandTypingTimerRef.current = window.setInterval(() => {
-      index += 1;
-      setBrandLabel(BRAND_LABEL.slice(0, index));
-      if (index >= BRAND_LABEL.length) {
-        stopBrandTyping();
-      }
-    }, BRAND_TYPING_STEP_MS);
-  }, [stopBrandTyping]);
-
   useEffect(() => {
     if (!token) {
-      setUnreadCount(0);
       return;
     }
 
@@ -140,25 +116,23 @@ export const SiteHeader = () => {
       window.clearInterval(interval);
     };
   }, [pathname, token]);
-
-  useEffect(() => {
-    if (pathname === "/") {
-      startBrandTyping();
-    } else {
-      stopBrandTyping();
-    }
-
-    return () => {
-      stopBrandTyping();
-    };
-  }, [pathname, startBrandTyping, stopBrandTyping]);
-
-  const displayBrandLabel = pathname === "/" ? brandLabel : BRAND_LABEL;
   const badgeCount = unreadCount > 99 ? "99+" : `${unreadCount}`;
   const coinCount = user?.coins ?? 0;
   const isEmbedded = searchParams.get("embedded") === "1";
 
-  if (isEmbedded) {
+  if (
+    isEmbedded ||
+    pathname === "/" ||
+    pathname === "/play" ||
+    pathname === "/challenges" ||
+    pathname.startsWith("/clubs") ||
+    pathname === "/friends" ||
+    pathname === "/map" ||
+    pathname === "/notifications" ||
+    pathname.startsWith("/posts") ||
+    pathname.startsWith("/marketplace") ||
+    pathname.startsWith("/profile")
+  ) {
     return null;
   }
 
@@ -168,15 +142,10 @@ export const SiteHeader = () => {
         <Link
           href="/"
           className="group inline-flex items-center"
-          onClick={(event) => {
-            if (pathname === "/") {
-              startBrandTyping();
-            }
-            handleNavClick("/")(event);
-          }}
+          onClick={handleNavClick("/")}
         >
           <BrandMark
-            label={displayBrandLabel}
+            label={BRAND_LABEL}
             className="h-14 w-auto translate-y-1.5 transition-transform duration-150 ease-out group-active:scale-[0.94]"
           />
         </Link>
@@ -250,7 +219,11 @@ export const SiteHeader = () => {
                 aria-label="Profile"
                 className="rounded-full border border-card-border/70 bg-white/80 p-1 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/50"
               >
-                <Avatar name={profileName} size={32} />
+                <Avatar
+                  name={profileName}
+                  avatarUrl={user?.avatarUrl}
+                  size={32}
+                />
               </Link>
             </>
           )}

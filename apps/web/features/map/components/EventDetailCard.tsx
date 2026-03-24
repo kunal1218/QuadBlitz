@@ -9,14 +9,6 @@ import { rsvpToEvent } from "@/lib/api/events";
 import { useAuth } from "@/features/auth";
 import { connectSocket, socket } from "@/lib/socket";
 
-const CATEGORY_ICONS: Record<string, string> = {
-  study: "🎓",
-  social: "🎉",
-  build: "💻",
-  sports: "🏀",
-  other: "📍",
-};
-
 const formatTime = (isoString: string) => {
   const date = new Date(isoString);
   return date.toLocaleString("en-US", {
@@ -28,6 +20,65 @@ const formatTime = (isoString: string) => {
     hour12: true,
   });
 };
+
+const formatDistance = (distanceKm?: number | null) => {
+  if (typeof distanceKm !== "number" || !Number.isFinite(distanceKm)) {
+    return null;
+  }
+  return `${distanceKm.toFixed(1)} km away`;
+};
+
+const formatCategoryLabel = (category: EventWithDetails["category"]) =>
+  `${category.replace(/-/g, " ")} event`;
+
+const HERO_SHELL =
+  "bg-[linear-gradient(180deg,#ffe0a8_0%,#fff1d1_50%,#ffffff_100%)]";
+
+const CloseIcon = () => (
+  <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-[18px] w-[18px]">
+    <path
+      d="m5.5 5.5 9 9m0-9-9 9"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+const CalendarIcon = () => (
+  <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-[18px] w-[18px]">
+    <path
+      d="M5.2 4.45v2.1M14.8 4.45v2.1M4.1 7.15h11.8M5.1 5.3h9.8a1 1 0 0 1 1 1v8.3a1 1 0 0 1-1 1H5.1a1 1 0 0 1-1-1V6.3a1 1 0 0 1 1-1Z"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const PinIcon = () => (
+  <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-[15px] w-[15px]">
+    <path
+      d="M10 16.55s4.2-4.1 4.2-7.66A4.2 4.2 0 0 0 5.8 8.9c0 3.56 4.2 7.66 4.2 7.66Z"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinejoin="round"
+    />
+    <circle cx="10" cy="8.9" r="1.4" fill="currentColor" />
+  </svg>
+);
+
+const ChatIcon = () => (
+  <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-[18px] w-[18px]">
+    <path
+      d="M4.05 4.5h11.9a.9.9 0 0 1 .9.9v7.1a.9.9 0 0 1-.9.9H8.85l-3.55 2.1v-2.1h-1.25a.9.9 0 0 1-.9-.9V5.4a.9.9 0 0 1 .9-.9Z"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
 
 type EventDetailCardProps = {
   event: EventWithDetails;
@@ -60,6 +111,7 @@ export const EventDetailCard = ({
   const [chatDraft, setChatDraft] = useState("");
   const [chatError, setChatError] = useState<string | null>(null);
   const [isSendingChat, setIsSendingChat] = useState(false);
+  const [showAllAttendees, setShowAllAttendees] = useState(false);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const modalRef = useRef<HTMLDivElement | null>(null);
   const [modalHeight, setModalHeight] = useState<number | null>(null);
@@ -67,13 +119,11 @@ export const EventDetailCard = ({
   const attendees = event.attendees ?? [];
   const isAtCapacity =
     event.max_attendees != null && event.attendee_count >= event.max_attendees;
-  const categoryIcon = CATEGORY_ICONS[event.category] ?? CATEGORY_ICONS.other;
-  const distanceLabel = useMemo(() => {
-    if (event.distance_km == null) {
-      return null;
-    }
-    return `${event.distance_km.toFixed(1)} km away`;
-  }, [event.distance_km]);
+  const distanceLabel = useMemo(() => formatDistance(event.distance_km), [event.distance_km]);
+  const attendeePreview = showAllAttendees ? attendees : attendees.slice(0, 5);
+  const aboutCopy =
+    event.description?.trim() ||
+    "Drop in, meet up, and see who else from campus is showing up.";
   const canDeleteEvent = Boolean(
     user &&
       (user.isAdmin || user.id === event.creator_id || user.id === event.creator.id)
@@ -88,6 +138,7 @@ export const EventDetailCard = ({
   }, [event.id]);
 
   useEffect(() => {
+    setShowAllAttendees(false);
     setChatMessages([]);
     setChatDraft("");
     setChatError(null);
@@ -284,216 +335,224 @@ export const EventDetailCard = ({
               ? { height: `${modalHeight}px` }
               : undefined
           }
-          className="relative flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-card-border/60 bg-white shadow-[0_24px_60px_rgba(27,26,23,0.25)] max-h-[85vh] animate-scale-in"
+          className={`relative flex w-full max-w-[520px] flex-col overflow-hidden rounded-[32px] border border-[#edf1f6] bg-white shadow-[0_28px_70px_rgba(27,26,23,0.22)] animate-scale-in ${
+            currentView === "chat" ? "max-h-[88vh]" : ""
+          }`}
         >
           {currentView === "details" ? (
             <>
-              <div className="sticky top-0 z-10 flex items-start justify-between border-b border-card-border/60 bg-white px-6 py-4">
-                <div className="mt-6">
-                  <div className="mb-2 flex items-center gap-2 text-sm text-muted">
-                    <span className="text-3xl">{categoryIcon}</span>
-                    <span className="capitalize">{event.category}</span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <h2 className="text-2xl font-semibold text-ink">{event.title}</h2>
+              <div className="shrink-0">
+                <div className={`relative h-[168px] overflow-hidden px-5 pt-5 ${HERO_SHELL}`}>
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_8%,rgba(255,255,255,0.42),transparent_34%),radial-gradient(circle_at_14%_26%,rgba(255,255,255,0.22),transparent_24%),radial-gradient(circle_at_84%_20%,rgba(255,255,255,0.18),transparent_26%)]" />
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="relative z-10 ml-auto flex h-11 w-11 items-center justify-center rounded-full bg-white/88 text-[#667086] shadow-[0_8px_18px_rgba(32,46,76,0.08)] transition hover:bg-white"
+                    aria-label="Close"
+                  >
+                    <CloseIcon />
+                  </button>
+
+                  <div className="absolute bottom-4 left-5 right-5 z-10 flex items-center gap-2 text-[12px] text-[#6e7786]">
+                    <span className="rounded-full bg-[#edf3ff] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#1456f4]">
+                      {formatCategoryLabel(event.category)}
+                    </span>
                     {distanceLabel && (
-                      <span className="text-sm text-muted whitespace-nowrap translate-y-px">
-                        🚶 {distanceLabel}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-card-border/70 text-ink/60 transition hover:border-accent/40"
-                  aria-label="Close"
-                >
-                  <span className="text-lg">×</span>
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto px-6 py-5">
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <span className="text-xl">📅</span>
-                    <div className="flex flex-1 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <p className="font-medium text-ink">
-                          Starts: {formatTime(event.start_time)}
-                        </p>
-                        <p className="text-sm text-muted">
-                          Ends: {formatTime(event.end_time)}
-                        </p>
-                      </div>
-                      <div className="flex flex-col items-start gap-2 sm:items-end">
-                        <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted">
-                          Hosted by
-                        </span>
-                        <div className="flex items-center gap-3">
-                          {event.creator.profile_picture_url ? (
-                            <button
-                              type="button"
-                              onClick={handleHostClick}
-                              className="flex h-10 w-10 items-center justify-center rounded-full"
-                              aria-label={`View ${event.creator.handle ?? event.creator.name} profile`}
-                            >
-                              <img
-                                src={event.creator.profile_picture_url}
-                                alt={event.creator.name}
-                                className="h-10 w-10 rounded-full object-cover"
-                              />
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={handleHostClick}
-                              className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-sm font-semibold text-white"
-                              aria-label={`View ${event.creator.handle ?? event.creator.name} profile`}
-                            >
-                              {event.creator.name?.charAt(0).toUpperCase() ?? "?"}
-                            </button>
-                          )}
-                          <div>
-                            <p className="text-sm font-semibold text-ink">
-                              {event.creator.name}
-                            </p>
-                            <p className="text-xs text-muted">{event.creator.handle}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  {event.venue_name && (
-                    <div className="flex items-start gap-3">
-                      <span className="text-xl">📍</span>
-                      <p className="font-medium text-ink">{event.venue_name}</p>
-                    </div>
-                  )}
-                </div>
-
-                {event.description && (
-                  <div>
-                    <h3 className="mb-2 text-sm font-semibold text-ink">About</h3>
-                    <p className="text-sm text-ink/80">{event.description}</p>
-                  </div>
-                )}
-
-                <div>
-                  <h3 className="mb-3 text-sm font-semibold text-ink">
-                    {event.attendee_count}{" "}
-                    {event.attendee_count === 1 ? "person" : "people"} going
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {attendees.slice(0, 10).map((attendee) => (
-                      <div
-                        key={attendee.id}
-                        className="flex items-center gap-2 rounded-full bg-ink/5 px-3 py-1"
-                      >
-                        {attendee.profile_picture_url ? (
-                          <img
-                            src={attendee.profile_picture_url}
-                            alt={attendee.name}
-                            className="h-6 w-6 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-ink/40 text-[10px] font-semibold text-white">
-                            {attendee.name?.charAt(0).toUpperCase() ?? "?"}
-                          </div>
-                        )}
-                        <span className="text-xs text-ink">{attendee.name}</span>
-                        {attendee.checked_in && (
-                          <span className="text-[10px] text-ink/50">✓</span>
-                        )}
-                      </div>
-                    ))}
-                    {event.attendee_count > 10 && (
-                      <span className="text-xs text-muted">
-                        +{event.attendee_count - 10} more
+                      <span className="inline-flex items-center gap-1.5 font-medium">
+                        <PinIcon />
+                        {distanceLabel}
                       </span>
                     )}
                   </div>
                 </div>
 
-                {isAtCapacity && (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-700">
-                    This event is at capacity ({event.max_attendees} attendees)
-                  </div>
-                )}
-              </div>
+                <div className="px-6 pb-4 pt-5">
+                  <h2 className="text-[24px] font-[700] tracking-[-0.06em] text-[#252a34]">
+                    {event.title}
+                  </h2>
 
-              <div className="sticky bottom-0 border-t border-card-border/60 bg-white px-6 py-4">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div className="mt-2 inline-flex items-center gap-2 text-[14px] font-medium text-[#606a7d]">
+                    <span className="text-[#1456f4]">
+                      <CalendarIcon />
+                    </span>
+                    <span>{formatTime(event.start_time)}</span>
+                  </div>
+
+                  <div className="mt-5 grid gap-4 min-[420px]:grid-cols-[176px_minmax(0,1fr)] min-[420px]:items-start min-[420px]:gap-5">
                     <button
                       type="button"
-                      onClick={handleOpenChat}
-                      className="rounded-full border border-card-border/70 bg-white/90 px-3 py-1.5 text-sm font-semibold text-ink/80 transition hover:border-accent/40 hover:bg-accent/5 hover:text-ink"
+                      onClick={handleHostClick}
+                      className="flex items-center gap-3 rounded-[22px] bg-[#f4f6fb] px-4 py-4 text-left transition hover:bg-[#eef2f8]"
                     >
-                      Open chat
+                      {event.creator.profile_picture_url ? (
+                        <img
+                          src={event.creator.profile_picture_url}
+                          alt={event.creator.name}
+                          className="h-12 w-12 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1456f4] text-sm font-semibold text-white">
+                          {event.creator.name?.charAt(0).toUpperCase() ?? "?"}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8a93a3]">
+                          Hosted By
+                        </p>
+                        <p className="truncate text-[18px] font-semibold tracking-[-0.045em] text-[#252a34]">
+                          {event.creator.name}
+                        </p>
+                        <p className="truncate text-[13px] font-medium text-[#1456f4]">
+                          {event.creator.handle}
+                        </p>
+                      </div>
                     </button>
-                    <div className="flex items-center gap-3">
-                      {canDeleteEvent && onDelete && (
+
+                    <div className="px-1 py-1 min-[420px]:pl-1">
+                      <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-[#6e7786]">
+                        About
+                      </p>
+                      <p className="mt-2 text-[14px] leading-[1.65] text-[#616c80]">
+                        {aboutCopy}
+                      </p>
+                      {event.venue_name && (
+                        <p className="mt-2 text-[12px] font-medium text-[#8891a2]">
+                          At {event.venue_name}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-[14px] font-semibold uppercase tracking-[0.08em] text-[#4a5260]">
+                        {event.attendee_count} {event.attendee_count === 1 ? "person" : "people"} going
+                      </p>
+                      {attendees.length > 5 && (
+                        <button
+                          type="button"
+                          onClick={() => setShowAllAttendees((current) => !current)}
+                          className="text-[13px] font-semibold text-[#1456f4]"
+                        >
+                          {showAllAttendees ? "Collapse" : "View All"}
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2.5">
+                      {attendeePreview.length > 0 ? (
+                        attendeePreview.map((attendee) => (
+                          <div
+                            key={attendee.id}
+                            className="inline-flex items-center gap-2 rounded-full border border-[#edf1f6] bg-white px-3 py-2 shadow-[0_1px_0_rgba(255,255,255,0.85)_inset]"
+                          >
+                            {attendee.profile_picture_url ? (
+                              <img
+                                src={attendee.profile_picture_url}
+                                alt={attendee.name}
+                                className="h-6 w-6 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#f3d3b8] text-[10px] font-semibold text-[#303540]">
+                                {attendee.name?.charAt(0).toUpperCase() ?? "?"}
+                              </div>
+                            )}
+                            <span className="max-w-[112px] truncate text-[12px] font-medium text-[#2b303a]">
+                              {attendee.name}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-[13px] text-[#7a8393]">
+                          Be the first person to join this event.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-6 rounded-[22px] bg-[#eef2f8] px-4 py-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#dce7ff] text-[#1456f4]">
+                          <ChatIcon />
+                        </div>
+                        <div>
+                          <p className="text-[16px] font-semibold tracking-[-0.04em] text-[#252a34]">
+                            Event Chat
+                          </p>
+                          <p className="text-[12px] font-medium text-[#7a8393]">
+                            Chat is event-only
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleOpenChat}
+                        className="rounded-full bg-white px-5 py-2.5 text-[13px] font-semibold text-[#4b525f] shadow-[0_6px_16px_rgba(43,55,86,0.08)] transition hover:text-[#252a34]"
+                      >
+                        Open chat
+                      </button>
+                    </div>
+                    {canDeleteEvent && onDelete && (
+                      <div className="mt-3 flex justify-end">
                         <button
                           type="button"
                           onClick={handleDeleteEvent}
                           disabled={isDeleting}
-                          className="rounded-full border border-rose-200 px-3 py-1 text-xs font-semibold text-rose-600 transition hover:border-rose-300 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="text-[12px] font-semibold text-rose-600 transition hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {isDeleting ? "Deleting..." : "Delete event"}
                         </button>
-                      )}
-                      <span className="text-xs text-muted">Chat is event-only</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {isAtCapacity && (
+                    <div className="mt-3 rounded-[18px] border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] font-semibold text-amber-700">
+                      This event is at capacity ({event.max_attendees} attendees).
                     </div>
-                  </div>
-                  {userStatus && (
-                    <p className="text-center text-xs text-muted">
-                      You&#39;re{" "}
-                      {userStatus === "going"
-                        ? "✓ going"
-                        : userStatus === "maybe"
-                          ? "? maybe"
-                          : "✗ not going"}
-                    </p>
                   )}
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleRSVP("going")}
-                      disabled={loading || (isAtCapacity && userStatus !== "going")}
-                      className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition ${
-                        userStatus === "going"
-                          ? "bg-emerald-500 text-white"
-                          : "bg-ink/10 text-ink hover:bg-ink/20"
-                      }`}
-                    >
-                      I&#39;m down
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRSVP("maybe")}
-                      disabled={loading}
-                      className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition ${
-                        userStatus === "maybe"
-                          ? "bg-amber-400 text-white"
-                          : "bg-ink/10 text-ink hover:bg-ink/20"
-                      }`}
-                    >
-                      Maybe
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRSVP("declined")}
-                      disabled={loading}
-                      className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition ${
-                        userStatus === "declined"
-                          ? "bg-rose-500 text-white"
-                          : "bg-ink/10 text-ink hover:bg-ink/20"
-                      }`}
-                    >
-                      Can&#39;t make it
-                    </button>
-                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-[#edf1f6] bg-white px-6 pb-5 pt-4">
+                <div className="grid grid-cols-3 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleRSVP("going")}
+                    disabled={loading || (isAtCapacity && userStatus !== "going")}
+                    className={`rounded-full px-4 py-[14px] text-[14px] font-semibold transition ${
+                      userStatus === "going"
+                        ? "bg-[#2f67f7] text-white shadow-[0_12px_24px_rgba(47,103,247,0.24)]"
+                        : "bg-[#eef2f6] text-[#454c58] hover:bg-[#e7ecf3]"
+                    }`}
+                  >
+                    I&#39;m down
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRSVP("maybe")}
+                    disabled={loading}
+                    className={`rounded-full px-4 py-[14px] text-[14px] font-semibold transition ${
+                      userStatus === "maybe"
+                        ? "bg-[#d8e3ff] text-[#1a4fe2]"
+                        : "bg-[#eef2f6] text-[#454c58] hover:bg-[#e7ecf3]"
+                    }`}
+                  >
+                    Maybe
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRSVP("declined")}
+                    disabled={loading}
+                    className={`rounded-full px-4 py-[14px] text-[14px] font-semibold transition ${
+                      userStatus === "declined"
+                        ? "bg-[#ffe2e1] text-[#cf4b49]"
+                        : "bg-[#eef2f6] text-[#454c58] hover:bg-[#e7ecf3]"
+                    }`}
+                  >
+                    Can&#39;t make it
+                  </button>
                 </div>
               </div>
             </>

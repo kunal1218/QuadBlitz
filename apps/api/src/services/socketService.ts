@@ -647,3 +647,19 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
 };
 
 export const getSocketServer = () => io;
+
+const hasFreshPresence = (value?: number) =>
+  typeof value === "number" && Date.now() - value <= DISCONNECT_GRACE_MS;
+
+export const isUserOnline = (userId: string) => {
+  if (userSocketMap.has(userId)) {
+    return true;
+  }
+
+  const presence = presenceTimers.get(userId);
+  if (!presence) {
+    return false;
+  }
+
+  return hasFreshPresence(presence.pokerAt) || hasFreshPresence(presence.convoAt);
+};

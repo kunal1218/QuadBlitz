@@ -6,6 +6,7 @@ export type NotificationActor = {
   id: string;
   name: string;
   handle: string;
+  avatarUrl?: string | null;
 };
 
 export type NotificationItem = {
@@ -27,6 +28,7 @@ type NotificationRow = {
   actor_id: string | null;
   actor_name?: string | null;
   actor_handle?: string | null;
+  actor_avatar_url?: string | null;
   message_id: string | null;
   message_preview: string | null;
   context_id: string | null;
@@ -105,6 +107,7 @@ const mapNotification = (row: NotificationRow): NotificationItem => ({
         id: row.actor_id,
         name: row.actor_name ?? "",
         handle: row.actor_handle ?? "",
+        avatarUrl: row.actor_avatar_url ?? null,
       }
     : null,
   messageId: row.message_id ?? null,
@@ -271,7 +274,8 @@ export const fetchNotificationsForUser = async (
       n.context_id,
       actor.id AS actor_id,
       actor.name AS actor_name,
-      actor.handle AS actor_handle
+      actor.handle AS actor_handle,
+      actor.profile_picture_url AS actor_avatar_url
      FROM notifications n
      LEFT JOIN users actor ON actor.id = n.actor_id
      WHERE n.user_id = $1

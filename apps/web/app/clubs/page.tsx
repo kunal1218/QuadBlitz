@@ -587,10 +587,7 @@ export default function ClubsPage() {
       <div className="mx-auto max-w-[1180px] px-4 pb-24 pt-8 sm:px-6 lg:px-8">
         <section className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-end">
           <div className="max-w-[560px]">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#1456f4]">
-              Campus Life
-            </p>
-            <h1 className="mt-3 font-display text-[2.8rem] font-semibold leading-[0.95] tracking-[-0.08em] text-[#2f363d] sm:text-[4.2rem]">
+            <h1 className="font-display text-[2.8rem] font-semibold leading-[0.95] tracking-[-0.08em] text-[#2f363d] sm:text-[4.2rem]">
               Explore Communities
             </h1>
             <p className="mt-5 max-w-[460px] text-[16px] leading-8 text-[#616975] sm:text-[18px]">

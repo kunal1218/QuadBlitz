@@ -58,37 +58,46 @@ const cardSkeletons = Array.from({ length: 8 }, (_, index) => index);
 
 export default function MarketplacePage() {
   const [selectedFilter, setSelectedFilter] = useState<FilterId>("all");
+  const [pendingFilter, setPendingFilter] = useState<FilterId | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [listings, setListings] = useState<Listing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [refreshNonce, setRefreshNonce] = useState(0);
-
-  const activeFilter = useMemo(
-    () => filters.find((filter) => filter.id === selectedFilter) ?? filters[0],
-    [selectedFilter]
-  );
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const [contentVersion, setContentVersion] = useState(0);
 
   const handleFilterSelect = (filterId: FilterId) => {
-    if (filterId === selectedFilter) {
+    if (filterId === selectedFilter || filterId === pendingFilter) {
       return;
     }
 
-    setIsLoading(true);
     setError(null);
-    setSelectedFilter(filterId);
+    setPendingFilter(filterId);
   };
+
+  const requestedFilter = useMemo(
+    () =>
+      filters.find((filter) => filter.id === (pendingFilter ?? selectedFilter)) ??
+      filters[0],
+    [pendingFilter, selectedFilter]
+  );
 
   useEffect(() => {
     let isActive = true;
     const timeoutId = window.setTimeout(async () => {
-      setIsLoading(true);
+      if (hasLoadedOnce) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
       setError(null);
 
       try {
         const nextListings = await fetchListings({
-          category: activeFilter.queryCategory,
+          category: requestedFilter.queryCategory,
           search: searchQuery,
         });
 
@@ -97,6 +106,10 @@ export default function MarketplacePage() {
         }
 
         setListings(nextListings);
+        setSelectedFilter(requestedFilter.id);
+        setPendingFilter(null);
+        setHasLoadedOnce(true);
+        setContentVersion((value) => value + 1);
       } catch (loadError) {
         if (!isActive) {
           return;
@@ -107,10 +120,14 @@ export default function MarketplacePage() {
             ? loadError.message
             : "Unable to load marketplace listings."
         );
-        setListings([]);
+        setPendingFilter(null);
+        if (!hasLoadedOnce) {
+          setListings([]);
+        }
       } finally {
         if (isActive) {
           setIsLoading(false);
+          setIsRefreshing(false);
         }
       }
     }, searchQuery.trim() ? 160 : 0);
@@ -119,10 +136,12 @@ export default function MarketplacePage() {
       isActive = false;
       window.clearTimeout(timeoutId);
     };
-  }, [activeFilter.queryCategory, refreshNonce, searchQuery]);
+  }, [hasLoadedOnce, refreshNonce, requestedFilter.id, requestedFilter.queryCategory, searchQuery]);
 
   const resultsLabel = isLoading
-    ? "Refreshing listings"
+    ? "Loading listings"
+    : isRefreshing
+      ? "Updating listings"
     : `${listings.length} listing${listings.length === 1 ? "" : "s"}`;
 
   return (
@@ -171,6 +190,8 @@ export default function MarketplacePage() {
           <div className="mt-4 flex flex-wrap gap-2.5">
             {filters.map((filter) => {
               const isActive = filter.id === selectedFilter;
+              const isPending =
+                filter.id === pendingFilter && pendingFilter !== selectedFilter;
               return (
                 <button
                   key={filter.id}
@@ -179,6 +200,8 @@ export default function MarketplacePage() {
                   className={`inline-flex h-9 items-center rounded-full px-4 text-[10px] font-semibold transition ${
                     isActive
                       ? "bg-[#1456f4] text-white shadow-[0_12px_24px_rgba(20,86,244,0.22)]"
+                      : isPending
+                        ? "bg-[#f7f9ff] text-[#1456f4] shadow-[inset_0_0_0_1px_rgba(20,86,244,0.18)]"
                       : "bg-[#fbfbfd] text-[#6f7684] shadow-[inset_0_0_0_1px_rgba(231,236,244,1)] hover:bg-white hover:text-[#20242d]"
                   }`}
                 >
@@ -218,7 +241,10 @@ export default function MarketplacePage() {
               ))}
             </div>
           ) : listings.length === 0 ? (
-            <div className="rounded-[30px] border border-dashed border-[#dbe3ef] bg-white/80 px-6 py-16 text-center shadow-[0_20px_45px_rgba(15,23,42,0.05)]">
+            <div
+              key={`empty-${contentVersion}`}
+              className="reveal-up rounded-[30px] border border-dashed border-[#dbe3ef] bg-white/80 px-6 py-16 text-center shadow-[0_20px_45px_rgba(15,23,42,0.05)]"
+            >
               <p className="text-[28px] font-[800] tracking-[-0.06em] text-[#20242d]">
                 Nothing matches that search yet.
               </p>
@@ -234,7 +260,10 @@ export default function MarketplacePage() {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div
+              key={`grid-${contentVersion}`}
+              className="reveal-up grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+            >
               {listings.map((listing) => (
                 <Link
                   key={listing.id}
@@ -254,7 +283,9 @@ export default function MarketplacePage() {
         onClose={() => setIsModalOpen(false)}
         onSuccess={() => {
           setIsModalOpen(false);
-          setSelectedFilter("all");
+          if (selectedFilter !== "all") {
+            setPendingFilter("all");
+          }
           setSearchQuery("");
           setRefreshNonce((value) => value + 1);
         }}

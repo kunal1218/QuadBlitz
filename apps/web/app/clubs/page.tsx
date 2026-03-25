@@ -350,6 +350,27 @@ export default function ClubsPage() {
   const [trendingIndex, setTrendingIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    const previousHtmlBackground = document.documentElement.style.background;
+    const previousHtmlBackgroundColor =
+      document.documentElement.style.backgroundColor;
+    const previousBodyBackground = document.body.style.background;
+    const previousBodyBackgroundColor = document.body.style.backgroundColor;
+
+    document.documentElement.style.background = "#ffffff";
+    document.documentElement.style.backgroundColor = "#ffffff";
+    document.body.style.background = "#ffffff";
+    document.body.style.backgroundColor = "#ffffff";
+
+    return () => {
+      document.documentElement.style.background = previousHtmlBackground;
+      document.documentElement.style.backgroundColor =
+        previousHtmlBackgroundColor;
+      document.body.style.background = previousBodyBackground;
+      document.body.style.backgroundColor = previousBodyBackgroundColor;
+    };
+  }, []);
+
   const loadClubs = useCallback(async () => {
     setIsLoading(true);
     setError(null);

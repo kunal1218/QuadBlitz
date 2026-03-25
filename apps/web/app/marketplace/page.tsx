@@ -70,6 +70,16 @@ export default function MarketplacePage() {
     [selectedFilter]
   );
 
+  const handleFilterSelect = (filterId: FilterId) => {
+    if (filterId === selectedFilter) {
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setSelectedFilter(filterId);
+  };
+
   useEffect(() => {
     let isActive = true;
     const timeoutId = window.setTimeout(async () => {
@@ -165,7 +175,7 @@ export default function MarketplacePage() {
                 <button
                   key={filter.id}
                   type="button"
-                  onClick={() => setSelectedFilter(filter.id)}
+                  onClick={() => handleFilterSelect(filter.id)}
                   className={`inline-flex h-9 items-center rounded-full px-4 text-[10px] font-semibold transition ${
                     isActive
                       ? "bg-[#1456f4] text-white shadow-[0_12px_24px_rgba(20,86,244,0.22)]"

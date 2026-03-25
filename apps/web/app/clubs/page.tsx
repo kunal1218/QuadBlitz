@@ -299,12 +299,34 @@ const FilterChip = ({
   </button>
 );
 
-const SectionSkeleton = ({ tall = false }: { tall?: boolean }) => (
-  <div
-    className={`animate-pulse rounded-[32px] border border-[#e7ebf1] bg-white/80 ${
-      tall ? "min-h-[360px]" : "min-h-[212px]"
-    }`}
-  />
+const SectionSkeleton = () => (
+  <div className="rounded-[32px] border border-[#e5e8ee] bg-white p-6 shadow-[0_22px_54px_rgba(19,28,41,0.05)]">
+    <div className="flex min-h-[318px] animate-pulse flex-col">
+      <div className="flex items-center justify-between gap-4">
+        <div className="h-14 w-14 rounded-full bg-[#eef2f8]" />
+        <div className="h-8 w-28 rounded-full bg-[#eef2f8]" />
+      </div>
+
+      <div className="mt-7 space-y-4">
+        <div className="h-10 w-2/3 rounded-full bg-[#eef2f8]" />
+        <div className="space-y-2">
+          <div className="h-4 w-full rounded-full bg-[#eef2f8]" />
+          <div className="h-4 w-4/5 rounded-full bg-[#eef2f8]" />
+        </div>
+        <div className="h-4 w-2/5 rounded-full bg-[#eef2f8]" />
+      </div>
+
+      <div className="mt-auto flex items-center justify-between gap-4">
+        <div className="flex items-center">
+          <div className="h-7 w-7 rounded-full border-2 border-white bg-[#eef2f8]" />
+          <div className="-ml-2 h-7 w-7 rounded-full border-2 border-white bg-[#eef2f8]" />
+          <div className="-ml-2 h-7 w-7 rounded-full border-2 border-white bg-[#eef2f8]" />
+          <div className="-ml-2 h-7 w-9 rounded-full border-2 border-white bg-[#eef2f8]" />
+        </div>
+        <div className="h-12 w-32 rounded-full bg-[#eef2f8]" />
+      </div>
+    </div>
+  </div>
 );
 
 export default function ClubsPage() {
@@ -720,7 +742,7 @@ export default function ClubsPage() {
                   return (
                     <article
                       key={club.id}
-                      className="group cursor-pointer rounded-[32px] border border-[#e5e8ee] bg-white p-6 shadow-[0_22px_54px_rgba(19,28,41,0.05)] transition hover:-translate-y-0.5"
+                      className="group flex min-h-[318px] cursor-pointer flex-col rounded-[32px] border border-[#e5e8ee] bg-white p-6 shadow-[0_22px_54px_rgba(19,28,41,0.05)] transition hover:-translate-y-0.5"
                       onClick={() => handleOpenClub(club)}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
@@ -756,7 +778,7 @@ export default function ClubsPage() {
                         <span>{getLocationLabel(club)}</span>
                       </div>
 
-                      <div className="mt-8 flex items-center justify-between gap-4">
+                      <div className="mt-auto flex items-center justify-between gap-4 pt-8">
                         <div className="flex items-center">
                           {getSupportingNames(club).map((name, index) => (
                             <div

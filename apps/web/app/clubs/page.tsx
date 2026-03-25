@@ -2,7 +2,6 @@
 
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -10,7 +9,6 @@ import {
   ArrowRight,
   BookOpen,
   CheckCircle2,
-  ChevronRight,
   Globe,
   Gamepad2,
   Heart,
@@ -21,7 +19,6 @@ import {
   Rocket,
   Search,
   SlidersHorizontal,
-  Users,
   Wifi,
   X,
 } from "lucide-react";
@@ -204,22 +201,6 @@ const getWrappedItems = <T,>(items: T[], count: number, startIndex: number) => {
   });
 };
 
-const getClubBackgroundStyle = (club: Club): CSSProperties => {
-  const theme = categoryThemes[club.category];
-
-  if (club.imageUrl?.trim()) {
-    return {
-      backgroundImage: `linear-gradient(180deg, rgba(4,8,16,0.12) 0%, rgba(4,8,16,0.2) 36%, rgba(4,8,16,0.92) 100%), url(${club.imageUrl})`,
-      backgroundSize: "cover",
-      backgroundPosition: "center",
-    };
-  }
-
-  return {
-    backgroundImage: theme.background,
-  };
-};
-
 const getLocationLabel = (club: Club) => {
   if (club.isRemote) {
     return "Remote";
@@ -230,16 +211,6 @@ const getLocationLabel = (club: Club) => {
   }
 
   return club.location;
-};
-
-const getRowMeta = (club: Club) => {
-  const locationLabel = club.isRemote
-    ? "Remote sessions"
-    : club.city
-      ? `${club.city} · ${club.location}`
-      : club.location;
-
-  return `${formatMembersLabel(club.memberCount)}  •  ${locationLabel}`;
 };
 
 const getSupportingNames = (club: Club) => {
@@ -346,7 +317,6 @@ export default function ClubsPage() {
   const [isComposerOpen, setComposerOpen] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
   const [joiningIds, setJoiningIds] = useState<Set<string>>(new Set());
-  const [showAllRows, setShowAllRows] = useState(false);
   const [trendingIndex, setTrendingIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
@@ -546,42 +516,6 @@ export default function ClubsPage() {
     [trendingIndex, trendingPool]
   );
 
-  const trendingIds = useMemo(
-    () => new Set(trendingPool.map((club) => club.id)),
-    [trendingPool]
-  );
-
-  const verifiedClubs = useMemo(() => {
-    const remaining = [...filteredClubs]
-      .sort(compareMembers)
-      .filter((club) => !trendingIds.has(club.id));
-
-    return (remaining.length > 0 ? remaining : filteredClubs).slice(0, 3);
-  }, [filteredClubs, trendingIds]);
-
-  const verifiedIds = useMemo(
-    () => new Set(verifiedClubs.map((club) => club.id)),
-    [verifiedClubs]
-  );
-
-  const studentOrgClubs = useMemo(() => {
-    const remaining = filteredClubs.filter(
-      (club) => !verifiedIds.has(club.id) && !trendingIds.has(club.id)
-    );
-
-    if (remaining.length > 0) {
-      return remaining;
-    }
-
-    const fallback = filteredClubs.filter((club) => !trendingIds.has(club.id));
-    return fallback.length > 0 ? fallback : filteredClubs;
-  }, [filteredClubs, trendingIds, verifiedIds]);
-
-  const visibleStudentOrgs = useMemo(
-    () => (showAllRows ? studentOrgClubs : studentOrgClubs.slice(0, 3)),
-    [showAllRows, studentOrgClubs]
-  );
-
   const hasSearchQuery = normalizedSearchQuery.length > 0;
 
   const hasAppliedFilters =
@@ -729,313 +663,139 @@ export default function ClubsPage() {
             </div>
           </section>
         ) : (
-          <div className="mt-14 space-y-16">
-            <section className="space-y-5">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <h2 className="font-display text-[1.8rem] font-semibold tracking-[-0.05em] text-[#303842]">
-                    Trending Clubs
-                  </h2>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    aria-label="Previous clubs"
-                    className="flex h-11 w-11 items-center justify-center rounded-full border border-[#e3e7ed] bg-white text-[#4c5562] shadow-[0_10px_24px_rgba(24,32,47,0.05)] transition hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-45"
-                    onClick={() => setTrendingIndex((prev) => prev - 1)}
-                    disabled={trendingPool.length <= 3}
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Next clubs"
-                    className="flex h-11 w-11 items-center justify-center rounded-full border border-[#e3e7ed] bg-white text-[#4c5562] shadow-[0_10px_24px_rgba(24,32,47,0.05)] transition hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-45"
-                    onClick={() => setTrendingIndex((prev) => prev + 1)}
-                    disabled={trendingPool.length <= 3}
-                  >
-                    <ArrowRight className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-
-              {isLoading ? (
-                <div className="grid gap-5 lg:grid-cols-3">
-                  {[0, 1, 2].map((item) => (
-                    <SectionSkeleton key={item} tall />
-                  ))}
-                </div>
-              ) : (
-                <div className="grid gap-5 lg:grid-cols-3">
-                  {visibleTrendingClubs.map((club) => {
-                    const theme = categoryThemes[club.category];
-                    const ThemeIcon = theme.icon;
-
-                    return (
-                      <article
-                        key={club.id}
-                        className="group relative min-h-[390px] overflow-hidden rounded-[34px] bg-[#08101b] p-5 text-white shadow-[0_30px_70px_rgba(14,19,30,0.2)]"
-                        style={getClubBackgroundStyle(club)}
-                      >
-                        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,10,16,0.04)_0%,rgba(7,10,16,0.26)_34%,rgba(7,10,16,0.9)_100%)]" />
-                        <div className="absolute inset-x-0 top-0 h-32 bg-[linear-gradient(180deg,rgba(255,255,255,0.04)_0%,transparent_100%)]" />
-                        <div className="relative flex h-full flex-col justify-between">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="rounded-full bg-[#2457ff] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white">
-                                {theme.badge}
-                              </span>
-                              <span className="text-[12px] font-medium text-white/76">
-                                {formatMembersLabel(club.memberCount)}
-                              </span>
-                            </div>
-                            <div
-                              className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/8 backdrop-blur"
-                              style={{ color: theme.accent }}
-                            >
-                              <ThemeIcon className="h-5 w-5" />
-                            </div>
-                          </div>
-
-                          <div>
-                            <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-white/55">
-                              {getLocationLabel(club)}
-                            </p>
-                            <h3 className="mt-3 font-display text-[2rem] font-semibold leading-[1.02] tracking-[-0.06em] text-white">
-                              {club.title}
-                            </h3>
-                            <p className="mt-4 max-w-[90%] text-[14px] leading-6 text-white/76">
-                              {club.description}
-                            </p>
-                            <button
-                              type="button"
-                              className="mt-6 inline-flex h-12 w-full items-center justify-center rounded-full bg-white px-5 text-[14px] font-semibold text-[#212833] transition hover:translate-y-[-1px]"
-                              onClick={() => handleOpenClub(club)}
-                            >
-                              {theme.cta}
-                            </button>
-                          </div>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-
-            <section className="space-y-5">
-              <h2 className="font-display text-[1.8rem] font-semibold tracking-[-0.05em] text-[#303842]">
-                Verified University Orgs
-              </h2>
-
-              {isLoading ? (
-                <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                  {[0, 1, 2].map((item) => (
-                    <SectionSkeleton key={item} />
-                  ))}
-                </div>
-              ) : (
-                <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                  {verifiedClubs.map((club) => {
-                    const theme = categoryThemes[club.category];
-                    const ThemeIcon = theme.icon;
-                    const isOwnClub = club.creator.id === user?.id;
-                    const isJoining = joiningIds.has(club.id);
-                    const buttonLabel = getJoinButtonLabel({
-                      club,
-                      isOwnClub,
-                      isJoining,
-                    });
-
-                    return (
-                      <article
-                        key={club.id}
-                        className="group cursor-pointer rounded-[32px] border border-[#e5e8ee] bg-white p-6 shadow-[0_22px_54px_rgba(19,28,41,0.05)] transition hover:-translate-y-0.5"
-                        onClick={() => handleOpenClub(club)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            handleOpenClub(club);
-                          }
-                        }}
-                        role="button"
-                        tabIndex={0}
-                      >
-                        <div className="flex items-center justify-between gap-4">
-                          <div
-                            className="flex h-14 w-14 items-center justify-center rounded-full bg-[#f3f6ff]"
-                            style={{ color: theme.accent }}
-                          >
-                            <ThemeIcon className="h-6 w-6" />
-                          </div>
-                          <span className="inline-flex items-center gap-1 rounded-full bg-[#d8d3ff] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#554cc7]">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Official
-                          </span>
-                        </div>
-
-                        <h3 className="mt-7 font-display text-[1.8rem] font-semibold leading-[1.02] tracking-[-0.05em] text-[#2e3640]">
-                          {club.title}
-                        </h3>
-                        <p className="mt-4 text-[14px] leading-6 text-[#68717d]">
-                          {club.description}
-                        </p>
-
-                        <div className="mt-8 flex items-center justify-between gap-4">
-                          <div className="flex items-center">
-                            {getSupportingNames(club).map((name, index) => (
-                              <div
-                                key={`${club.id}-${name}`}
-                                className={index === 0 ? "" : "-ml-2"}
-                              >
-                                <Avatar
-                                  name={name}
-                                  size={28}
-                                  className="border-2 border-white text-[11px] shadow-[0_8px_18px_rgba(23,34,51,0.12)]"
-                                />
-                              </div>
-                            ))}
-                            <span className="-ml-2 inline-flex h-7 min-w-[34px] items-center justify-center rounded-full border-2 border-white bg-[#f2f3f5] px-2 text-[11px] font-semibold text-[#616a77]">
-                              +{Math.max(1, club.memberCount - 3)}
-                            </span>
-                          </div>
-
-                          <button
-                            type="button"
-                            className={`inline-flex h-12 items-center justify-center rounded-full px-5 text-[13px] font-semibold transition ${getJoinButtonClasses(
-                              {
-                                club,
-                                isOwnClub,
-                              }
-                            )}`}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              void handleDirectoryAction(club);
-                            }}
-                            disabled={
-                              isJoining ||
-                              (club.joinPolicy === "application" &&
-                                club.applicationStatus === "pending")
-                            }
-                          >
-                            {buttonLabel}
-                          </button>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-
-            <section className="space-y-5">
-              <div className="flex items-center justify-between gap-4">
+          <section className="mt-14 space-y-5">
+            <div className="flex items-center justify-between gap-4">
+              <div>
                 <h2 className="font-display text-[1.8rem] font-semibold tracking-[-0.05em] text-[#303842]">
-                  Student Organizations
+                  Trending Clubs
                 </h2>
-                {studentOrgClubs.length > 3 && (
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1 text-[13px] font-semibold text-[#1456f4] transition hover:text-[#0f49e2]"
-                    onClick={() => setShowAllRows((prev) => !prev)}
-                  >
-                    {showAllRows ? "Show less" : "View All"}
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                )}
               </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  aria-label="Previous clubs"
+                  className="flex h-11 w-11 items-center justify-center rounded-full border border-[#e3e7ed] bg-white text-[#4c5562] shadow-[0_10px_24px_rgba(24,32,47,0.05)] transition hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-45"
+                  onClick={() => setTrendingIndex((prev) => prev - 1)}
+                  disabled={trendingPool.length <= 3}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Next clubs"
+                  className="flex h-11 w-11 items-center justify-center rounded-full border border-[#e3e7ed] bg-white text-[#4c5562] shadow-[0_10px_24px_rgba(24,32,47,0.05)] transition hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-45"
+                  onClick={() => setTrendingIndex((prev) => prev + 1)}
+                  disabled={trendingPool.length <= 3}
+                >
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
 
-              {isLoading ? (
-                <div className="space-y-4">
-                  {[0, 1, 2].map((item) => (
-                    <div
-                      key={item}
-                      className="h-[92px] animate-pulse rounded-full border border-[#e7ebf1] bg-white/80"
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {visibleStudentOrgs.map((club) => {
-                    const theme = categoryThemes[club.category];
-                    const ThemeIcon = theme.icon;
-                    const isOwnClub = club.creator.id === user?.id;
-                    const isJoining = joiningIds.has(club.id);
-                    const buttonLabel = getJoinButtonLabel({
-                      club,
-                      isOwnClub,
-                      isJoining,
-                    });
+            {isLoading ? (
+              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                {[0, 1, 2].map((item) => (
+                  <SectionSkeleton key={item} />
+                ))}
+              </div>
+            ) : (
+              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                {visibleTrendingClubs.map((club) => {
+                  const theme = categoryThemes[club.category];
+                  const ThemeIcon = theme.icon;
+                  const isOwnClub = club.creator.id === user?.id;
+                  const isJoining = joiningIds.has(club.id);
+                  const buttonLabel = getJoinButtonLabel({
+                    club,
+                    isOwnClub,
+                    isJoining,
+                  });
 
-                    return (
-                      <article
-                        key={club.id}
-                        className="group flex cursor-pointer flex-col gap-4 rounded-[999px] border border-[#e5e8ee] bg-white px-5 py-4 shadow-[0_16px_40px_rgba(20,30,44,0.05)] transition hover:-translate-y-0.5 sm:flex-row sm:items-center sm:justify-between"
-                        onClick={() => handleOpenClub(club)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            handleOpenClub(club);
-                          }
-                        }}
-                        role="button"
-                        tabIndex={0}
-                      >
-                        <div className="flex min-w-0 items-center gap-4">
-                          <div
-                            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#f3f6ff]"
-                            style={{ color: theme.accent }}
-                          >
-                            <ThemeIcon className="h-5 w-5" />
-                          </div>
+                  return (
+                    <article
+                      key={club.id}
+                      className="group cursor-pointer rounded-[32px] border border-[#e5e8ee] bg-white p-6 shadow-[0_22px_54px_rgba(19,28,41,0.05)] transition hover:-translate-y-0.5"
+                      onClick={() => handleOpenClub(club)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          handleOpenClub(club);
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                    >
+                      <div className="flex items-center justify-between gap-4">
+                        <div
+                          className="flex h-14 w-14 items-center justify-center rounded-full bg-[#f3f6ff]"
+                          style={{ color: theme.accent }}
+                        >
+                          <ThemeIcon className="h-6 w-6" />
+                        </div>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#d8d3ff] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#554cc7]">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Featured
+                        </span>
+                      </div>
 
-                          <div className="min-w-0">
-                            <h3 className="truncate font-display text-[1.4rem] font-semibold tracking-[-0.05em] text-[#2f3740]">
-                              {club.title}
-                            </h3>
-                            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-[#727c88]">
-                              <span className="inline-flex items-center gap-1">
-                                <Users className="h-3.5 w-3.5" />
-                                {formatMembersLabel(club.memberCount)}
-                              </span>
-                              <span className="hidden h-1 w-1 rounded-full bg-[#cbd2dd] sm:block" />
-                              <span>{getLocationLabel(club)}</span>
+                      <h3 className="mt-7 font-display text-[1.8rem] font-semibold leading-[1.02] tracking-[-0.05em] text-[#2e3640]">
+                        {club.title}
+                      </h3>
+                      <p className="mt-4 text-[14px] leading-6 text-[#68717d]">
+                        {club.description}
+                      </p>
+                      <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-[#727c88]">
+                        <span>{formatMembersLabel(club.memberCount)}</span>
+                        <span className="h-1 w-1 rounded-full bg-[#cbd2dd]" />
+                        <span>{getLocationLabel(club)}</span>
+                      </div>
+
+                      <div className="mt-8 flex items-center justify-between gap-4">
+                        <div className="flex items-center">
+                          {getSupportingNames(club).map((name, index) => (
+                            <div
+                              key={`${club.id}-${name}`}
+                              className={index === 0 ? "" : "-ml-2"}
+                            >
+                              <Avatar
+                                name={name}
+                                size={28}
+                                className="border-2 border-white text-[11px] shadow-[0_8px_18px_rgba(23,34,51,0.12)]"
+                              />
                             </div>
-                          </div>
+                          ))}
+                          <span className="-ml-2 inline-flex h-7 min-w-[34px] items-center justify-center rounded-full border-2 border-white bg-[#f2f3f5] px-2 text-[11px] font-semibold text-[#616a77]">
+                            +{Math.max(1, club.memberCount - 3)}
+                          </span>
                         </div>
 
-                        <div className="flex items-center gap-3 sm:pl-4">
-                          <span className="hidden text-[12px] text-[#727c88] lg:inline">
-                            {getRowMeta(club)}
-                          </span>
-                          <button
-                            type="button"
-                            className={`inline-flex h-12 min-w-[132px] items-center justify-center rounded-full px-5 text-[13px] font-semibold transition ${getJoinButtonClasses(
-                              {
-                                club,
-                                isOwnClub,
-                              }
-                            )}`}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              void handleDirectoryAction(club);
-                            }}
-                            disabled={
-                              isJoining ||
-                              (club.joinPolicy === "application" &&
-                                club.applicationStatus === "pending")
+                        <button
+                          type="button"
+                          className={`inline-flex h-12 items-center justify-center rounded-full px-5 text-[13px] font-semibold transition ${getJoinButtonClasses(
+                            {
+                              club,
+                              isOwnClub,
                             }
-                          >
-                            {buttonLabel}
-                          </button>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-          </div>
+                          )}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void handleDirectoryAction(club);
+                          }}
+                          disabled={
+                            isJoining ||
+                            (club.joinPolicy === "application" &&
+                              club.applicationStatus === "pending")
+                          }
+                        >
+                          {buttonLabel}
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
         )}
       </div>
 

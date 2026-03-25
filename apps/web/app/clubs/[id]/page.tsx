@@ -778,7 +778,7 @@ export default function ClubDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="bg-white">
+      <div className="min-h-[calc(100vh-81px)] bg-white text-[#1d2530]">
         <div className="mx-auto max-w-[1180px] px-4 pb-20 pt-8 sm:px-6 lg:px-8">
           <div className="rounded-[34px] border border-[#e8edf3] bg-[#f7f9fc] px-6 py-12 text-center text-sm text-[#6b7480]">
             Loading club...
@@ -790,7 +790,7 @@ export default function ClubDetailPage() {
 
   if (!club) {
     return (
-      <div className="bg-white">
+      <div className="min-h-[calc(100vh-81px)] bg-white text-[#1d2530]">
         <div className="mx-auto max-w-[1180px] px-4 pb-20 pt-8 sm:px-6 lg:px-8">
           <div className="rounded-[34px] border border-[#e8edf3] bg-[#f7f9fc] px-6 py-12 text-center text-sm text-[#6b7480]">
             {error ?? "Club not found."}

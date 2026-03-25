@@ -26,6 +26,15 @@ import { Avatar } from "@/components/Avatar";
 import { useAuth } from "@/features/auth";
 import { apiGet, apiPost } from "@/lib/api";
 import {
+  pageBodyTextClass,
+  pageButtonTextClass,
+  pageCardTitleClass,
+  pageEyebrowClass,
+  pageHeroCopyClass,
+  pageHeroTitleClass,
+  pageSectionTitleClass,
+} from "@/lib/pageTypography";
+import {
   ClubComposer,
   type Club,
   type ClubCategory,
@@ -587,10 +596,10 @@ export default function ClubsPage() {
       <div className="mx-auto max-w-[1180px] px-4 pb-24 pt-8 sm:px-6 lg:px-8">
         <section className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-end">
           <div className="max-w-[560px]">
-            <h1 className="font-display text-[2.8rem] font-semibold leading-[0.95] tracking-[-0.08em] text-[#2f363d] sm:text-[4.2rem]">
+            <h1 className={pageHeroTitleClass}>
               Explore Communities
             </h1>
-            <p className="mt-5 max-w-[460px] text-[16px] leading-8 text-[#616975] sm:text-[18px]">
+            <p className={`mt-5 max-w-[460px] ${pageHeroCopyClass}`}>
               Connect with like-minded students and shape your university legacy.
             </p>
           </div>
@@ -630,20 +639,20 @@ export default function ClubsPage() {
 
         {!isLoading && filteredClubs.length === 0 ? (
           <section className="mt-10 rounded-[36px] border border-[#e6e9ef] bg-white px-6 py-12 text-center shadow-[0_24px_60px_rgba(22,30,45,0.06)] sm:px-10">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#1456f4]">
+            <p className={pageEyebrowClass}>
               No communities
             </p>
-            <h2 className="mt-3 font-display text-[2rem] font-semibold tracking-[-0.06em] text-[#2f363d]">
+            <h2 className={`mt-3 ${pageSectionTitleClass}`}>
               Nothing matches those filters yet
             </h2>
-            <p className="mx-auto mt-4 max-w-[520px] text-[15px] leading-7 text-[#646d79]">
+            <p className={`mx-auto mt-4 max-w-[520px] ${pageBodyTextClass}`}>
               Reset the filters or start the first group so your campus directory
               does not stay empty.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <button
                 type="button"
-                className="inline-flex h-12 items-center justify-center rounded-full bg-[#1456f4] px-6 text-[14px] font-semibold text-white shadow-[0_16px_28px_rgba(20,86,244,0.2)] transition hover:bg-[#0f49e2]"
+                className={`inline-flex h-12 items-center justify-center rounded-full bg-[#1456f4] px-6 text-white shadow-[0_16px_28px_rgba(20,86,244,0.2)] transition hover:bg-[#0f49e2] ${pageButtonTextClass}`}
                 onClick={handleCreateClick}
               >
                 Create a group
@@ -651,7 +660,7 @@ export default function ClubsPage() {
               {hasActiveFilters && (
                 <button
                   type="button"
-                  className="inline-flex h-12 items-center justify-center rounded-full border border-[#dfe5ee] bg-white px-6 text-[14px] font-semibold text-[#4f5763] transition hover:border-[#d4dbe7]"
+                  className={`inline-flex h-12 items-center justify-center rounded-full border border-[#dfe5ee] bg-white px-6 text-[#4f5763] transition hover:border-[#d4dbe7] ${pageButtonTextClass}`}
                   onClick={handleResetFilters}
                 >
                   Clear filters
@@ -663,7 +672,7 @@ export default function ClubsPage() {
           <section className="mt-14 space-y-5">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <h2 className="font-display text-[1.8rem] font-semibold tracking-[-0.05em] text-[#303842]">
+                <h2 className={pageSectionTitleClass}>
                   Trending Clubs
                 </h2>
               </div>
@@ -735,13 +744,13 @@ export default function ClubsPage() {
                         </span>
                       </div>
 
-                      <h3 className="mt-7 font-display text-[1.8rem] font-semibold leading-[1.02] tracking-[-0.05em] text-[#2e3640]">
+                      <h3 className={`mt-7 ${pageCardTitleClass}`}>
                         {club.title}
                       </h3>
-                      <p className="mt-4 text-[14px] leading-6 text-[#68717d]">
+                      <p className={`mt-4 ${pageBodyTextClass}`}>
                         {club.description}
                       </p>
-                      <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-[#727c88]">
+                      <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] font-medium tracking-[-0.01em] text-[#727c88]">
                         <span>{formatMembersLabel(club.memberCount)}</span>
                         <span className="h-1 w-1 rounded-full bg-[#cbd2dd]" />
                         <span>{getLocationLabel(club)}</span>
@@ -768,7 +777,7 @@ export default function ClubsPage() {
 
                         <button
                           type="button"
-                          className={`inline-flex h-12 items-center justify-center rounded-full px-5 text-[13px] font-semibold transition ${getJoinButtonClasses(
+                          className={`inline-flex h-12 items-center justify-center rounded-full px-5 transition ${pageButtonTextClass} ${getJoinButtonClasses(
                             {
                               club,
                               isOwnClub,
@@ -813,10 +822,10 @@ export default function ClubsPage() {
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h2 className="font-display text-[1.75rem] font-semibold tracking-[-0.05em] text-[#2f363d]">
+                  <h2 className={pageSectionTitleClass}>
                     Filter Feed
                   </h2>
-                  <p className="mt-1 text-[12px] leading-5 text-[#8b93a0]">
+                  <p className={`mt-1 ${pageBodyTextClass}`}>
                     Refine your community discovery
                   </p>
                 </div>
@@ -928,14 +937,14 @@ export default function ClubsPage() {
               <div className="mt-7 flex items-center gap-3">
                 <button
                   type="button"
-                  className="inline-flex h-12 flex-1 items-center justify-center rounded-full border border-[#e4e8ef] bg-white text-[13px] font-semibold text-[#4f5763] transition hover:border-[#d7dde7]"
+                  className={`inline-flex h-12 flex-1 items-center justify-center rounded-full border border-[#e4e8ef] bg-white text-[#4f5763] transition hover:border-[#d7dde7] ${pageButtonTextClass}`}
                   onClick={handleResetDraftFilters}
                 >
                   Reset
                 </button>
                 <button
                   type="button"
-                  className="inline-flex h-12 flex-[1.55] items-center justify-center rounded-full bg-[#1456f4] px-5 text-[13px] font-semibold text-white shadow-[0_16px_30px_rgba(20,86,244,0.22)] transition hover:bg-[#0f49e2]"
+                  className={`inline-flex h-12 flex-[1.55] items-center justify-center rounded-full bg-[#1456f4] px-5 text-white shadow-[0_16px_30px_rgba(20,86,244,0.22)] transition hover:bg-[#0f49e2] ${pageButtonTextClass}`}
                   onClick={handleApplyFilters}
                 >
                   Apply Filters
@@ -967,10 +976,10 @@ export default function ClubsPage() {
             <div className="relative z-10 w-full max-w-2xl">
               <div className="flex items-center justify-between rounded-t-[28px] border border-[#e5e8ee] bg-white px-5 py-4 md:px-6">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#1456f4]">
+                  <p className={pageEyebrowClass}>
                     Groups
                   </p>
-                  <h2 className="mt-1 font-display text-[1.9rem] font-semibold tracking-[-0.05em] text-[#2f363d]">
+                  <h2 className={`mt-1 ${pageSectionTitleClass}`}>
                     Create a community
                   </h2>
                 </div>

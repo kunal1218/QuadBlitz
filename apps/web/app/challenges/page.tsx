@@ -4,13 +4,21 @@ import { useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent, JSX, SVGProps } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Outfit } from "next/font/google";
 import { createPortal } from "react-dom";
 import type { DailyChallenge as DailyChallengeType } from "@lockedin/shared";
 import { Avatar } from "@/components/Avatar";
 import { GroupsNavIcon } from "@/components/GroupsNavIcon";
 import { useAuth } from "@/features/auth";
 import { apiGet, apiPost } from "@/lib/api";
+import {
+  pageBodyTextClass,
+  pageButtonTextClass,
+  pageCardTitleClass,
+  pageEyebrowClass,
+  pageHeroTitleClass,
+  pageMetaLabelClass,
+  pageSectionTitleClass,
+} from "@/lib/pageTypography";
 import { formatHeaderPoints } from "@/lib/points";
 import { dailyChallenge as fallbackDailyChallenge } from "@/features/home/mock";
 
@@ -22,11 +30,6 @@ type LeaderboardEntry = {
 };
 
 type HeaderIconComponent = (props: SVGProps<SVGSVGElement>) => JSX.Element;
-
-const outfit = Outfit({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-});
 
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 const ELITE_QUAD_TARGET = 10000;
@@ -619,7 +622,7 @@ export default function ChallengesPage() {
   };
 
   return (
-    <div className={`${outfit.className} min-h-screen bg-white text-[#181d25]`}>
+    <div className="min-h-screen bg-white text-[#181d25]">
       <header className="sticky top-0 z-30 border-b border-[#eef1f6] bg-[linear-gradient(90deg,rgba(255,255,255,0.98)_0%,rgba(255,255,255,0.98)_24%,rgba(241,246,255,0.98)_56%,rgba(255,255,255,0.98)_88%)] backdrop-blur-xl">
         <div className="flex w-full items-center justify-between gap-6 px-[28px] py-[15px] xl:px-[30px]">
           <div className="flex items-center gap-[54px]">
@@ -688,7 +691,7 @@ export default function ChallengesPage() {
       <div className="mx-auto grid max-w-[1140px] gap-12 px-5 pb-16 pt-10 lg:grid-cols-[1fr_346px] lg:px-0">
         <section>
           <div>
-            <h1 className="text-[64px] font-[700] leading-[0.91] tracking-[-0.068em] text-[#20242d]">
+            <h1 className={pageHeroTitleClass}>
               Challenge Hub
             </h1>
           </div>
@@ -700,7 +703,7 @@ export default function ChallengesPage() {
           )}
 
           <div className="mt-10 flex items-center justify-between gap-4">
-            <h2 className="text-[24px] font-[700] tracking-[-0.07em] text-[#232833]">
+            <h2 className={pageSectionTitleClass}>
               Daily Challenges
             </h2>
             <div className="rounded-full bg-[#edf1f6] px-[18px] py-[8px] text-[12px] font-semibold tracking-[0.01em] text-[#4d5565]">
@@ -717,12 +720,12 @@ export default function ChallengesPage() {
                   <p className="text-[18px] font-[700] tracking-[-0.04em] text-white">+500</p>
                 </div>
                 <div className="mt-auto">
-                  <h3 className="max-w-[270px] text-[21px] font-[700] leading-[1.08] tracking-[-0.05em] text-white">
+                  <h3 className="max-w-[270px] font-display text-[1.65rem] font-semibold leading-[1.05] tracking-[-0.05em] text-white">
                     {activeChallenge.title}
                   </h3>
                   <button
                     type="button"
-                    className="mt-5 inline-flex h-[50px] w-full items-center justify-center rounded-full bg-[#1756f5] text-[13px] font-semibold tracking-[0.22em] text-white shadow-[0_18px_30px_rgba(23,86,245,0.24)] transition hover:bg-[#0f49e2]"
+                    className={`mt-5 inline-flex h-[50px] w-full items-center justify-center rounded-full bg-[#1756f5] text-white shadow-[0_18px_30px_rgba(23,86,245,0.24)] transition hover:bg-[#0f49e2] ${pageButtonTextClass}`}
                     onClick={handleOpenProof}
                   >
                     SUBMIT PROOF
@@ -739,15 +742,15 @@ export default function ChallengesPage() {
                   <p className="text-[18px] font-[700] tracking-[-0.04em] text-white">+250</p>
                 </div>
                 <div className="mt-auto">
-                  <h3 className="max-w-[290px] text-[21px] font-[700] leading-[1.08] tracking-[-0.05em] text-white">
+                  <h3 className="max-w-[290px] font-display text-[1.65rem] font-semibold leading-[1.05] tracking-[-0.05em] text-white">
                     {secondaryMissionTitle}
                   </h3>
-                  <p className="mt-3 max-w-[290px] text-[14px] leading-[1.45] text-white/78">
+                  <p className="mt-3 max-w-[290px] text-[15px] leading-[1.6] tracking-[-0.01em] text-white/78">
                     {secondaryMissionBody}
                   </p>
                   <Link
                     href="/leaderboard"
-                    className="mt-5 inline-flex h-[50px] w-full items-center justify-center rounded-full bg-[#1756f5] text-[13px] font-semibold tracking-[0.22em] text-white shadow-[0_18px_30px_rgba(23,86,245,0.24)] transition hover:bg-[#0f49e2]"
+                    className={`mt-5 inline-flex h-[50px] w-full items-center justify-center rounded-full bg-[#1756f5] text-white shadow-[0_18px_30px_rgba(23,86,245,0.24)] transition hover:bg-[#0f49e2] ${pageButtonTextClass}`}
                   >
                     VIEW BOARD
                   </Link>
@@ -764,13 +767,13 @@ export default function ChallengesPage() {
               <div className="flex flex-col justify-between">
                 <div className="flex items-start justify-between gap-6">
                   <div className="max-w-[390px]">
-                    <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-[#1456f4]">
+                    <p className={pageEyebrowClass}>
                       Featured Mission
                     </p>
-                    <h3 className="mt-3 text-[26px] font-[700] tracking-[-0.06em] text-[#232833]">
+                    <h3 className={`mt-3 ${pageCardTitleClass}`}>
                       Leaderboard Sprint
                     </h3>
-                    <p className="mt-3 text-[15px] leading-[1.45] text-[#596274]">
+                    <p className={`mt-3 ${pageBodyTextClass}`}>
                       {currentRank
                         ? `You are currently ${formatRankLabel(currentRank)}. Pair today’s mission with a leaderboard push and close the gap before the next reset.`
                         : "Complete today’s mission, bank points, and break into the Top Blitzers list."}
@@ -784,7 +787,7 @@ export default function ChallengesPage() {
                 <div className="mt-8 flex items-center gap-4">
                   <Link
                     href="/leaderboard"
-                    className="inline-flex h-[54px] min-w-[300px] items-center justify-center rounded-full bg-[#1756f5] px-10 text-[13px] font-semibold tracking-[0.22em] text-white shadow-[0_18px_30px_rgba(23,86,245,0.24)] transition hover:bg-[#0f49e2]"
+                    className={`inline-flex h-[54px] min-w-[300px] items-center justify-center rounded-full bg-[#1756f5] px-10 text-white shadow-[0_18px_30px_rgba(23,86,245,0.24)] transition hover:bg-[#0f49e2] ${pageButtonTextClass}`}
                   >
                     START MISSION
                   </Link>
@@ -802,16 +805,16 @@ export default function ChallengesPage() {
           </article>
 
           <div className="mt-12">
-            <h2 className="text-[24px] font-[700] tracking-[-0.07em] text-[#232833]">
+            <h2 className={pageSectionTitleClass}>
               Personal Progress
             </h2>
             <div className="mt-7 rounded-[42px] border border-[#dbe3ff] bg-[linear-gradient(180deg,#eef3ff_0%,#e9eefb_100%)] px-10 py-11 shadow-[0_18px_40px_rgba(18,36,81,0.05)]">
               <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
                 <div className="min-w-0 flex-1">
-                  <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-[#1456f4]">
+                  <p className={pageEyebrowClass}>
                     Current Status: {currentStatus}
                   </p>
-                  <h3 className="mt-4 text-[36px] font-[700] tracking-[-0.07em] text-[#20242d]">
+                  <h3 className="mt-4 font-display text-[2.4rem] font-semibold tracking-[-0.065em] text-[#20242d]">
                     {pointsToElite.toLocaleString()} PTS to Elite Quad
                   </h3>
                   <div className="mt-6 flex items-center justify-between text-[14px] font-semibold text-[#1456f4]">
@@ -858,12 +861,12 @@ export default function ChallengesPage() {
 
           <div className="mt-12 rounded-[42px] border border-[#e8edf4] bg-[#f5f7fb] px-7 py-8 shadow-[0_10px_26px_rgba(18,36,81,0.04)]">
             <div className="flex items-center justify-between gap-4">
-                <h2 className="text-[20px] font-[700] tracking-[-0.06em] text-[#20242d]">
+                <h2 className={pageSectionTitleClass}>
                 Top Blitzers
               </h2>
               <Link
                 href="/leaderboard"
-                className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#20242d]"
+                className={pageMetaLabelClass}
               >
                 VIEW ALL
               </Link>

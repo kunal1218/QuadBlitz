@@ -3,16 +3,18 @@
 import { useEffect, useMemo, useState } from "react";
 import type { SVGProps } from "react";
 import Link from "next/link";
-import { Outfit } from "next/font/google";
 import { CreateListingModal } from "@/features/marketplace/CreateListingModal";
 import { MarketplaceGridCard } from "@/features/marketplace/MarketplaceGridCard";
 import { fetchListings } from "@/lib/api/marketplace";
+import {
+  pageBodyTextClass,
+  pageButtonTextClass,
+  pageCardTitleClass,
+  pageHeroCopyClass,
+  pageHeroTitleClass,
+  pageMetaLabelClass,
+} from "@/lib/pageTypography";
 import type { Listing } from "@/features/marketplace/types";
-
-const outfit = Outfit({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-});
 
 const SearchIcon = (props: SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
@@ -145,15 +147,15 @@ export default function MarketplacePage() {
     : `${listings.length} listing${listings.length === 1 ? "" : "s"}`;
 
   return (
-    <div className={`${outfit.className} min-h-screen bg-white text-[#181d25]`}>
+    <div className="min-h-screen bg-white text-[#181d25]">
       <main className="mx-auto max-w-[1180px] px-5 pb-16 pt-7 sm:px-6 lg:px-8">
         <section className="border-b border-[#edf1f6] pb-8">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
             <div className="max-w-[380px]">
-              <h1 className="text-[44px] font-[800] tracking-[-0.08em] text-[#252933] sm:text-[52px]">
+              <h1 className={pageHeroTitleClass}>
                 Marketplace
               </h1>
-              <p className="mt-2 max-w-[300px] text-[14px] leading-[1.6] text-[#7d8695] sm:text-[15px]">
+              <p className={`mt-3 max-w-[360px] ${pageHeroCopyClass}`}>
                 Buy and sell within your campus community with ease and trust.
               </p>
             </div>
@@ -161,7 +163,7 @@ export default function MarketplacePage() {
             <div className="flex flex-wrap gap-3 lg:justify-end">
               <Link
                 href="/marketplace/my-listings"
-                className="inline-flex h-10 items-center gap-2 rounded-full bg-[#f8f9fc] px-4 text-[11px] font-semibold text-[#4f5563] shadow-[inset_0_0_0_1px_rgba(231,236,244,1)] transition hover:bg-white hover:text-[#20242d]"
+                className={`inline-flex h-10 items-center gap-2 rounded-full bg-[#f8f9fc] px-4 text-[#4f5563] shadow-[inset_0_0_0_1px_rgba(231,236,244,1)] transition hover:bg-white hover:text-[#20242d] ${pageButtonTextClass}`}
               >
                 <ListingsIcon className="h-[13px] w-[13px]" />
                 <span>My Listings</span>
@@ -169,7 +171,7 @@ export default function MarketplacePage() {
               <button
                 type="button"
                 onClick={() => setIsModalOpen(true)}
-                className="inline-flex h-10 items-center justify-center rounded-full bg-[#1456f4] px-6 text-[11px] font-semibold text-white shadow-[0_14px_28px_rgba(20,86,244,0.22)] transition hover:bg-[#0f49e2]"
+                className={`inline-flex h-10 items-center justify-center rounded-full bg-[#1456f4] px-6 text-white shadow-[0_14px_28px_rgba(20,86,244,0.22)] transition hover:bg-[#0f49e2] ${pageButtonTextClass}`}
               >
                 Post Listing
               </button>
@@ -197,7 +199,7 @@ export default function MarketplacePage() {
                   key={filter.id}
                   type="button"
                   onClick={() => handleFilterSelect(filter.id)}
-                  className={`inline-flex h-9 items-center rounded-full px-4 text-[10px] font-semibold transition ${
+                  className={`inline-flex h-9 items-center rounded-full px-4 ${pageButtonTextClass} transition ${
                     isActive
                       ? "bg-[#1456f4] text-white shadow-[0_12px_24px_rgba(20,86,244,0.22)]"
                       : isPending
@@ -214,11 +216,11 @@ export default function MarketplacePage() {
 
         <section className="mt-8">
           <div className="mb-4 flex items-center justify-between gap-4 px-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7e8798]">
+            <p className={pageMetaLabelClass}>
               {resultsLabel}
             </p>
             {error && (
-              <p className="rounded-full bg-[#fff1eb] px-3 py-1 text-[11px] font-semibold text-[#b15b24]">
+              <p className={`rounded-full bg-[#fff1eb] px-3 py-1 text-[#b15b24] ${pageButtonTextClass}`}>
                 {error}
               </p>
             )}
@@ -245,16 +247,16 @@ export default function MarketplacePage() {
               key={`empty-${contentVersion}`}
               className="reveal-up rounded-[30px] border border-dashed border-[#dbe3ef] bg-white/80 px-6 py-16 text-center shadow-[0_20px_45px_rgba(15,23,42,0.05)]"
             >
-              <p className="text-[28px] font-[800] tracking-[-0.06em] text-[#20242d]">
+              <p className={pageCardTitleClass}>
                 Nothing matches that search yet.
               </p>
-              <p className="mx-auto mt-3 max-w-[520px] text-[15px] leading-[1.7] text-[#6b7587]">
+              <p className={`mx-auto mt-3 max-w-[520px] ${pageBodyTextClass}`}>
                 Try a broader search, switch categories, or post the first listing in this lane.
               </p>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(true)}
-                className="mt-7 inline-flex h-11 items-center justify-center rounded-full bg-[#1456f4] px-5 text-[12px] font-semibold text-white shadow-[0_16px_30px_rgba(20,86,244,0.24)] transition hover:bg-[#0f49e2]"
+                className={`mt-7 inline-flex h-11 items-center justify-center rounded-full bg-[#1456f4] px-5 text-white shadow-[0_16px_30px_rgba(20,86,244,0.24)] transition hover:bg-[#0f49e2] ${pageButtonTextClass}`}
               >
                 Post Listing
               </button>

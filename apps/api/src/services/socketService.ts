@@ -732,6 +732,10 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
       try {
         const result = await proposePlayRoomPoker(userId);
         await emitPlayRoomStateForRoom(result.roomCode);
+        if (result.pokerTableId) {
+          socket.join(pokerRoomForTable(result.pokerTableId));
+          await emitPokerStatesForTable(result.pokerTableId);
+        }
       } catch (error) {
         emitPlayRoomError(
           error instanceof Error ? error.message : "Unable to start poker voting."

@@ -1133,6 +1133,7 @@ const SharedRoomPanel = ({
     !pokerOverlayOpen &&
     roomState.pokerArcade.status === "idle" &&
     Boolean(isNearArcade);
+  const hasActivePokerTable = Boolean(roomState.pokerArcade.activeTableId);
   const isJudgeModalVisible =
     isJudgeModalOpen &&
     roomState.phase === "task_reveal" &&
@@ -1391,7 +1392,13 @@ const SharedRoomPanel = ({
         </div>
         {roomState.pokerArcade.status === "idle" ? (
           <div className="mt-2 rounded-full border border-[#dbe5ff] bg-white/88 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#5d73b3] shadow-[0_10px_24px_rgba(20,86,244,0.08)]">
-            {canUseArcade ? "Click to start poker" : "Walk up to play poker"}
+            {hasActivePokerTable
+              ? canUseArcade
+                ? "Click to join poker"
+                : "Walk up to join poker"
+              : canUseArcade
+                ? "Click to start poker"
+                : "Walk up to play poker"}
           </div>
         ) : null}
       </div>

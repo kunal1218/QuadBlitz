@@ -1483,7 +1483,10 @@ const refundQueuedAmount = async (userId: string, amount: number) => {
 const seatPlayerAtTable = async (
   table: PokerTable,
   entry: PokerQueueEntry,
-  amountOverride?: number
+  amountOverride?: number,
+  options: {
+    suppressJoinLog?: boolean;
+  } = {}
 ) => {
   const seatIndex = getAvailableSeatIndex(table);
   if (seatIndex === -1) {
@@ -1512,7 +1515,9 @@ const seatPlayerAtTable = async (
     showCards: false,
   };
   table.seats[seatIndex] = player;
-  table.log.push(toLog(`${player.name} joined the table.`));
+  if (!options.suppressJoinLog) {
+    table.log.push(toLog(`${player.name} joined the table.`));
+  }
   await setPlayerTableId(entry.userId, table.id);
 };
 
@@ -1897,6 +1902,90 @@ export const startPrivatePokerTable = async (params: {
     }
     throw error;
   }
+};
+
+export const joinPrivatePokerTable = async (params: {
+  tableId: string;
+  userId: string;
+  name: string;
+  handle?: string | null;
+  amount?: number;
+  suppressJoinLog?: boolean;
+}) => {
+  const activeTableId = await getPlayerTableId(params.userId);
+  if (activeTableId) {
+    if (activeTableId !== params.tableId) {
+      throw new PokerError("You are already seated at another poker table.", 409);
+    }
+    const activeTable = await loadTable(activeTableId);
+    if (!activeTable) {
+      await clearPlayerTableId(params.userId);
+    } else {
+      const existingPlayer = getPlayerById(activeTable, params.userId);
+      if (existingPlayer) {
+        existingPlayer.lastSeenAt = new Date().toISOString();
+        existingPlayer.missedTurns = 0;
+        await saveTable(activeTable);
+        return {
+          tableId: activeTable.id,
+          state: buildClientState(activeTable, params.userId),
+          updatedTableIds: [activeTable.id],
+        };
+      }
+      await clearPlayerTableId(params.userId);
+    }
+  }
+
+  const table = await loadTable(params.tableId);
+  if (!table) {
+    throw new PokerError("Poker table not found.", 404);
+  }
+
+  if (getAvailableSeatIndex(table) === -1) {
+    throw new PokerError("That poker table is full.", 409);
+  }
+
+  const buyInAmount = Math.floor(params.amount ?? 100);
+  if (!Number.isFinite(buyInAmount) || buyInAmount < MIN_BUYIN) {
+    throw new PokerError(`Minimum buy-in is ${MIN_BUYIN} coins.`, 400);
+  }
+
+  await seatPlayerAtTable(
+    table,
+    {
+      userId: params.userId,
+      name: params.name.trim() || "Player",
+      handle: normalizeHandle(params.handle),
+      amount: buyInAmount,
+      enqueuedAt: Date.now(),
+      prepaid: false,
+    },
+    buyInAmount,
+    {
+      suppressJoinLog: Boolean(params.suppressJoinLog),
+    }
+  );
+
+  if (table.status === "waiting") {
+    const eligible = getEligiblePlayers(table);
+    if (eligible.length >= MIN_PLAYERS) {
+      if (table.nextHandAt) {
+        const nextAtMs = Date.parse(table.nextHandAt);
+        if (Number.isFinite(nextAtMs) && Date.now() >= nextAtMs) {
+          startHand(table);
+        }
+      } else {
+        startHand(table);
+      }
+    }
+  }
+
+  await saveTable(table);
+  return {
+    tableId: table.id,
+    state: buildClientState(table, params.userId),
+    updatedTableIds: [table.id],
+  };
 };
 
 export const getPokerStateForUser = async (userId: string) => {

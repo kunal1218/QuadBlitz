@@ -8,7 +8,7 @@ import {
   normalizePlayJudgeVerdict,
   type PlayJudgeVerdict,
 } from "./geminiJudgeService";
-import { startPrivatePokerTable } from "./pokerService";
+import { joinPrivatePokerTable, startPrivatePokerTable } from "./pokerService";
 
 export class PlayRoomError extends Error {
   status: number;
@@ -50,6 +50,7 @@ export type PlayRoomPokerArcadeState = {
   requestedAt: string | null;
   acceptedUserIds: string[];
   buyIn: number | null;
+  activeTableId: string | null;
 };
 
 type Vector2 = {
@@ -225,7 +226,7 @@ const JUDGE = {
   interactionRadius: 104,
 };
 const ARCADE = {
-  x: -Math.round(ROOM_WIDTH / 4),
+  x: -Math.round(ROOM_WIDTH * 0.34),
   y: 84,
   interactionRadius: 104,
 };
@@ -376,6 +377,7 @@ const emptyPokerArcadeState = (): PlayRoomPokerArcadeState => ({
   requestedAt: null,
   acceptedUserIds: [],
   buyIn: null,
+  activeTableId: null,
 });
 const clonePokerArcadeState = (
   state?: PlayRoomPokerArcadeState | null
@@ -385,6 +387,7 @@ const clonePokerArcadeState = (
   requestedAt: state?.requestedAt ?? null,
   acceptedUserIds: Array.isArray(state?.acceptedUserIds) ? [...state.acceptedUserIds] : [],
   buyIn: typeof state?.buyIn === "number" ? state.buyIn : null,
+  activeTableId: typeof state?.activeTableId === "string" ? state.activeTableId : null,
 });
 const emptyTaskSubmission = () => ({
   taskSubmissionText: null,
@@ -485,8 +488,12 @@ const normalizeRoom = (
             typeof rawPokerArcade.buyIn === "number" && rawPokerArcade.buyIn > 0
               ? Math.floor(rawPokerArcade.buyIn)
               : PLAYROOM_PRIVATE_POKER_BUYIN,
+          activeTableId: rawPokerArcade.activeTableId,
         }
-      : emptyPokerArcadeState();
+      : {
+          ...emptyPokerArcadeState(),
+          activeTableId: rawPokerArcade.activeTableId,
+        };
 
   return {
     roomId: room.roomId,
@@ -1785,6 +1792,42 @@ export const proposePlayRoomPoker = async (userId: string) => {
   if (distance > ARCADE.interactionRadius) {
     throw new PlayRoomError("Walk up to the arcade machine to start poker.");
   }
+
+  if (room.pokerArcade.activeTableId) {
+    try {
+      const pokerResult = await joinPrivatePokerTable({
+        tableId: room.pokerArcade.activeTableId,
+        userId,
+        name: player.name,
+        handle: player.handle,
+        amount: PLAYROOM_PRIVATE_POKER_BUYIN,
+        suppressJoinLog: true,
+      });
+      const savedRoom = await saveOrDeleteRoom(room, {
+        activity: {
+          type: "poker_joined",
+          summary: `${player.name} joined the room's poker table.`,
+          userId,
+        },
+      });
+      if (!savedRoom) {
+        throw new PlayRoomError("Unable to sync the room after joining poker.");
+      }
+      return { roomCode: savedRoom.roomCode, pokerTableId: pokerResult.tableId };
+    } catch (error) {
+      if (!(error instanceof PlayRoomError) && error instanceof Error) {
+        const message = error.message.toLowerCase();
+        if (message.includes("not found")) {
+          room.pokerArcade.activeTableId = null;
+        } else {
+          throw new PlayRoomError(error.message);
+        }
+      } else {
+        throw error;
+      }
+    }
+  }
+
   if (room.pokerArcade.status === "voting") {
     throw new PlayRoomError("A poker request is already waiting for votes.");
   }
@@ -1795,6 +1838,7 @@ export const proposePlayRoomPoker = async (userId: string) => {
     requestedAt: new Date().toISOString(),
     acceptedUserIds: [userId],
     buyIn: PLAYROOM_PRIVATE_POKER_BUYIN,
+    activeTableId: null,
   };
 
   const savedRoom = await saveOrDeleteRoom(room, {
@@ -1878,7 +1922,10 @@ export const respondPlayRoomPoker = async (params: {
       })),
       amount: room.pokerArcade.buyIn ?? PLAYROOM_PRIVATE_POKER_BUYIN,
     });
-    room.pokerArcade = emptyPokerArcadeState();
+    room.pokerArcade = {
+      ...emptyPokerArcadeState(),
+      activeTableId: pokerResult.tableId,
+    };
     const savedRoom = await saveOrDeleteRoom(room, {
       activity: {
         type: "poker_started",

@@ -37,6 +37,7 @@ export type PlayRoomPokerArcadeState = {
   requestedAt: string | null;
   acceptedUserIds: string[];
   buyIn: number | null;
+  activeTableId: string | null;
 };
 
 export type PlayVector2 = {

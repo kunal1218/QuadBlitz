@@ -1247,6 +1247,14 @@ const SharedRoomPanel = ({
   const wallBoundaryPercent =
     ((wallBoundaryY + roomState.room.height / 2) / roomState.room.height) * 100;
   const boardTopPercent = Math.max(5.5, wallHeightPercent * 0.4);
+  const syncCurrentPlayerPosition = useCallback(() => {
+    if (!me) {
+      return;
+    }
+    const currentPosition =
+      visualPositionsRef.current[me.userId] ?? renderPositions[me.userId] ?? me.position;
+    onMove(currentPosition.x, currentPosition.y);
+  }, [me, onMove, renderPositions]);
 
   useEffect(() => {
     roomRef.current = roomState;
@@ -1578,15 +1586,6 @@ const SharedRoomPanel = ({
     setVoiceMode(nextMode);
     setIsPushToTalkActive(false);
   };
-
-  const syncCurrentPlayerPosition = useCallback(() => {
-    if (!me) {
-      return;
-    }
-    const currentPosition =
-      visualPositionsRef.current[me.userId] ?? renderPositions[me.userId] ?? me.position;
-    onMove(currentPosition.x, currentPosition.y);
-  }, [me, onMove, renderPositions]);
 
   return (
     <section className="relative h-full min-h-0 w-full overflow-hidden bg-white">

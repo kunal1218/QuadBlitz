@@ -257,7 +257,7 @@ const JoinInviteCard = ({
         Join Room {inviteRoomCode}
       </h1>
       <p className="mt-3 text-sm leading-6 text-[#687287]">
-        Open the room link, jump back into the room, and continue where the group left off.
+        Open the room link, join even if the room already started, and continue where the group left off.
       </p>
       <div className="mt-8 rounded-[22px] border border-[#dbe5ff] bg-[#f5f8ff] px-4 py-3 text-xs uppercase tracking-[0.18em] text-[#5970af]">
         {isAuthenticated
@@ -286,8 +286,10 @@ const RoomHistoryPanel = ({
   isConnected,
   isBusy,
   roomName,
+  copiedRoomCode,
   onRoomNameChange,
   onCreate,
+  onCopyRoomLink,
   onOpenRoom,
 }: {
   rooms: PlayRoomListEntry[];
@@ -296,8 +298,10 @@ const RoomHistoryPanel = ({
   isConnected: boolean;
   isBusy: boolean;
   roomName: string;
+  copiedRoomCode: string | null;
   onRoomNameChange: (value: string) => void;
   onCreate: () => void;
+  onCopyRoomLink: (roomCode: string) => void;
   onOpenRoom: (roomCode: string) => void;
 }) => (
   <div className="mx-auto flex min-h-[calc(100dvh-9rem)] max-w-[1340px] flex-col gap-8 px-6 py-5">
@@ -389,10 +393,8 @@ const RoomHistoryPanel = ({
         ) : (
           <div className="space-y-5">
             {rooms.map((room) => (
-              <button
+              <div
                 key={room.roomCode}
-                type="button"
-                onClick={() => onOpenRoom(room.roomCode)}
                 className="w-full rounded-[40px] border border-[#edf1fb] bg-white/95 p-8 text-left shadow-[0_24px_70px_rgba(30,55,120,0.08)] transition hover:-translate-y-0.5 hover:border-[#d7e2ff] hover:shadow-[0_30px_82px_rgba(30,55,120,0.12)]"
               >
                 <div className="flex flex-wrap items-center gap-3">
@@ -443,7 +445,7 @@ const RoomHistoryPanel = ({
                   </div>
                 </div>
 
-                <div className="mt-8 grid gap-4 lg:grid-cols-[1fr_1fr_280px]">
+                <div className="mt-8 grid gap-4 lg:grid-cols-[1fr_1fr_260px_260px]">
                   <div className="rounded-[28px] border border-[#eff3fb] bg-[#fbfcff] px-6 py-5">
                     <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#9aa6bc]">
                       Last entered
@@ -460,7 +462,28 @@ const RoomHistoryPanel = ({
                       {formatRelativeTime(room.lastActivityAt)}
                     </div>
                   </div>
-                  <div className="rounded-[28px] border border-[#dbe5ff] bg-[#f5f8ff] px-6 py-5 transition hover:border-[#cbd9ff] hover:bg-[#f8faff]">
+                  <button
+                    type="button"
+                    onClick={() => onCopyRoomLink(room.roomCode)}
+                    className="rounded-[28px] border border-[#dbe5ff] bg-[#f7f9ff] px-6 py-5 text-left transition hover:border-[#cbd9ff] hover:bg-[#f8faff]"
+                  >
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#2b64f6]">
+                      Share link
+                    </div>
+                    <div className="mt-3 flex items-center justify-between gap-4">
+                      <span className="text-[1.6rem] font-semibold tracking-[-0.05em] text-[#2b64f6]">
+                        {copiedRoomCode === room.roomCode ? "Link copied" : "Copy join link"}
+                      </span>
+                      <span className="text-2xl leading-none text-[#2b64f6]">
+                        {copiedRoomCode === room.roomCode ? "OK" : "->"}
+                      </span>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onOpenRoom(room.roomCode)}
+                    className="rounded-[28px] border border-[#dbe5ff] bg-[#f5f8ff] px-6 py-5 text-left transition hover:border-[#cbd9ff] hover:bg-[#f8faff]"
+                  >
                     <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#2b64f6]">
                       Re-enter
                     </div>
@@ -470,9 +493,9 @@ const RoomHistoryPanel = ({
                       </span>
                       <span className="text-3xl leading-none text-[#2b64f6]">+</span>
                     </div>
-                  </div>
+                  </button>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         )}
@@ -952,12 +975,14 @@ const SharedRoomPanel = ({
   roomState,
   chatMessages,
   currentUserId,
+  isInviteCopied,
   onMove,
   onReady,
   onSubmitTask,
   onSendChatMessage,
   onProposePokerArcade,
   onRespondPokerArcade,
+  onCopyInvite,
   isSubmittingTask,
   isPokerVoting,
   pokerOverlayOpen,
@@ -966,12 +991,14 @@ const SharedRoomPanel = ({
   roomState: PlayRoomState;
   chatMessages: PlayRoomChatMessage[];
   currentUserId: string | null | undefined;
+  isInviteCopied: boolean;
   onMove: (positionX: number, positionY: number) => void;
   onReady: () => void;
   onSubmitTask: (submission: string) => void;
   onSendChatMessage: (text: string) => void;
   onProposePokerArcade: () => void;
   onRespondPokerArcade: (accept: boolean) => void;
+  onCopyInvite: () => void;
   isSubmittingTask: boolean;
   isPokerVoting: boolean;
   pokerOverlayOpen: boolean;
@@ -1392,8 +1419,17 @@ const SharedRoomPanel = ({
       />
 
       {!pokerOverlayOpen ? (
-        <div className="absolute left-5 top-5 z-20 rounded-full border border-[#dbe5ff] bg-white/94 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#5d73b3] shadow-[0_12px_30px_rgba(20,86,244,0.1)] backdrop-blur">
-          {roomState.roomName} • {roomState.roomCode}
+        <div className="absolute left-5 top-5 z-20 flex items-center gap-2">
+          <div className="rounded-full border border-[#dbe5ff] bg-white/94 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#5d73b3] shadow-[0_12px_30px_rgba(20,86,244,0.1)] backdrop-blur">
+            {roomState.roomName} • {roomState.roomCode}
+          </div>
+          <button
+            type="button"
+            onClick={onCopyInvite}
+            className="rounded-full border border-[#dbe5ff] bg-white/94 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#2b64f6] shadow-[0_12px_30px_rgba(20,86,244,0.1)] backdrop-blur transition hover:border-[#cbd9ff] hover:bg-[#f8fbff]"
+          >
+            {isInviteCopied ? "Link Copied" : "Copy Join Link"}
+          </button>
         </div>
       ) : null}
 
@@ -1716,7 +1752,7 @@ export const PlayRoomExperience = () => {
     enabled: roomListEnabled,
   });
   const [roomNameDraft, setRoomNameDraft] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [copiedRoomCode, setCopiedRoomCode] = useState<string | null>(null);
   const [headerHeight, setHeaderHeight] = useState(74);
   const copyTimerRef = useRef<number | null>(null);
   const previousActiveRoomCodeRef = useRef<string | null>(roomState?.roomCode ?? null);
@@ -1794,17 +1830,17 @@ export const PlayRoomExperience = () => {
     joinRoom(roomCode);
   };
 
-  const handleCopyInvite = async () => {
-    if (typeof window === "undefined" || !roomState?.roomCode || !navigator.clipboard) {
+  const handleCopyInvite = async (roomCode: string) => {
+    if (typeof window === "undefined" || !roomCode || !navigator.clipboard) {
       return;
     }
-    await navigator.clipboard.writeText(`${window.location.origin}/play?room=${roomState.roomCode}`);
-    setCopied(true);
+    await navigator.clipboard.writeText(`${window.location.origin}/play?room=${roomCode}`);
+    setCopiedRoomCode(roomCode);
     if (copyTimerRef.current) {
       window.clearTimeout(copyTimerRef.current);
     }
     copyTimerRef.current = window.setTimeout(() => {
-      setCopied(false);
+      setCopiedRoomCode(null);
     }, 1800);
   };
 
@@ -1834,8 +1870,10 @@ export const PlayRoomExperience = () => {
       isConnected={isConnected}
       isBusy={busyAction === "create" || busyAction === "join"}
       roomName={roomNameDraft}
+      copiedRoomCode={copiedRoomCode}
       onRoomNameChange={setRoomNameDraft}
       onCreate={handleCreateRoom}
+      onCopyRoomLink={handleCopyInvite}
       onOpenRoom={handleOpenRoom}
     />
   );
@@ -1848,7 +1886,11 @@ export const PlayRoomExperience = () => {
         roomCode={roomState.roomCode}
         onLeave={handleLeaveRoom}
       >
-        <LobbyPanel roomState={roomState} copied={copied} onCopyInvite={handleCopyInvite} />
+        <LobbyPanel
+          roomState={roomState}
+          copied={copiedRoomCode === roomState.roomCode}
+          onCopyInvite={() => handleCopyInvite(roomState.roomCode)}
+        />
       </RoomShell>
     );
   }
@@ -1878,12 +1920,14 @@ export const PlayRoomExperience = () => {
           roomState={roomState}
           chatMessages={chatMessages}
           currentUserId={user?.id}
+          isInviteCopied={copiedRoomCode === roomState.roomCode}
           onMove={movePlayer}
           onReady={readyUp}
           onSubmitTask={submitTask}
           onSendChatMessage={sendChatMessage}
           onProposePokerArcade={proposePokerArcade}
           onRespondPokerArcade={respondPokerArcade}
+          onCopyInvite={() => handleCopyInvite(roomState.roomCode)}
           isSubmittingTask={busyAction === "submit"}
           isPokerVoting={busyAction === "poker_propose" || busyAction === "poker_vote"}
           pokerOverlayOpen={Boolean(pokerState)}

@@ -649,7 +649,12 @@ const pickTask = () => {
 
 const applySharedRoomSpawnPoints = (room: PlayRoom, userIds?: string[]) => {
   const targetIds = userIds ? new Set(userIds) : null;
-  let appliedIndex = 0;
+  const presentPlayerIds = room.players
+    .filter((player) => player.isPresent)
+    .map((player) => player.userId);
+  const spawnIndexByUserId = new Map(
+    presentPlayerIds.map((userId, index) => [userId, index])
+  );
   room.players = room.players.map((player) => {
     if (!player.isPresent) {
       return player;
@@ -657,8 +662,10 @@ const applySharedRoomSpawnPoints = (room: PlayRoom, userIds?: string[]) => {
     if (targetIds && !targetIds.has(player.userId)) {
       return player;
     }
-    const spawn = SPAWN_POINTS[appliedIndex] ?? SPAWN_POINTS[SPAWN_POINTS.length - 1] ?? { x: 0, y: 0 };
-    appliedIndex += 1;
+    const spawnIndex = spawnIndexByUserId.get(player.userId) ?? 0;
+    const spawn =
+      SPAWN_POINTS[spawnIndex] ??
+      SPAWN_POINTS[SPAWN_POINTS.length - 1] ?? { x: 0, y: 0 };
     return {
       ...player,
       position: { ...spawn },
@@ -1543,17 +1550,22 @@ export const joinPlayRoom = async (params: {
       lastEnteredAt: now,
     };
     ensureProgressedRoomCharacter(room, room.players[existingPlayerIndex]!);
+    if (room.phase === "shared_room" || room.phase === "task_reveal") {
+      applySharedRoomSpawnPoints(room, [params.userId]);
+    }
     activitySummary = `${room.players[existingPlayerIndex]!.name} re-entered the room.`;
   } else {
     if (room.players.length >= MAX_PLAYERS) {
       throw new PlayRoomError("That room is already full.");
     }
-    if (room.phase !== "lobby" && room.phase !== "character_select") {
-      throw new PlayRoomError(
-        "That room is mid-session. Only existing members can re-enter right now."
-      );
-    }
     room.players.push(createPlayer({ ...params, isPresent: true }));
+    const joinedPlayer = room.players[room.players.length - 1];
+    if (joinedPlayer) {
+      ensureProgressedRoomCharacter(room, joinedPlayer);
+    }
+    if (room.phase === "shared_room" || room.phase === "task_reveal") {
+      applySharedRoomSpawnPoints(room, [params.userId]);
+    }
     activitySummary = `${params.name.trim() || "A player"} joined the room.`;
   }
 

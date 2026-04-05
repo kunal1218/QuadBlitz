@@ -16,6 +16,7 @@ type NavItem = {
 
 const baseNavItems: NavItem[] = [
   { href: "/", label: "Home" },
+  { href: "/play", label: "Play" },
   { href: "/friends", label: "Chat" },
   { href: "/map", label: "Map" },
   { href: "/requests", label: "Requests" },

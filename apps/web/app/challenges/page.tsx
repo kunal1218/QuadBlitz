@@ -55,6 +55,18 @@ const ChallengeNavIcon = (props: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+const PlayNavIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" {...props}>
+    <path
+      d="M5.1 3.1 12.4 8l-7.3 4.9V3.1Z"
+      fill="currentColor"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 const ChatNavIcon = (props: SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" {...props}>
     <path
@@ -141,6 +153,7 @@ const headerNavItems: Array<{
   active?: boolean;
 }> = [
   { href: "/", label: "HOME", icon: HomeNavIcon },
+  { href: "/play", label: "PLAY", icon: PlayNavIcon },
   { href: "/challenges", label: "CHALLENGES", icon: ChallengeNavIcon, active: true },
   { href: "/friends", label: "CHAT", icon: ChatNavIcon },
   { href: "/map", label: "MAPS", icon: MapsNavIcon },

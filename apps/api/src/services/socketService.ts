@@ -27,6 +27,7 @@ import {
   movePlayRoomPlayer,
   proposePlayRoomPoker,
   readyPlayRoomPlayer,
+  recordPlayRoomChatActivity,
   respondPlayRoomPoker,
   submitPlayRoomTask,
   type PlayCharacterId,
@@ -604,7 +605,7 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
       }
     });
 
-    socket.on("playroom:create", async () => {
+    socket.on("playroom:create", async (payload?: { roomName?: string }) => {
       try {
         if (!userProfile) {
           throw new Error("Missing user profile");
@@ -613,6 +614,7 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
           userId,
           name: userProfile.name,
           handle: userProfile.handle,
+          roomName: payload?.roomName ?? null,
         });
         await joinPlayRoomSocketRoom();
         await Promise.all(
@@ -781,6 +783,7 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
           expiresAt: new Date(Date.now() + 10_000).toISOString(),
         };
 
+        await recordPlayRoomChatActivity({ userId, text });
         io?.to(playRoomForCode(result.roomCode)).emit("playroom:chat", { message });
       } catch (error) {
         emitPlayRoomError(

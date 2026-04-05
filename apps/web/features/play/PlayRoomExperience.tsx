@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { PlayRoomListEntry } from "@lockedin/shared";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/Button";
 import { useAuth } from "@/features/auth";
+import { formatRelativeTime } from "@/lib/time";
 import {
   ArcadeMachineAvatar,
   CharacterAvatar,
@@ -21,6 +23,7 @@ import type {
 } from "./types";
 import { PlayPokerOverlay } from "./PlayPokerOverlay";
 import { usePlayRoom } from "./usePlayRoom";
+import { usePlayRoomList } from "./usePlayRoomList";
 import { usePlayRoomPoker } from "./usePlayRoomPoker";
 import { usePlayRoomVoice } from "./usePlayRoomVoice";
 
@@ -35,6 +38,9 @@ const formatHandle = (handle: string) => (handle.startsWith("@") ? handle : `@${
 const getPlayerById = (roomState: PlayRoomState, userId: string | null | undefined) =>
   roomState.players.find((player) => player.userId === userId) ?? null;
 
+const getPresentPlayers = (roomState: PlayRoomState) =>
+  roomState.players.filter((player) => player.isPresent);
+
 const createPositionMap = (players: PlayRoomState["players"]) =>
   Object.fromEntries(players.map((player) => [player.userId, { ...player.position }]));
 
@@ -42,6 +48,19 @@ const lerp = (from: number, to: number, amount: number) => from + (to - from) * 
 
 const getCurrentWeekdayLabel = () =>
   new Intl.DateTimeFormat(undefined, { weekday: "long" }).format(new Date());
+
+const formatPhaseLabel = (phase: PlayRoomListEntry["phase"]) => {
+  switch (phase) {
+    case "character_select":
+      return "Character Select";
+    case "shared_room":
+      return "Shared Room";
+    case "task_reveal":
+      return "Task Reveal";
+    default:
+      return "Lobby";
+  }
+};
 
 const StatusBanner = ({
   error,
@@ -63,55 +82,259 @@ const StatusBanner = ({
   </div>
 );
 
-const EntryCard = ({
+const RoomCreateCard = ({
+  title,
+  description,
+  statusLabel,
+  isAuthenticated,
+  isBusy,
+  roomName,
+  onRoomNameChange,
+  onCreate,
+  compact = false,
+}: {
+  title: string;
+  description: string;
+  statusLabel: string;
+  isAuthenticated: boolean;
+  isBusy: boolean;
+  roomName: string;
+  onRoomNameChange: (value: string) => void;
+  onCreate: () => void;
+  compact?: boolean;
+}) => (
+  <div
+    className={`rounded-[32px] border border-[#dbe5ff] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(245,248,255,0.98)_100%)] p-8 shadow-[0_26px_70px_rgba(20,86,244,0.12)] ${
+      compact ? "" : "w-full max-w-md"
+    }`}
+  >
+    <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#5d73b3]">
+      Quadblitz Play
+    </p>
+    <h1 className="mt-3 font-[family-name:var(--font-display)] text-3xl font-semibold tracking-[-0.04em] text-[#1f2430]">
+      {title}
+    </h1>
+    <p className="mt-3 text-sm leading-6 text-[#687287]">{description}</p>
+    <label className="mt-6 block">
+      <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#5d73b3]">
+        Room Name
+      </span>
+      <input
+        type="text"
+        value={roomName}
+        onChange={(event) => onRoomNameChange(event.target.value.slice(0, 48))}
+        placeholder="Weekend Crew"
+        maxLength={48}
+        className="mt-3 w-full rounded-[22px] border border-[#dbe5ff] bg-white px-4 py-3 text-sm font-medium text-[#1f2430] outline-none transition placeholder:text-[#92a0bb] focus:border-[#b8cbff] focus:ring-4 focus:ring-[#e6efff]"
+      />
+    </label>
+    <div className="mt-6 rounded-[22px] border border-[#dbe5ff] bg-[#f5f8ff] px-4 py-3 text-xs uppercase tracking-[0.18em] text-[#5970af]">
+      {statusLabel}
+    </div>
+    <Button
+      className="mt-6 w-full justify-center rounded-full bg-[#1756f5] px-5 py-3.5 text-sm font-semibold uppercase tracking-[0.16em] text-white shadow-[0_16px_30px_rgba(23,86,245,0.22)] hover:translate-y-0 hover:bg-[#0f49e2]"
+      requiresAuth
+      authMode="signup"
+      disabled={isBusy}
+      onClick={onCreate}
+    >
+      {isBusy ? "Working..." : isAuthenticated ? "Create Room" : "Sign In To Create"}
+    </Button>
+  </div>
+);
+
+const JoinInviteCard = ({
   inviteRoomCode,
   isAuthenticated,
   isConnected,
   isBusy,
-  onPrimaryAction,
+  onJoin,
 }: {
-  inviteRoomCode: string | null;
+  inviteRoomCode: string;
   isAuthenticated: boolean;
   isConnected: boolean;
   isBusy: boolean;
-  onPrimaryAction: () => void;
-}) => {
-  const heading = inviteRoomCode ? `Join Room ${inviteRoomCode}` : "Start a Room";
-  const description = inviteRoomCode
-    ? "Open the room link, join the lobby, then move into character select together."
-    : "Create a lightweight multiplayer room and move straight into the new lobby flow.";
-  const buttonLabel = inviteRoomCode ? "Join Room" : "Create Room";
+  onJoin: () => void;
+}) => (
+  <div className="mx-auto flex min-h-[calc(100dvh-10rem)] max-w-5xl items-center justify-center px-4 py-12">
+    <div className="w-full max-w-md rounded-[32px] border border-[#dbe5ff] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(245,248,255,0.98)_100%)] p-8 shadow-[0_26px_70px_rgba(20,86,244,0.12)]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#5d73b3]">
+        Shared Room Invite
+      </p>
+      <h1 className="mt-3 font-[family-name:var(--font-display)] text-3xl font-semibold tracking-[-0.04em] text-[#1f2430]">
+        Join Room {inviteRoomCode}
+      </h1>
+      <p className="mt-3 text-sm leading-6 text-[#687287]">
+        Open the room link, jump back into the room, and continue where the group left off.
+      </p>
+      <div className="mt-8 rounded-[22px] border border-[#dbe5ff] bg-[#f5f8ff] px-4 py-3 text-xs uppercase tracking-[0.18em] text-[#5970af]">
+        {isAuthenticated
+          ? isConnected
+            ? "Realtime connected"
+            : "Connecting to room service"
+          : "Sign in required"}
+      </div>
+      <Button
+        className="mt-6 w-full justify-center rounded-full bg-[#1756f5] px-5 py-3.5 text-sm font-semibold uppercase tracking-[0.16em] text-white shadow-[0_16px_30px_rgba(23,86,245,0.22)] hover:translate-y-0 hover:bg-[#0f49e2]"
+        requiresAuth
+        authMode="login"
+        disabled={isBusy}
+        onClick={onJoin}
+      >
+        {isBusy ? "Working..." : "Join Room"}
+      </Button>
+    </div>
+  </div>
+);
 
-  return (
-    <div className="mx-auto flex min-h-[calc(100dvh-10rem)] max-w-5xl items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md rounded-[32px] border border-[#dbe5ff] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(245,248,255,0.98)_100%)] p-8 shadow-[0_26px_70px_rgba(20,86,244,0.12)]">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#5d73b3]">
-          Quadblitz Play
-        </p>
-        <h1 className="mt-3 font-[family-name:var(--font-display)] text-3xl font-semibold tracking-[-0.04em] text-[#1f2430]">
-          {heading}
-        </h1>
-        <p className="mt-3 text-sm leading-6 text-[#687287]">{description}</p>
-        <div className="mt-8 rounded-[22px] border border-[#dbe5ff] bg-[#f5f8ff] px-4 py-3 text-xs uppercase tracking-[0.18em] text-[#5970af]">
-          {isAuthenticated
+const RoomHistoryPanel = ({
+  rooms,
+  isLoading,
+  isAuthenticated,
+  isConnected,
+  isBusy,
+  roomName,
+  onRoomNameChange,
+  onCreate,
+  onOpenRoom,
+}: {
+  rooms: PlayRoomListEntry[];
+  isLoading: boolean;
+  isAuthenticated: boolean;
+  isConnected: boolean;
+  isBusy: boolean;
+  roomName: string;
+  onRoomNameChange: (value: string) => void;
+  onCreate: () => void;
+  onOpenRoom: (roomCode: string) => void;
+}) => (
+  <div className="mx-auto flex min-h-[calc(100dvh-9rem)] max-w-7xl flex-col gap-8 px-4 py-10">
+    <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
+      <RoomCreateCard
+        title={rooms.length === 0 ? "Start Your First Room" : "Create Another Room"}
+        description={
+          rooms.length === 0
+            ? "Rooms now persist over time. Give your group a name and build a long-running space you can keep coming back to."
+            : "Start a new room for a different friend group while keeping your existing rooms alive."
+        }
+        statusLabel={
+          isAuthenticated
             ? isConnected
               ? "Realtime connected"
               : "Connecting to room service"
-            : "Sign in required"}
+            : "Sign in required"
+        }
+        isAuthenticated={isAuthenticated}
+        isBusy={isBusy}
+        roomName={roomName}
+        onRoomNameChange={onRoomNameChange}
+        onCreate={onCreate}
+        compact
+      />
+
+      <div className="rounded-[34px] border border-[#dbe5ff] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(245,248,255,0.98)_100%)] p-6 shadow-[0_26px_70px_rgba(20,86,244,0.1)] sm:p-7">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#5d73b3]">
+              Your Long-Term Rooms
+            </p>
+            <h2 className="mt-3 font-[family-name:var(--font-display)] text-4xl font-semibold tracking-[-0.05em] text-[#1f2430]">
+              Pick up where your group left off
+            </h2>
+          </div>
+          <div className="rounded-full border border-[#dbe5ff] bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#5970af]">
+            Sorted by last entered
+          </div>
         </div>
-        <Button
-          className="mt-6 w-full justify-center rounded-full bg-[#1756f5] px-5 py-3.5 text-sm font-semibold uppercase tracking-[0.16em] text-white shadow-[0_16px_30px_rgba(23,86,245,0.22)] hover:translate-y-0 hover:bg-[#0f49e2]"
-          requiresAuth
-          authMode={inviteRoomCode ? "login" : "signup"}
-          disabled={isBusy}
-          onClick={onPrimaryAction}
-        >
-          {isBusy ? "Working..." : buttonLabel}
-        </Button>
+
+        {isLoading ? (
+          <div className="mt-6 rounded-[24px] border border-[#dbe5ff] bg-white px-5 py-8 text-sm text-[#687287]">
+            Loading your rooms...
+          </div>
+        ) : rooms.length === 0 ? (
+          <div className="mt-6 rounded-[24px] border border-dashed border-[#cfdcff] bg-[#f8fbff] px-5 py-8 text-sm leading-6 text-[#687287]">
+            No saved rooms yet. Create one on the left, then your room history will live here.
+          </div>
+        ) : (
+          <div className="mt-6 space-y-4">
+            {rooms.map((room) => (
+              <button
+                key={room.roomCode}
+                type="button"
+                onClick={() => onOpenRoom(room.roomCode)}
+                className="w-full rounded-[28px] border border-[#dbe5ff] bg-white px-5 py-5 text-left shadow-[0_16px_36px_rgba(20,86,244,0.08)] transition hover:-translate-y-0.5 hover:border-[#b8cbff] hover:bg-[#fbfdff]"
+              >
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full border border-[#dbe5ff] bg-[#eef4ff] px-3 py-[7px] text-[10px] font-semibold uppercase tracking-[0.2em] text-[#5970af]">
+                        {formatPhaseLabel(room.phase)}
+                      </span>
+                      {room.hasNewActivity ? (
+                        <span className="rounded-full border border-[#d7ebd8] bg-[#effcf0] px-3 py-[7px] text-[10px] font-semibold uppercase tracking-[0.2em] text-[#3e8d50]">
+                          {room.newActivityCount} new update{room.newActivityCount === 1 ? "" : "s"}
+                        </span>
+                      ) : null}
+                      {room.isHost ? (
+                        <span className="rounded-full border border-[#e8ecf5] bg-[#f8fafd] px-3 py-[7px] text-[10px] font-semibold uppercase tracking-[0.2em] text-[#7a869e]">
+                          Host
+                        </span>
+                      ) : null}
+                    </div>
+                    <h3 className="mt-4 text-2xl font-semibold tracking-[-0.04em] text-[#1f2430]">
+                      {room.roomName}
+                    </h3>
+                    <p className="mt-2 text-sm text-[#6f7990]">
+                      Room {room.roomCode} • {room.memberCount} member{room.memberCount === 1 ? "" : "s"} • {room.presentCount} active now
+                    </p>
+                  </div>
+                  <div className="shrink-0 rounded-[24px] border border-[#dbe5ff] bg-[#f8fbff] px-4 py-4 text-sm text-[#4d5a71]">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#7d8fb4]">
+                      Total Score
+                    </div>
+                    <div className="mt-2 font-[family-name:var(--font-display)] text-3xl font-semibold tracking-[-0.04em] text-[#1456f4]">
+                      {room.totalScore.toFixed(2)}
+                    </div>
+                    <div className="mt-2 text-xs text-[#7c869a]">
+                      Week {room.weeksAlive} alive
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  <div className="rounded-[20px] border border-[#edf2fb] bg-[#fbfcff] px-4 py-3">
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8a98b0]">
+                      Last Entered
+                    </div>
+                    <div className="mt-2 text-sm font-semibold text-[#1f2430]">
+                      {room.lastEnteredAt ? formatRelativeTime(room.lastEnteredAt) : "Never"}
+                    </div>
+                  </div>
+                  <div className="rounded-[20px] border border-[#edf2fb] bg-[#fbfcff] px-4 py-3">
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8a98b0]">
+                      Last Activity
+                    </div>
+                    <div className="mt-2 text-sm font-semibold text-[#1f2430]">
+                      {formatRelativeTime(room.lastActivityAt)}
+                    </div>
+                  </div>
+                  <div className="rounded-[20px] border border-[#edf2fb] bg-[#fbfcff] px-4 py-3">
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8a98b0]">
+                      Re-enter
+                    </div>
+                    <div className="mt-2 text-sm font-semibold text-[#1456f4]">
+                      Open room
+                    </div>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
-  );
-};
+  </div>
+);
 
 const RoomShell = ({
   title,
@@ -158,7 +381,8 @@ const LobbyPanel = ({
   copied: boolean;
   onCopyInvite: () => void;
 }) => {
-  const playersNeeded = Math.max(0, roomState.minPlayersToStart - roomState.players.length);
+  const presentPlayers = getPresentPlayers(roomState);
+  const playersNeeded = Math.max(0, roomState.minPlayersToStart - presentPlayers.length);
   const host = roomState.players.find((player) => player.userId === roomState.hostUserId) ?? null;
 
   return (
@@ -174,7 +398,8 @@ const LobbyPanel = ({
         </h2>
         <p className="mt-2 text-sm text-[#687287]">
           {host ? `${host.name} is hosting.` : "A host is assigned automatically."} Share the
-          invite link so at least two players can enter.
+          invite link so at least two players can enter. Room memberships persist, so offline
+          members can come back later.
         </p>
         <div className="mt-6 flex flex-col gap-3 rounded-[24px] border border-[#dbe5ff] bg-[#edf3ff] p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -210,7 +435,7 @@ const LobbyPanel = ({
                 <div className="mt-1 text-xs text-[#7c869a]">{formatHandle(player.handle)}</div>
               </div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#5d73b3]">
-                Waiting
+                {player.isPresent ? "In Room" : "Away"}
               </div>
             </div>
           ))}
@@ -232,7 +457,10 @@ const CharacterSelectPanel = ({
   onLockCharacter: (characterId: PlayCharacterId) => void;
 }) => {
   const me = getPlayerById(roomState, currentUserId);
-  const everyoneLocked = roomState.players.every((player) => Boolean(player.selectedCharacter));
+  const presentPlayers = getPresentPlayers(roomState);
+  const everyoneLocked =
+    presentPlayers.length >= roomState.minPlayersToStart &&
+    presentPlayers.every((player) => Boolean(player.selectedCharacter));
 
   return (
     <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
@@ -251,28 +479,27 @@ const CharacterSelectPanel = ({
           <div className="text-sm text-[#687287]">
             {everyoneLocked
               ? "All players are locked in."
-              : "Selections are unique and lock immediately."}
+              : "Active players can each lock one character. Character styles can repeat."}
           </div>
         </div>
         <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {PLAY_CHARACTERS.map((character) => {
-            const lockedBy = roomState.players.find(
-              (player) => player.selectedCharacter === character.id
-            );
-            const isMine = lockedBy?.userId === currentUserId;
-            const isTaken = Boolean(lockedBy && !isMine);
             const isLocked = Boolean(me?.selectedCharacter);
+            const isMine = me?.selectedCharacter === character.id;
+            const lockedCount = presentPlayers.filter(
+              (player) => player.selectedCharacter === character.id
+            ).length;
             return (
               <button
                 key={character.id}
                 type="button"
-                disabled={isTaken || isLocked || isLocking}
+                disabled={isLocked || isLocking}
                 onClick={() => onLockCharacter(character.id)}
                 className={`group flex flex-col items-center rounded-[24px] border px-4 py-5 text-center transition ${
                   isMine
                     ? "border-[#1456f4] bg-[#1456f4] text-white shadow-[0_18px_36px_rgba(20,86,244,0.24)]"
                     : "border-[#dbe5ff] bg-white text-[#1f2430] shadow-[0_10px_24px_rgba(20,86,244,0.06)] hover:-translate-y-0.5 hover:border-[#b8cbff] hover:bg-[#f9fbff]"
-                } ${isTaken || isLocked ? "cursor-not-allowed opacity-70" : ""}`}
+                } ${isLocked ? "cursor-not-allowed opacity-70" : ""}`}
               >
                 <CharacterAvatar
                   characterId={character.id}
@@ -283,8 +510,8 @@ const CharacterSelectPanel = ({
                 <div className={`mt-1 text-xs ${isMine ? "text-white/78" : "text-[#7c869a]"}`}>
                   {isMine
                     ? "Locked In"
-                    : isTaken
-                      ? `Taken by ${lockedBy?.name ?? "another player"}`
+                    : lockedCount > 0
+                      ? `${lockedCount} active player${lockedCount === 1 ? "" : "s"} picked this`
                       : character.detail}
                 </div>
               </button>
@@ -305,13 +532,19 @@ const CharacterSelectPanel = ({
               <div className="flex items-center justify-between gap-3">
                 <div className="text-sm font-semibold text-[#1f2430]">{player.name}</div>
                 <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#5d73b3]">
-                  {player.selectedCharacter ? "Ready" : "Choosing"}
+                  {player.isPresent
+                    ? player.selectedCharacter
+                      ? "Ready"
+                      : "Choosing"
+                    : "Away"}
                 </div>
               </div>
               <div className="mt-2 text-xs text-[#7c869a]">
                 {player.selectedCharacter
                   ? getCharacterLabel(player.selectedCharacter)
-                  : "No character locked yet"}
+                  : player.isPresent
+                    ? "No character locked yet"
+                    : "Not currently in the room"}
               </div>
             </div>
           ))}
@@ -503,10 +736,11 @@ const PokerArcadeVoteCard = ({
     return null;
   }
 
+  const presentPlayers = getPresentPlayers(roomState);
   const requester =
     roomState.players.find((player) => player.userId === vote.requestedByUserId) ?? null;
   const hasAccepted = currentUserId ? vote.acceptedUserIds.includes(currentUserId) : false;
-  const waitingOn = Math.max(0, roomState.players.length - vote.acceptedUserIds.length);
+  const waitingOn = Math.max(0, presentPlayers.length - vote.acceptedUserIds.length);
   const isRequester = vote.requestedByUserId === currentUserId;
 
   return (
@@ -583,6 +817,7 @@ const SharedRoomPanel = ({
   pokerOverlayOpen: boolean;
   onLeave: () => void;
 }) => {
+  const presentPlayers = getPresentPlayers(roomState);
   const me = getPlayerById(roomState, currentUserId);
   const [showRoomState, setShowRoomState] = useState(false);
   const [isJudgeModalOpen, setIsJudgeModalOpen] = useState(false);
@@ -592,14 +827,14 @@ const SharedRoomPanel = ({
   const [isPushToTalkActive, setIsPushToTalkActive] = useState(false);
   const [weekdayLabel] = useState(() => getCurrentWeekdayLabel());
   const [renderPositions, setRenderPositions] = useState<Record<string, PlayVector2>>(() =>
-    createPositionMap(roomState.players)
+    createPositionMap(presentPlayers)
   );
   const [movingPlayerIds, setMovingPlayerIds] = useState<Record<string, boolean>>({});
   const chatInputRef = useRef<HTMLInputElement | null>(null);
   const keyStateRef = useRef({ up: false, down: false, left: false, right: false });
   const roomRef = useRef(roomState);
-  const serverPositionsRef = useRef<Record<string, PlayVector2>>(createPositionMap(roomState.players));
-  const visualPositionsRef = useRef<Record<string, PlayVector2>>(createPositionMap(roomState.players));
+  const serverPositionsRef = useRef<Record<string, PlayVector2>>(createPositionMap(presentPlayers));
+  const visualPositionsRef = useRef<Record<string, PlayVector2>>(createPositionMap(presentPlayers));
   const { voiceError, voiceStatus, isPushToTalkLive } = usePlayRoomVoice({
     roomState,
     currentUserId,
@@ -616,21 +851,21 @@ const SharedRoomPanel = ({
 
   useEffect(() => {
     roomRef.current = roomState;
-    serverPositionsRef.current = createPositionMap(roomState.players);
+    serverPositionsRef.current = createPositionMap(presentPlayers);
     const nextVisual = { ...visualPositionsRef.current };
-    const activeIds = new Set(roomState.players.map((player) => player.userId));
+    const activeIds = new Set(presentPlayers.map((player) => player.userId));
     Object.keys(nextVisual).forEach((userId) => {
       if (!activeIds.has(userId)) {
         delete nextVisual[userId];
       }
     });
-    roomState.players.forEach((player) => {
+    presentPlayers.forEach((player) => {
       if (!nextVisual[player.userId]) {
         nextVisual[player.userId] = { ...player.position };
       }
     });
     visualPositionsRef.current = nextVisual;
-  }, [roomState]);
+  }, [presentPlayers, roomState]);
 
   useEffect(() => {
     if (!isChatting) {
@@ -746,14 +981,18 @@ const SharedRoomPanel = ({
       const nextPositions = { ...visualPositionsRef.current };
       const nextMoving: Record<string, boolean> = {};
       const serverPositions = serverPositionsRef.current;
-      const activeIds = new Set(roomRef.current.players.map((player) => player.userId));
+      const activeIds = new Set(
+        roomRef.current.players.filter((player) => player.isPresent).map((player) => player.userId)
+      );
       Object.keys(nextPositions).forEach((userId) => {
         if (!activeIds.has(userId)) {
           delete nextPositions[userId];
         }
       });
 
-      roomRef.current.players.forEach((player) => {
+      roomRef.current.players
+        .filter((player) => player.isPresent)
+        .forEach((player) => {
         const currentPosition = nextPositions[player.userId] ?? player.position;
         const serverPosition = serverPositions[player.userId] ?? player.position;
         if (player.userId === me?.userId) {
@@ -810,7 +1049,7 @@ const SharedRoomPanel = ({
         nextMoving[player.userId] =
           Math.hypot(serverPosition.x - currentPosition.x, serverPosition.y - currentPosition.y) >
           0.9;
-      });
+        });
 
       visualPositionsRef.current = nextPositions;
       setRenderPositions(nextPositions);
@@ -827,7 +1066,7 @@ const SharedRoomPanel = ({
   const pedestal = roomState.room.pedestal;
   const judge = roomState.room.judge;
   const arcade = roomState.room.arcade;
-  const readyCount = roomState.players.filter((player) => player.isReadyAtPedestal).length;
+  const readyCount = presentPlayers.filter((player) => player.isReadyAtPedestal).length;
   const myVisualPosition =
     me ? renderPositions[me.userId] ?? me.position : null;
   const hasReadied = Boolean(me?.isReadyAtPedestal);
@@ -950,7 +1189,7 @@ const SharedRoomPanel = ({
       />
 
       <div className="absolute left-5 top-5 z-20 rounded-full border border-[#dbe5ff] bg-white/94 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#5d73b3] shadow-[0_12px_30px_rgba(20,86,244,0.1)] backdrop-blur">
-        Room {roomState.roomCode}
+        {roomState.roomName} • {roomState.roomCode}
       </div>
 
       <div
@@ -977,7 +1216,7 @@ const SharedRoomPanel = ({
               {roomState.phase === "task_reveal" ? "Envelope unlocked" : "Pedestal ready check"}
             </div>
             <div className="mt-2 text-sm text-[#687287]">
-              {readyCount}/{roomState.players.length} player{roomState.players.length === 1 ? "" : "s"} ready.
+              {readyCount}/{presentPlayers.length} active player{presentPlayers.length === 1 ? "" : "s"} ready.
             </div>
           </div>
           <div className="mt-4 space-y-3">
@@ -990,11 +1229,17 @@ const SharedRoomPanel = ({
                   <div>
                     <div className="text-sm font-semibold text-[#1f2430]">{player.name}</div>
                     <div className="mt-1 text-xs text-[#7c869a]">
-                      {getCharacterLabel(player.selectedCharacter)}
+                      {player.selectedCharacter
+                        ? getCharacterLabel(player.selectedCharacter)
+                        : "No character selected"}
                     </div>
                   </div>
                   <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#5d73b3]">
-                    {player.isReadyAtPedestal ? "Ready" : "Moving"}
+                    {!player.isPresent
+                      ? "Away"
+                      : player.isReadyAtPedestal
+                        ? "Ready"
+                        : "Moving"}
                   </div>
                 </div>
               </div>
@@ -1090,7 +1335,7 @@ const SharedRoomPanel = ({
         ) : null}
       </div>
 
-      {roomState.players.map((player) => {
+      {presentPlayers.map((player) => {
         const displayPosition = renderPositions[player.userId] ?? player.position;
         const left = ((displayPosition.x + roomState.room.width / 2) / roomState.room.width) * 100;
         const top = ((displayPosition.y + roomState.room.height / 2) / roomState.room.height) * 100;
@@ -1229,9 +1474,23 @@ export const PlayRoomExperience = () => {
     isAuthenticated,
     token,
   });
+  const roomListEnabled = Boolean(isAuthenticated && !roomState && !inviteRoomCode);
+  const {
+    rooms,
+    isLoading: isRoomListLoading,
+    error: roomListError,
+    refresh: refreshRoomList,
+    clearError: clearRoomListError,
+  } = usePlayRoomList({
+    isAuthenticated,
+    token,
+    enabled: roomListEnabled,
+  });
+  const [roomNameDraft, setRoomNameDraft] = useState("");
   const [copied, setCopied] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(74);
   const copyTimerRef = useRef<number | null>(null);
+  const previousActiveRoomCodeRef = useRef<string | null>(roomState?.roomCode ?? null);
 
   useEffect(() => {
     return () => {
@@ -1275,12 +1534,35 @@ export const PlayRoomExperience = () => {
     };
   }, []);
 
-  const handlePrimaryAction = () => {
-    if (inviteRoomCode) {
-      joinRoom(inviteRoomCode);
+  useEffect(() => {
+    const previousRoomCode = previousActiveRoomCodeRef.current;
+    const currentRoomCode = roomState?.roomCode ?? null;
+
+    if (previousRoomCode && !currentRoomCode && roomListEnabled) {
+      void refreshRoomList();
+    }
+
+    previousActiveRoomCodeRef.current = currentRoomCode;
+  }, [refreshRoomList, roomListEnabled, roomState?.roomCode]);
+
+  const handleCreateRoom = () => {
+    clearRoomListError();
+    setInviteRoomCodeOverride(null);
+    setRoomNameDraft("");
+    createRoom(roomNameDraft);
+  };
+
+  const handleJoinInviteRoom = () => {
+    if (!inviteRoomCode) {
       return;
     }
-    createRoom();
+    clearRoomListError();
+    joinRoom(inviteRoomCode);
+  };
+
+  const handleOpenRoom = (roomCode: string) => {
+    clearRoomListError();
+    joinRoom(roomCode);
   };
 
   const handleCopyInvite = async () => {
@@ -1305,21 +1587,54 @@ export const PlayRoomExperience = () => {
     leaveRoom();
   };
 
-  let content: ReactNode = (
-    <EntryCard
+  const combinedError = error ?? roomListError;
+
+  let content: ReactNode = inviteRoomCode ? (
+    <JoinInviteCard
       inviteRoomCode={inviteRoomCode}
       isAuthenticated={isAuthenticated}
       isConnected={isConnected}
       isBusy={busyAction === "create" || busyAction === "join"}
-      onPrimaryAction={handlePrimaryAction}
+      onJoin={handleJoinInviteRoom}
     />
+  ) : rooms.length > 0 || isRoomListLoading ? (
+    <RoomHistoryPanel
+      rooms={rooms}
+      isLoading={isRoomListLoading}
+      isAuthenticated={isAuthenticated}
+      isConnected={isConnected}
+      isBusy={busyAction === "create" || busyAction === "join"}
+      roomName={roomNameDraft}
+      onRoomNameChange={setRoomNameDraft}
+      onCreate={handleCreateRoom}
+      onOpenRoom={handleOpenRoom}
+    />
+  ) : (
+    <div className="mx-auto flex min-h-[calc(100dvh-10rem)] max-w-5xl items-center justify-center px-4 py-12">
+      <RoomCreateCard
+        title="Create Your Room"
+        description="Give your room a name and turn it into a long-running space your group can keep returning to."
+        statusLabel={
+          isAuthenticated
+            ? isConnected
+              ? "Realtime connected"
+              : "Connecting to room service"
+            : "Sign in required"
+        }
+        isAuthenticated={isAuthenticated}
+        isBusy={busyAction === "create" || busyAction === "join"}
+        roomName={roomNameDraft}
+        onRoomNameChange={setRoomNameDraft}
+        onCreate={handleCreateRoom}
+      />
+    </div>
   );
 
   if (roomState?.phase === "lobby") {
     content = (
       <RoomShell
-        title="Lobby"
-        subtitle="Share the room code, wait for another player, then everyone moves forward automatically."
+        title={roomState.roomName}
+        subtitle="Lobby. Share the room code, let returning members re-enter, and once two active players are in the room everyone moves forward automatically."
         roomCode={roomState.roomCode}
         onLeave={handleLeaveRoom}
       >
@@ -1331,8 +1646,8 @@ export const PlayRoomExperience = () => {
   if (roomState?.phase === "character_select") {
     content = (
       <RoomShell
-        title="Character Select"
-        subtitle="Each player locks one simple white character. When everyone is in, the room opens."
+        title={roomState.roomName}
+        subtitle="Character select. Active players each lock one simple white character, then the shared room opens."
         roomCode={roomState.roomCode}
         onLeave={handleLeaveRoom}
       >
@@ -1427,9 +1742,15 @@ export const PlayRoomExperience = () => {
             : "mx-auto w-full max-w-7xl px-0 pb-10 pt-24 sm:pt-28"
         }`}
       >
-        {error ? (
+        {combinedError ? (
           <div className={isSharedRoomPhase ? "absolute left-1/2 top-4 z-30 w-[min(92vw,720px)] -translate-x-1/2" : ""}>
-            <StatusBanner error={error} onDismiss={clearError} />
+            <StatusBanner
+              error={combinedError}
+              onDismiss={() => {
+                clearError();
+                clearRoomListError();
+              }}
+            />
           </div>
         ) : null}
         {content}

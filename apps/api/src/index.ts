@@ -4,6 +4,7 @@ import express from "express";
 import http from "http";
 import path from "path";
 import { initializeSocketServer } from "./services/socketService";
+import { initializePlayRoomMaintenance } from "./services/playroomService";
 import { registerRoutes } from "./routes";
 
 dotenv.config();
@@ -64,5 +65,6 @@ app.use((req, res) => {
 const port = process.env.PORT ? Number(process.env.PORT) : 4001;
 
 initializeSocketServer(httpServer);
+initializePlayRoomMaintenance();
 
 httpServer.listen(port);

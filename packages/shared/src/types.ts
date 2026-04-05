@@ -81,6 +81,29 @@ export type RequestCard = {
   isRemote?: boolean;
 };
 
+export type PlayRoomPhase =
+  | "lobby"
+  | "character_select"
+  | "shared_room"
+  | "task_reveal";
+
+export type PlayRoomListEntry = {
+  roomCode: string;
+  roomName: string;
+  phase: PlayRoomPhase;
+  memberCount: number;
+  presentCount: number;
+  totalScore: number;
+  weeksAlive: number;
+  createdAt: string;
+  lastEnteredAt: string | null;
+  lastLeftAt: string | null;
+  lastActivityAt: string;
+  hasNewActivity: boolean;
+  newActivityCount: number;
+  isHost: boolean;
+};
+
 export type MapEvent = {
   id: string;
   title: string;

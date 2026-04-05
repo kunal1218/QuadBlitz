@@ -46,6 +46,7 @@ export const usePlayRoomVoice = ({
     () =>
       isVoicePhase && currentUserId && roomState
         ? roomState.players
+            .filter((player) => player.isPresent)
             .map((player) => player.userId)
             .filter((userId) => userId !== currentUserId)
             .sort()

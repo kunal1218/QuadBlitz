@@ -174,13 +174,16 @@ export const usePlayRoom = ({
     [isAuthenticated, token]
   );
 
-  const createRoom = useCallback(() => {
-    setError(null);
-    setBusyAction("create");
-    emitWhenConnected(() => {
-      socket.emit("playroom:create");
-    });
-  }, [emitWhenConnected]);
+  const createRoom = useCallback(
+    (roomName?: string) => {
+      setError(null);
+      setBusyAction("create");
+      emitWhenConnected(() => {
+        socket.emit("playroom:create", { roomName });
+      });
+    },
+    [emitWhenConnected]
+  );
 
   const joinRoom = useCallback(
     (roomCode: string) => {

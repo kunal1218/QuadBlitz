@@ -49,7 +49,10 @@ export type PlayRoomPlayerState = {
   name: string;
   handle: string;
   joinedAt: string;
+  lastEnteredAt: string | null;
+  lastLeftAt: string | null;
   isHost: boolean;
+  isPresent: boolean;
   selectedCharacter: PlayCharacterId | null;
   selectedAt: string | null;
   position: PlayVector2;
@@ -61,13 +64,21 @@ export type PlayRoomPlayerState = {
 };
 
 export type PlayRoomState = {
+  roomId: string;
   roomCode: string;
+  roomName: string;
   hostUserId: string;
   phase: PlayRoomPhase;
   minPlayersToStart: number;
   maxPlayers: number;
   createdAt: string;
   updatedAt: string;
+  aliveSince: string;
+  lastActivityAt: string;
+  totalScore: number;
+  weeksAlive: number;
+  memberCount: number;
+  presentCount: number;
   room: {
     width: number;
     height: number;

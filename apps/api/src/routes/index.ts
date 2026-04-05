@@ -10,6 +10,7 @@ import leaderboardRoutes from "./leaderboardRoutes";
 import messageRoutes from "./messageRoutes";
 import mapRoutes from "./mapRoutes";
 import notificationRoutes from "./notificationRoutes";
+import playRoomRoutes from "./playRoomRoutes";
 import profileRoutes from "./profileRoutes";
 import rankedRoutes from "./rankedRoutes";
 import requestsRoutes from "./requestsRoutes";
@@ -39,6 +40,7 @@ export const registerRoutes = (app: Express) => {
   app.use("/map", mapRoutes);
   app.use("/marketplace", marketplaceRoutes);
   app.use("/notifications", notificationRoutes);
+  app.use("/playrooms", playRoomRoutes);
   app.use("/requests", requestsRoutes);
   app.use("/profile", profileRoutes);
   app.use("/ranked", rankedRoutes);

@@ -1,5 +1,8 @@
 import { randomUUID } from "crypto";
-import { getRedis } from "../db/redis";
+import type { PoolClient } from "pg";
+import type { PlayRoomListEntry } from "@lockedin/shared";
+import { db } from "../db";
+import { ensureUsersTable } from "./authService";
 import {
   judgePlayTaskSubmission,
   normalizePlayJudgeVerdict,
@@ -59,7 +62,10 @@ type PlayRoomPlayer = {
   name: string;
   handle: string;
   joinedAt: string;
+  lastEnteredAt: string | null;
+  lastLeftAt: string | null;
   isHost: boolean;
+  isPresent: boolean;
   selectedCharacter: PlayCharacterId | null;
   selectedAt: string | null;
   position: Vector2;
@@ -70,24 +76,75 @@ type PlayRoomPlayer = {
 };
 
 type PlayRoom = {
+  roomId: string;
   roomCode: string;
+  roomName: string;
   hostUserId: string;
   phase: PlayRoomPhase;
   createdAt: string;
   updatedAt: string;
+  aliveSince: string;
+  lastActivityAt: string;
+  totalScore: number;
   players: PlayRoomPlayer[];
   selectedTask: PlayTaskPayload | null;
   pokerArcade: PlayRoomPokerArcadeState;
 };
 
+type SaveRoomOptions = {
+  activity?:
+    | {
+        type: string;
+        summary: string;
+        userId?: string | null;
+        metadata?: Record<string, unknown>;
+      }
+    | null;
+  persistStrategy?: "immediate" | "deferred";
+};
+
+type PlayRoomRow = {
+  id: string;
+  room_code: string;
+  room_name: string;
+  host_user_id: string;
+  phase: string;
+  state_json: unknown;
+  created_at: string | Date;
+  updated_at: string | Date;
+  alive_since: string | Date;
+  last_activity_at: string | Date;
+  total_score: string | number;
+};
+
+type PlayRoomMembershipRow = {
+  room_code: string;
+  last_entered_at: string | Date | null;
+  last_left_at: string | Date | null;
+  last_activity_at: string | Date;
+  created_at: string | Date;
+  alive_since: string | Date;
+  total_score: string | number;
+  host_user_id: string;
+  new_activity_count: string | number;
+};
+
 export type PlayRoomClientState = {
+  roomId: string;
   roomCode: string;
+  roomName: string;
   hostUserId: string;
   phase: PlayRoomPhase;
   minPlayersToStart: number;
   maxPlayers: number;
   createdAt: string;
   updatedAt: string;
+  aliveSince: string;
+  lastActivityAt: string;
+  totalScore: number;
+  weeksAlive: number;
+  memberCount: number;
+  presentCount: number;
   room: {
     width: number;
     height: number;
@@ -117,7 +174,10 @@ export type PlayRoomClientState = {
     name: string;
     handle: string;
     joinedAt: string;
+    lastEnteredAt: string | null;
+    lastLeftAt: string | null;
     isHost: boolean;
+    isPresent: boolean;
     selectedCharacter: PlayCharacterId | null;
     selectedAt: string | null;
     position: Vector2;
@@ -146,12 +206,14 @@ const WALL_HEIGHT = Math.round(ROOM_HEIGHT * 0.22);
 const WALL_BOUNDARY_Y = -ROOM_HEIGHT / 2 + WALL_HEIGHT;
 const PLAYER_MIN_Y = -118;
 const MIN_PLAYERS_TO_START = 2;
-const MAX_PLAYERS = 5;
+const MAX_PLAYERS = 15;
 const ROOM_CODE_LENGTH = 5;
-const SESSION_TTL_SECONDS = 60 * 60 * 6;
-const PLAYROOMS_KEY = "playroom:rooms";
 const ROOM_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const PLAYROOM_PRIVATE_POKER_BUYIN = 100;
+const ROOM_NAME_MAX_LENGTH = 48;
+const DEFERRED_ROOM_PERSIST_MS = 1200;
+const PLAYROOM_MAINTENANCE_INTERVAL_MS = 15 * 60 * 1000;
+const PLAYROOM_INACTIVITY_DAYS = 7;
 const PEDESTAL = {
   x: 0,
   y: 0,
@@ -167,12 +229,12 @@ const ARCADE = {
   y: 84,
   interactionRadius: 104,
 };
-const SPAWN_POINTS: Vector2[] = [
-  { x: -280, y: -88 },
-  { x: 280, y: -88 },
-  { x: -280, y: 150 },
-  { x: 280, y: 150 },
-  { x: 0, y: 190 },
+const CHARACTER_ROTATION: PlayCharacterId[] = [
+  "rook",
+  "penguin",
+  "businessman",
+  "dog",
+  "mug",
 ];
 const TASK_POOL: PlayTaskPayload[] = [
   {
@@ -246,16 +308,65 @@ const TASK_POOL: PlayTaskPayload[] = [
 
 const memoryRooms = new Map<string, PlayRoom>();
 const memoryPlayerRooms = new Map<string, string>();
-const memoryRoomIds = new Set<string>();
+const pendingRoomPersistTimers = new Map<string, ReturnType<typeof setTimeout>>();
+let playRoomTablesPromise: Promise<void> | null = null;
+let maintenancePromise: Promise<void> | null = null;
+let maintenanceInterval: ReturnType<typeof setInterval> | null = null;
+let lastMaintenanceAt = 0;
 
 const normalizeHandle = (handle?: string | null) =>
   handle ? handle.replace(/^@/, "") : "";
 
-const getRoomKey = (roomCode: string) => `playroom:room:${roomCode}`;
-const getPlayerRoomKey = (userId: string) => `playroom:player:${userId}`;
-
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
+
+const collapseWhitespace = (value: string) =>
+  value.replace(/\s+/g, " ").trim();
+
+const toIsoString = (value: string | Date | null | undefined) => {
+  if (!value) {
+    return null;
+  }
+  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+};
+
+const asNumber = (value: string | number | null | undefined) =>
+  typeof value === "number" ? value : Number(value ?? 0);
+
+const roundScore = (value: number) => Number(value.toFixed(2));
+
+const formatUtcDate = (value: Date) => value.toISOString().slice(0, 10);
+
+const getUtcDayStart = (value: Date) =>
+  new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()));
+
+const getUtcWeekStart = (value: Date) => {
+  const dayStart = getUtcDayStart(value);
+  const currentDay = dayStart.getUTCDay();
+  const distanceFromMonday = (currentDay + 6) % 7;
+  dayStart.setUTCDate(dayStart.getUTCDate() - distanceFromMonday);
+  return dayStart;
+};
+
+const addUtcDays = (value: Date, days: number) => {
+  const next = new Date(value.getTime());
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+};
+
+const getWeeksAliveForWeek = (aliveSinceIso: string, weekStart: Date) => {
+  const aliveWeekStart = getUtcWeekStart(new Date(aliveSinceIso));
+  const diffMs = Math.max(0, weekStart.getTime() - aliveWeekStart.getTime());
+  return Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)) + 1;
+};
+
+const getWeeksAliveNow = (aliveSinceIso: string) =>
+  getWeeksAliveForWeek(aliveSinceIso, getUtcWeekStart(new Date()));
+
+const normalizeRoomName = (value: string | null | undefined, roomCode: string) => {
+  const trimmed = collapseWhitespace(value ?? "").slice(0, ROOM_NAME_MAX_LENGTH);
+  return trimmed || `Room ${roomCode}`;
+};
 
 const cloneTask = (task: PlayTaskPayload) => ({ ...task });
 const cloneJudgeVerdict = (verdict: unknown) => normalizePlayJudgeVerdict(verdict);
@@ -266,11 +377,13 @@ const emptyPokerArcadeState = (): PlayRoomPokerArcadeState => ({
   acceptedUserIds: [],
   buyIn: null,
 });
-const clonePokerArcadeState = (state?: PlayRoomPokerArcadeState | null): PlayRoomPokerArcadeState => ({
+const clonePokerArcadeState = (
+  state?: PlayRoomPokerArcadeState | null
+): PlayRoomPokerArcadeState => ({
   status: state?.status === "voting" ? "voting" : "idle",
   requestedByUserId: state?.requestedByUserId ?? null,
   requestedAt: state?.requestedAt ?? null,
-  acceptedUserIds: Array.isArray(state?.acceptedUserIds) ? [...state!.acceptedUserIds] : [],
+  acceptedUserIds: Array.isArray(state?.acceptedUserIds) ? [...state.acceptedUserIds] : [],
   buyIn: typeof state?.buyIn === "number" ? state.buyIn : null,
 });
 const emptyTaskSubmission = () => ({
@@ -278,6 +391,20 @@ const emptyTaskSubmission = () => ({
   taskSubmittedAt: null,
   taskJudgeVerdict: null as PlayJudgeVerdict | null,
 });
+
+const createSpawnPoints = (): Vector2[] => {
+  const xSlots = [-320, -160, 0, 160, 320];
+  const ySlots = [-40, 82, 184];
+  return ySlots.flatMap((y) => xSlots.map((x) => ({ x, y })));
+};
+
+const SPAWN_POINTS = createSpawnPoints();
+
+const getFallbackCharacter = (index: number): PlayCharacterId =>
+  CHARACTER_ROTATION[index % CHARACTER_ROTATION.length] ?? "rook";
+
+const getPresentPlayers = (room: PlayRoom) =>
+  room.players.filter((player) => player.isPresent);
 
 const cloneRoom = (room: PlayRoom): PlayRoom => ({
   ...room,
@@ -292,19 +419,31 @@ const cloneRoom = (room: PlayRoom): PlayRoom => ({
   pokerArcade: clonePokerArcadeState(room.pokerArcade),
 });
 
-const normalizeRoom = (room: PlayRoom): PlayRoom => {
+const normalizeRoom = (
+  room: PlayRoom,
+  options: {
+    fromPersistence?: boolean;
+  } = {}
+): PlayRoom => {
   const normalizedPlayers = room.players
     .slice(0, MAX_PLAYERS)
     .map((player, index) => ({
       userId: player.userId,
-      name: player.name,
-      handle: normalizeHandle(player.handle),
-      joinedAt: player.joinedAt ?? new Date().toISOString(),
+      name: player.name?.trim() || "Player",
+      handle: normalizeHandle(player.handle) || "player",
+      joinedAt: toIsoString(player.joinedAt) ?? new Date().toISOString(),
+      lastEnteredAt: toIsoString(player.lastEnteredAt),
+      lastLeftAt: toIsoString(player.lastLeftAt),
       isHost: index === 0 ? true : player.userId === room.hostUserId,
+      isPresent: options.fromPersistence ? false : Boolean(player.isPresent),
       selectedCharacter: player.selectedCharacter ?? null,
-      selectedAt: player.selectedAt ?? null,
+      selectedAt: toIsoString(player.selectedAt),
       position: {
-        x: clamp(player.position?.x ?? 0, -ROOM_WIDTH / 2 + PLAYER_MARGIN, ROOM_WIDTH / 2 - PLAYER_MARGIN),
+        x: clamp(
+          player.position?.x ?? 0,
+          -ROOM_WIDTH / 2 + PLAYER_MARGIN,
+          ROOM_WIDTH / 2 - PLAYER_MARGIN
+        ),
         y: clamp(
           player.position?.y ?? 0,
           PLAYER_MIN_Y,
@@ -314,13 +453,13 @@ const normalizeRoom = (room: PlayRoom): PlayRoom => {
       isReadyAtPedestal: Boolean(player.isReadyAtPedestal),
       taskSubmissionText:
         typeof player.taskSubmissionText === "string" ? player.taskSubmissionText : null,
-      taskSubmittedAt:
-        typeof player.taskSubmittedAt === "string" ? player.taskSubmittedAt : null,
+      taskSubmittedAt: toIsoString(player.taskSubmittedAt),
       taskJudgeVerdict:
         player.taskJudgeVerdict && typeof player.taskJudgeVerdict === "object"
           ? cloneJudgeVerdict(player.taskJudgeVerdict)
           : null,
     }));
+
   const hostUserId =
     normalizedPlayers.find((player) => player.userId === room.hostUserId)?.userId ??
     normalizedPlayers[0]?.userId ??
@@ -336,7 +475,11 @@ const normalizeRoom = (room: PlayRoom): PlayRoom => {
           requestedByUserId: rawPokerArcade.requestedByUserId,
           requestedAt: rawPokerArcade.requestedAt ?? new Date().toISOString(),
           acceptedUserIds: Array.from(
-            new Set(rawPokerArcade.acceptedUserIds.filter((userId) => normalizedPlayerIds.has(userId)))
+            new Set(
+              rawPokerArcade.acceptedUserIds.filter((userId) =>
+                normalizedPlayerIds.has(userId)
+              )
+            )
           ),
           buyIn:
             typeof rawPokerArcade.buyIn === "number" && rawPokerArcade.buyIn > 0
@@ -344,12 +487,18 @@ const normalizeRoom = (room: PlayRoom): PlayRoom => {
               : PLAYROOM_PRIVATE_POKER_BUYIN,
         }
       : emptyPokerArcadeState();
+
   return {
-    roomCode: room.roomCode,
+    roomId: room.roomId,
+    roomCode: room.roomCode.trim().toUpperCase(),
+    roomName: normalizeRoomName(room.roomName, room.roomCode),
     hostUserId,
     phase: room.phase ?? "lobby",
-    createdAt: room.createdAt ?? new Date().toISOString(),
-    updatedAt: room.updatedAt ?? new Date().toISOString(),
+    createdAt: toIsoString(room.createdAt) ?? new Date().toISOString(),
+    updatedAt: toIsoString(room.updatedAt) ?? new Date().toISOString(),
+    aliveSince: toIsoString(room.aliveSince) ?? new Date().toISOString(),
+    lastActivityAt: toIsoString(room.lastActivityAt) ?? new Date().toISOString(),
+    totalScore: roundScore(asNumber(room.totalScore)),
     players: normalizedPlayers.map((player) => ({
       ...player,
       isHost: player.userId === hostUserId,
@@ -360,13 +509,21 @@ const normalizeRoom = (room: PlayRoom): PlayRoom => {
 };
 
 const serializeRoomState = (room: PlayRoom): PlayRoomClientState => ({
+  roomId: room.roomId,
   roomCode: room.roomCode,
+  roomName: room.roomName,
   hostUserId: room.hostUserId,
   phase: room.phase,
   minPlayersToStart: MIN_PLAYERS_TO_START,
   maxPlayers: MAX_PLAYERS,
   createdAt: room.createdAt,
   updatedAt: room.updatedAt,
+  aliveSince: room.aliveSince,
+  lastActivityAt: room.lastActivityAt,
+  totalScore: room.totalScore,
+  weeksAlive: getWeeksAliveNow(room.aliveSince),
+  memberCount: room.players.length,
+  presentCount: getPresentPlayers(room).length,
   room: {
     width: ROOM_WIDTH,
     height: ROOM_HEIGHT,
@@ -390,7 +547,10 @@ const serializeRoomState = (room: PlayRoom): PlayRoomClientState => ({
     name: player.name,
     handle: player.handle,
     joinedAt: player.joinedAt,
+    lastEnteredAt: player.lastEnteredAt,
+    lastLeftAt: player.lastLeftAt,
     isHost: player.isHost,
+    isPresent: player.isPresent,
     selectedCharacter: player.selectedCharacter,
     selectedAt: player.selectedAt,
     position: { ...player.position },
@@ -406,100 +566,48 @@ const serializeRoomState = (room: PlayRoom): PlayRoomClientState => ({
 
 const serializeRoomPositions = (room: PlayRoom): PlayRoomPositionsState => ({
   roomCode: room.roomCode,
-  players: room.players.map((player) => ({
-    userId: player.userId,
-    position: { ...player.position },
-  })),
+  players: room.players
+    .filter((player) => player.isPresent)
+    .map((player) => ({
+      userId: player.userId,
+      position: { ...player.position },
+    })),
 });
 
-const readRoomIds = async () => {
-  const redis = await getRedis();
-  if (redis) {
-    return redis.sMembers(PLAYROOMS_KEY);
-  }
-  return Array.from(memoryRoomIds);
-};
+const toJsonString = (value: unknown) => JSON.stringify(value ?? {});
 
-const saveRoom = async (room: PlayRoom) => {
-  room.updatedAt = new Date().toISOString();
-  const normalized = normalizeRoom(room);
-  const redis = await getRedis();
-  if (redis) {
-    await redis.set(getRoomKey(normalized.roomCode), JSON.stringify(normalized), {
-      EX: SESSION_TTL_SECONDS,
-    });
-    await redis.sAdd(PLAYROOMS_KEY, normalized.roomCode);
-    return normalized;
-  }
-  memoryRooms.set(normalized.roomCode, cloneRoom(normalized));
-  memoryRoomIds.add(normalized.roomCode);
-  return normalized;
-};
+const parsePersistedRoom = (row: PlayRoomRow): PlayRoom => {
+  const rawState =
+    row.state_json && typeof row.state_json === "object"
+      ? (row.state_json as Record<string, unknown>)
+      : {};
+  const persisted = {
+    ...(rawState as Partial<PlayRoom>),
+    roomId: row.id,
+    roomCode: row.room_code,
+    roomName:
+      typeof rawState.roomName === "string" && rawState.roomName.trim()
+        ? rawState.roomName
+        : row.room_name,
+    hostUserId: row.host_user_id,
+    phase:
+      typeof rawState.phase === "string"
+        ? (rawState.phase as PlayRoomPhase)
+        : (row.phase as PlayRoomPhase),
+    createdAt: toIsoString(rawState.createdAt as string | Date | undefined) ?? toIsoString(row.created_at) ?? new Date().toISOString(),
+    updatedAt: toIsoString(rawState.updatedAt as string | Date | undefined) ?? toIsoString(row.updated_at) ?? new Date().toISOString(),
+    aliveSince: toIsoString(rawState.aliveSince as string | Date | undefined) ?? toIsoString(row.alive_since) ?? new Date().toISOString(),
+    lastActivityAt:
+      toIsoString(rawState.lastActivityAt as string | Date | undefined) ??
+      toIsoString(row.last_activity_at) ??
+      new Date().toISOString(),
+    totalScore:
+      typeof rawState.totalScore === "number"
+        ? rawState.totalScore
+        : asNumber(row.total_score),
+  } as PlayRoom;
 
-const removeRoomId = async (roomCode: string) => {
-  const redis = await getRedis();
-  if (redis) {
-    await redis.sRem(PLAYROOMS_KEY, roomCode);
-    return;
-  }
-  memoryRoomIds.delete(roomCode);
-};
-
-const removeRoom = async (roomCode: string) => {
-  const redis = await getRedis();
-  if (redis) {
-    await redis.del(getRoomKey(roomCode));
-    await redis.sRem(PLAYROOMS_KEY, roomCode);
-    return;
-  }
-  memoryRooms.delete(roomCode);
-  memoryRoomIds.delete(roomCode);
-};
-
-const loadRoom = async (roomCode: string): Promise<PlayRoom | null> => {
-  const normalizedCode = roomCode.trim().toUpperCase();
-  const redis = await getRedis();
-  if (redis) {
-    const raw = await redis.get(getRoomKey(normalizedCode));
-    if (!raw) {
-      await removeRoomId(normalizedCode);
-      return null;
-    }
-    try {
-      return normalizeRoom(JSON.parse(raw) as PlayRoom);
-    } catch {
-      await removeRoom(normalizedCode);
-      return null;
-    }
-  }
-  const room = memoryRooms.get(normalizedCode);
-  return room ? cloneRoom(normalizeRoom(room)) : null;
-};
-
-const setPlayerRoomCode = async (userId: string, roomCode: string) => {
-  const redis = await getRedis();
-  if (redis) {
-    await redis.set(getPlayerRoomKey(userId), roomCode, { EX: SESSION_TTL_SECONDS });
-    return;
-  }
-  memoryPlayerRooms.set(userId, roomCode);
-};
-
-const clearPlayerRoomCode = async (userId: string) => {
-  const redis = await getRedis();
-  if (redis) {
-    await redis.del(getPlayerRoomKey(userId));
-    return;
-  }
-  memoryPlayerRooms.delete(userId);
-};
-
-const getPlayerRoomCode = async (userId: string): Promise<string | null> => {
-  const redis = await getRedis();
-  if (redis) {
-    return redis.get(getPlayerRoomKey(userId));
-  }
-  return memoryPlayerRooms.get(userId) ?? null;
+  return normalizeRoom(persisted, { fromPersistence: true });
 };
 
 const getPlayerIndex = (room: PlayRoom, userId: string) =>
@@ -508,18 +616,49 @@ const getPlayerIndex = (room: PlayRoom, userId: string) =>
 const getPlayer = (room: PlayRoom, userId: string) =>
   room.players.find((player) => player.userId === userId) ?? null;
 
+const getRoomCodesForActiveUser = (userId: string) => memoryPlayerRooms.get(userId) ?? null;
+
+const setPlayerRoomCode = (userId: string, roomCode: string) => {
+  memoryPlayerRooms.set(userId, roomCode);
+};
+
+const clearPlayerRoomCode = (userId: string) => {
+  memoryPlayerRooms.delete(userId);
+};
+
+const buildMembershipUpsertValues = (room: PlayRoom) =>
+  room.players.map((player) => [
+    room.roomId,
+    player.userId,
+    player.joinedAt,
+    player.lastEnteredAt,
+    player.lastLeftAt,
+  ]);
+
 const pickTask = () => {
   const task = TASK_POOL[Math.floor(Math.random() * TASK_POOL.length)];
   return task ? cloneTask(task) : null;
 };
 
-const applySharedRoomSpawnPoints = (room: PlayRoom) => {
-  room.players = room.players.map((player, index) => ({
-    ...player,
-    position: { ...(SPAWN_POINTS[index] ?? SPAWN_POINTS[SPAWN_POINTS.length - 1] ?? { x: 0, y: 0 }) },
-    isReadyAtPedestal: false,
-    ...emptyTaskSubmission(),
-  }));
+const applySharedRoomSpawnPoints = (room: PlayRoom, userIds?: string[]) => {
+  const targetIds = userIds ? new Set(userIds) : null;
+  let appliedIndex = 0;
+  room.players = room.players.map((player) => {
+    if (!player.isPresent) {
+      return player;
+    }
+    if (targetIds && !targetIds.has(player.userId)) {
+      return player;
+    }
+    const spawn = SPAWN_POINTS[appliedIndex] ?? SPAWN_POINTS[SPAWN_POINTS.length - 1] ?? { x: 0, y: 0 };
+    appliedIndex += 1;
+    return {
+      ...player,
+      position: { ...spawn },
+      isReadyAtPedestal: false,
+      ...emptyTaskSubmission(),
+    };
+  });
 };
 
 const synchronizeRoomPhase = (room: PlayRoom) => {
@@ -531,33 +670,37 @@ const synchronizeRoomPhase = (room: PlayRoom) => {
     room.hostUserId = room.players[0]!.userId;
   }
 
-  room.players = room.players.map((player) => ({
+  room.players = room.players.map((player, index) => ({
     ...player,
     isHost: player.userId === room.hostUserId,
+    selectedCharacter:
+      (room.phase === "shared_room" || room.phase === "task_reveal") &&
+      player.isPresent &&
+      !player.selectedCharacter
+        ? getFallbackCharacter(index)
+        : player.selectedCharacter,
   }));
 
-  if (room.phase === "lobby" && room.players.length >= MIN_PLAYERS_TO_START) {
+  const presentPlayers = getPresentPlayers(room);
+
+  if (room.phase === "lobby" && presentPlayers.length >= MIN_PLAYERS_TO_START) {
     room.phase = "character_select";
     room.selectedTask = null;
     room.pokerArcade = emptyPokerArcadeState();
     room.players = room.players.map((player) => ({
       ...player,
-      selectedCharacter: null,
-      selectedAt: null,
       isReadyAtPedestal: false,
       ...emptyTaskSubmission(),
     }));
     return room;
   }
 
-  if (room.phase === "character_select" && room.players.length < MIN_PLAYERS_TO_START) {
+  if (room.phase === "character_select" && presentPlayers.length < MIN_PLAYERS_TO_START) {
     room.phase = "lobby";
     room.selectedTask = null;
     room.pokerArcade = emptyPokerArcadeState();
     room.players = room.players.map((player) => ({
       ...player,
-      selectedCharacter: null,
-      selectedAt: null,
       isReadyAtPedestal: false,
       ...emptyTaskSubmission(),
     }));
@@ -566,8 +709,8 @@ const synchronizeRoomPhase = (room: PlayRoom) => {
 
   if (
     room.phase === "character_select" &&
-    room.players.length >= MIN_PLAYERS_TO_START &&
-    room.players.every((player) => Boolean(player.selectedCharacter))
+    presentPlayers.length >= MIN_PLAYERS_TO_START &&
+    presentPlayers.every((player) => Boolean(player.selectedCharacter))
   ) {
     room.phase = "shared_room";
     room.selectedTask = null;
@@ -584,65 +727,397 @@ const synchronizeRoomPhase = (room: PlayRoom) => {
   if (
     room.pokerArcade.status === "voting" &&
     (!room.pokerArcade.requestedByUserId ||
-      !room.players.some((player) => player.userId === room.pokerArcade.requestedByUserId))
+      !presentPlayers.some(
+        (player) => player.userId === room.pokerArcade.requestedByUserId
+      ))
   ) {
     room.pokerArcade = emptyPokerArcadeState();
   } else if (room.pokerArcade.status === "voting") {
-    const activeIds = new Set(room.players.map((player) => player.userId));
+    const activeIds = new Set(presentPlayers.map((player) => player.userId));
     room.pokerArcade.acceptedUserIds = Array.from(
       new Set(room.pokerArcade.acceptedUserIds.filter((userId) => activeIds.has(userId)))
     );
   }
 
   if (
-    (room.phase === "shared_room" || room.phase === "task_reveal") &&
+    room.phase === "shared_room" &&
+    presentPlayers.length >= MIN_PLAYERS_TO_START &&
     !room.selectedTask &&
-    room.players.length > 0 &&
-    room.players.every((player) => player.isReadyAtPedestal)
+    presentPlayers.every((player) => player.isReadyAtPedestal)
   ) {
     room.phase = "task_reveal";
     room.selectedTask = pickTask();
+    return room;
+  }
+
+  if (
+    room.phase === "task_reveal" &&
+    room.selectedTask &&
+    presentPlayers.length > 0 &&
+    presentPlayers.every((player) => Boolean(player.taskJudgeVerdict))
+  ) {
+    room.phase = "shared_room";
+    room.selectedTask = null;
+    room.players = room.players.map((player) => ({
+      ...player,
+      isReadyAtPedestal: false,
+      ...emptyTaskSubmission(),
+    }));
+    return room;
   }
 
   return room;
 };
 
-const saveOrDeleteRoom = async (room: PlayRoom | null) => {
+const ensurePlayRoomTables = async () => {
+  if (!playRoomTablesPromise) {
+    playRoomTablesPromise = (async () => {
+      await ensureUsersTable();
+
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS play_rooms (
+          id uuid PRIMARY KEY,
+          room_code text NOT NULL UNIQUE,
+          room_name text NOT NULL,
+          host_user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          phase text NOT NULL,
+          state_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+          total_score numeric(12,2) NOT NULL DEFAULT 0,
+          alive_since timestamptz NOT NULL DEFAULT now(),
+          last_activity_at timestamptz NOT NULL DEFAULT now(),
+          created_at timestamptz NOT NULL DEFAULT now(),
+          updated_at timestamptz NOT NULL DEFAULT now()
+        );
+      `);
+
+      await db.query(`
+        ALTER TABLE play_rooms
+        ADD COLUMN IF NOT EXISTS room_name text,
+        ADD COLUMN IF NOT EXISTS state_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+        ADD COLUMN IF NOT EXISTS total_score numeric(12,2) NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS alive_since timestamptz NOT NULL DEFAULT now(),
+        ADD COLUMN IF NOT EXISTS last_activity_at timestamptz NOT NULL DEFAULT now();
+      `);
+
+      await db.query(`
+        UPDATE play_rooms
+        SET room_name = COALESCE(NULLIF(trim(room_name), ''), 'Room ' || room_code)
+        WHERE room_name IS NULL OR trim(room_name) = '';
+      `);
+
+      await db.query(`
+        ALTER TABLE play_rooms
+        ALTER COLUMN room_name SET NOT NULL;
+      `);
+
+      await db.query(`
+        CREATE INDEX IF NOT EXISTS play_rooms_last_activity_idx
+          ON play_rooms (last_activity_at DESC);
+      `);
+
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS play_room_memberships (
+          room_id uuid NOT NULL REFERENCES play_rooms(id) ON DELETE CASCADE,
+          user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          joined_at timestamptz NOT NULL DEFAULT now(),
+          last_entered_at timestamptz,
+          last_left_at timestamptz,
+          PRIMARY KEY (room_id, user_id)
+        );
+      `);
+
+      await db.query(`
+        CREATE INDEX IF NOT EXISTS play_room_memberships_user_idx
+          ON play_room_memberships (user_id, last_entered_at DESC);
+      `);
+
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS play_room_activities (
+          id uuid PRIMARY KEY,
+          room_id uuid NOT NULL REFERENCES play_rooms(id) ON DELETE CASCADE,
+          user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+          activity_type text NOT NULL,
+          summary text NOT NULL,
+          metadata_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+          created_at timestamptz NOT NULL DEFAULT now()
+        );
+      `);
+
+      await db.query(`
+        CREATE INDEX IF NOT EXISTS play_room_activities_room_created_idx
+          ON play_room_activities (room_id, created_at DESC);
+      `);
+
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS play_room_task_completions (
+          id uuid PRIMARY KEY,
+          room_id uuid NOT NULL REFERENCES play_rooms(id) ON DELETE CASCADE,
+          user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          task_id text NOT NULL,
+          task_category text NOT NULL,
+          completed_at timestamptz NOT NULL,
+          completion_day date NOT NULL,
+          completion_week_start date NOT NULL
+        );
+      `);
+
+      await db.query(`
+        CREATE INDEX IF NOT EXISTS play_room_task_completions_room_week_idx
+          ON play_room_task_completions (room_id, completion_week_start);
+      `);
+
+      await db.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS play_room_daily_completions_unique_idx
+          ON play_room_task_completions (room_id, user_id, completion_day)
+          WHERE task_category = 'daily';
+      `);
+
+      await db.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS play_room_weekly_completions_unique_idx
+          ON play_room_task_completions (room_id, user_id, completion_week_start)
+          WHERE task_category = 'weekly';
+      `);
+
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS play_room_weekly_scores (
+          room_id uuid NOT NULL REFERENCES play_rooms(id) ON DELETE CASCADE,
+          week_start date NOT NULL,
+          week_end date NOT NULL,
+          member_count integer NOT NULL,
+          daily_completion_count integer NOT NULL,
+          weekly_completion_count integer NOT NULL,
+          base_points numeric(12,2) NOT NULL,
+          longevity_multiplier numeric(8,4) NOT NULL,
+          awarded_points numeric(12,2) NOT NULL,
+          weeks_alive integer NOT NULL,
+          scored_at timestamptz NOT NULL DEFAULT now(),
+          PRIMARY KEY (room_id, week_start)
+        );
+      `);
+    })().catch((error) => {
+      playRoomTablesPromise = null;
+      throw error;
+    });
+  }
+
+  await playRoomTablesPromise;
+};
+
+const writeRoomMemberships = async (client: PoolClient, room: PlayRoom) => {
+  const values = buildMembershipUpsertValues(room);
+  for (const [roomId, userId, joinedAt, lastEnteredAt, lastLeftAt] of values) {
+    await client.query(
+      `INSERT INTO play_room_memberships (
+         room_id,
+         user_id,
+         joined_at,
+         last_entered_at,
+         last_left_at
+       )
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (room_id, user_id)
+       DO UPDATE SET
+         joined_at = LEAST(play_room_memberships.joined_at, EXCLUDED.joined_at),
+         last_entered_at = COALESCE(EXCLUDED.last_entered_at, play_room_memberships.last_entered_at),
+         last_left_at = COALESCE(EXCLUDED.last_left_at, play_room_memberships.last_left_at)`,
+      [roomId, userId, joinedAt, lastEnteredAt, lastLeftAt]
+    );
+  }
+};
+
+const persistRoomToDatabase = async (
+  room: PlayRoom,
+  activity?: SaveRoomOptions["activity"]
+) => {
+  await ensurePlayRoomTables();
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `INSERT INTO play_rooms (
+         id,
+         room_code,
+         room_name,
+         host_user_id,
+         phase,
+         state_json,
+         total_score,
+         alive_since,
+         last_activity_at,
+         created_at,
+         updated_at
+       )
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11)
+       ON CONFLICT (id)
+       DO UPDATE SET
+         room_code = EXCLUDED.room_code,
+         room_name = EXCLUDED.room_name,
+         host_user_id = EXCLUDED.host_user_id,
+         phase = EXCLUDED.phase,
+         state_json = EXCLUDED.state_json,
+         total_score = EXCLUDED.total_score,
+         alive_since = EXCLUDED.alive_since,
+         last_activity_at = EXCLUDED.last_activity_at,
+         updated_at = EXCLUDED.updated_at`,
+      [
+        room.roomId,
+        room.roomCode,
+        room.roomName,
+        room.hostUserId,
+        room.phase,
+        toJsonString(room),
+        room.totalScore,
+        room.aliveSince,
+        room.lastActivityAt,
+        room.createdAt,
+        room.updatedAt,
+      ]
+    );
+
+    await writeRoomMemberships(client, room);
+
+    if (activity) {
+      await client.query(
+        `INSERT INTO play_room_activities (
+           id,
+           room_id,
+           user_id,
+           activity_type,
+           summary,
+           metadata_json
+         )
+         VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,
+        [
+          randomUUID(),
+          room.roomId,
+          activity.userId ?? null,
+          activity.type,
+          activity.summary,
+          toJsonString(activity.metadata ?? {}),
+        ]
+      );
+    }
+
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+const clearPendingRoomPersist = (roomCode: string) => {
+  const timer = pendingRoomPersistTimers.get(roomCode);
+  if (timer) {
+    clearTimeout(timer);
+    pendingRoomPersistTimers.delete(roomCode);
+  }
+};
+
+const persistRoomImmediately = async (
+  normalized: PlayRoom,
+  activity?: SaveRoomOptions["activity"]
+) => {
+  clearPendingRoomPersist(normalized.roomCode);
+  memoryRooms.set(normalized.roomCode, cloneRoom(normalized));
+  await persistRoomToDatabase(normalized, activity);
+  return normalized;
+};
+
+const flushDeferredRoomPersist = async (roomCode: string) => {
+  pendingRoomPersistTimers.delete(roomCode);
+  const cached = memoryRooms.get(roomCode);
+  if (!cached) {
+    return;
+  }
+  await persistRoomToDatabase(normalizeRoom(cached));
+};
+
+const queueDeferredRoomPersist = (roomCode: string) => {
+  if (pendingRoomPersistTimers.has(roomCode)) {
+    return;
+  }
+
+  const timer = setTimeout(() => {
+    void flushDeferredRoomPersist(roomCode).catch((error) => {
+      console.warn("[playroom] failed to flush deferred room snapshot", error);
+    });
+  }, DEFERRED_ROOM_PERSIST_MS);
+
+  pendingRoomPersistTimers.set(roomCode, timer);
+};
+
+const saveRoom = async (room: PlayRoom, options: SaveRoomOptions = {}) => {
+  const now = new Date().toISOString();
+  const normalized = normalizeRoom({
+    ...room,
+    updatedAt: now,
+    lastActivityAt: options.activity ? now : room.lastActivityAt,
+  });
+
+  if (options.persistStrategy === "deferred") {
+    memoryRooms.set(normalized.roomCode, cloneRoom(normalized));
+    queueDeferredRoomPersist(normalized.roomCode);
+    return normalized;
+  }
+
+  return persistRoomImmediately(normalized, options.activity ?? null);
+};
+
+const removeRoom = async (roomCode: string) => {
+  clearPendingRoomPersist(roomCode);
+  memoryRooms.delete(roomCode);
+  await ensurePlayRoomTables();
+  await db.query(`DELETE FROM play_rooms WHERE room_code = $1`, [roomCode]);
+};
+
+const readRoomCodes = async () => {
+  await ensurePlayRoomTables();
+  const result = await db.query(`SELECT room_code FROM play_rooms`);
+  return (result.rows as Array<{ room_code: string }>).map((row) =>
+    row.room_code.toUpperCase()
+  );
+};
+
+const loadRoom = async (roomCode: string): Promise<PlayRoom | null> => {
+  const normalizedCode = roomCode.trim().toUpperCase();
+  const cached = memoryRooms.get(normalizedCode);
+  if (cached) {
+    return cloneRoom(normalizeRoom(cached));
+  }
+
+  await ensurePlayRoomTables();
+  const result = await db.query(
+    `SELECT *
+     FROM play_rooms
+     WHERE room_code = $1`,
+    [normalizedCode]
+  );
+  const row = result.rows[0] as PlayRoomRow | undefined;
+  if (!row) {
+    return null;
+  }
+
+  const room = parsePersistedRoom(row);
+  memoryRooms.set(room.roomCode, cloneRoom(room));
+  return cloneRoom(room);
+};
+
+const saveOrDeleteRoom = async (room: PlayRoom | null, options: SaveRoomOptions = {}) => {
   if (!room || room.players.length === 0) {
     if (room?.roomCode) {
       await removeRoom(room.roomCode);
     }
     return null;
   }
+
   synchronizeRoomPhase(room);
-  return saveRoom(room);
-};
-
-const removePlayerFromRoom = async (room: PlayRoom, userId: string) => {
-  room.players = room.players.filter((player) => player.userId !== userId);
-  await clearPlayerRoomCode(userId);
-  return saveOrDeleteRoom(room);
-};
-
-const leaveExistingRoomIfNeeded = async (userId: string) => {
-  const previousRoomCode = await getPlayerRoomCode(userId);
-  if (!previousRoomCode) {
-    return { previousRoomCode: null as string | null, updatedRoomCodes: [] as string[] };
-  }
-  const previousRoom = await loadRoom(previousRoomCode);
-  if (!previousRoom) {
-    await clearPlayerRoomCode(userId);
-    return { previousRoomCode, updatedRoomCodes: [] as string[] };
-  }
-  const updatedPreviousRoom = await removePlayerFromRoom(previousRoom, userId);
-  return {
-    previousRoomCode,
-    updatedRoomCodes: updatedPreviousRoom ? [updatedPreviousRoom.roomCode] : previousRoomCode ? [previousRoomCode] : [],
-  };
+  return saveRoom(room, options);
 };
 
 const generateRoomCode = async () => {
-  const activeCodes = new Set((await readRoomIds()).map((code) => code.toUpperCase()));
+  const activeCodes = new Set((await readRoomCodes()).map((code) => code.toUpperCase()));
   for (let attempt = 0; attempt < 50; attempt += 1) {
     let nextCode = "";
     for (let index = 0; index < ROOM_CODE_LENGTH; index += 1) {
@@ -660,41 +1135,367 @@ const createPlayer = (params: {
   name: string;
   handle: string;
   isHost?: boolean;
-}): PlayRoomPlayer => ({
-  userId: params.userId,
-  name: params.name.trim() || "Player",
-  handle: normalizeHandle(params.handle) || "player",
-  joinedAt: new Date().toISOString(),
-  isHost: Boolean(params.isHost),
-  selectedCharacter: null,
-  selectedAt: null,
-  position: { x: 0, y: 0 },
-  isReadyAtPedestal: false,
-  ...emptyTaskSubmission(),
-});
+  isPresent?: boolean;
+  selectedCharacter?: PlayCharacterId | null;
+}): PlayRoomPlayer => {
+  const now = new Date().toISOString();
+  return {
+    userId: params.userId,
+    name: params.name.trim() || "Player",
+    handle: normalizeHandle(params.handle) || "player",
+    joinedAt: now,
+    lastEnteredAt: params.isPresent ? now : null,
+    lastLeftAt: null,
+    isHost: Boolean(params.isHost),
+    isPresent: Boolean(params.isPresent),
+    selectedCharacter: params.selectedCharacter ?? null,
+    selectedAt: params.selectedCharacter ? now : null,
+    position: { x: 0, y: 0 },
+    isReadyAtPedestal: false,
+    ...emptyTaskSubmission(),
+  };
+};
+
+const leaveExistingRoomIfNeeded = async (userId: string) => {
+  const previousRoomCode = getRoomCodesForActiveUser(userId);
+  if (!previousRoomCode) {
+    return {
+      previousRoomCode: null as string | null,
+      updatedRoomCodes: [] as string[],
+    };
+  }
+
+  const previousRoom = await loadRoom(previousRoomCode);
+  clearPlayerRoomCode(userId);
+  if (!previousRoom) {
+    return {
+      previousRoomCode,
+      updatedRoomCodes: [],
+    };
+  }
+
+  const player = getPlayer(previousRoom, userId);
+  if (player) {
+    player.isPresent = false;
+    player.lastLeftAt = new Date().toISOString();
+    player.isReadyAtPedestal = false;
+  }
+
+  const updatedPreviousRoom = await saveOrDeleteRoom(previousRoom);
+  return {
+    previousRoomCode,
+    updatedRoomCodes: updatedPreviousRoom ? [updatedPreviousRoom.roomCode] : [],
+  };
+};
+
+const ensureProgressedRoomCharacter = (room: PlayRoom, player: PlayRoomPlayer) => {
+  if (
+    (room.phase === "shared_room" || room.phase === "task_reveal") &&
+    !player.selectedCharacter
+  ) {
+    const index = Math.max(0, getPlayerIndex(room, player.userId));
+    player.selectedCharacter = getFallbackCharacter(index);
+    player.selectedAt = player.selectedAt ?? new Date().toISOString();
+  }
+};
+
+const finalizePlayRoomWeeklyScores = async () => {
+  await ensurePlayRoomTables();
+  const currentWeekStart = getUtcWeekStart(new Date());
+  const roomResult = await db.query(`SELECT id, room_code, alive_since FROM play_rooms`);
+
+  for (const room of roomResult.rows as Array<{
+    id: string;
+    room_code: string;
+    alive_since: string | Date;
+  }>) {
+    const latestScoreResult = await db.query(
+      `SELECT MAX(week_start) AS week_start
+       FROM play_room_weekly_scores
+       WHERE room_id = $1`,
+      [room.id]
+    );
+
+    const latestScoreRow = latestScoreResult.rows[0] as
+      | { week_start: string | Date | null }
+      | undefined;
+    let nextWeekStart = latestScoreRow?.week_start
+      ? addUtcDays(new Date(latestScoreRow.week_start), 7)
+      : getUtcWeekStart(new Date(room.alive_since));
+
+    while (nextWeekStart.getTime() < currentWeekStart.getTime()) {
+      const weekStart = formatUtcDate(nextWeekStart);
+      const weekEnd = formatUtcDate(addUtcDays(nextWeekStart, 7));
+      const memberCountResult = await db.query(
+        `SELECT COUNT(*)::text AS count
+         FROM play_room_memberships
+         WHERE room_id = $1`,
+        [room.id]
+      );
+      const completionResult = await db.query(
+        `SELECT task_category, COUNT(*)::text AS count
+         FROM play_room_task_completions
+         WHERE room_id = $1
+           AND completion_week_start = $2
+         GROUP BY task_category`,
+        [room.id, weekStart]
+      );
+
+      const dailyCompletionCount = asNumber(
+        (completionResult.rows as Array<{ task_category: string; count: string }>).find(
+          (entry) => entry.task_category === "daily"
+        )?.count
+      );
+      const weeklyCompletionCount = asNumber(
+        (completionResult.rows as Array<{ task_category: string; count: string }>).find(
+          (entry) => entry.task_category === "weekly"
+        )?.count
+      );
+      const memberCount = asNumber(
+        (memberCountResult.rows[0] as { count: string } | undefined)?.count
+      );
+      const basePoints = roundScore(dailyCompletionCount + weeklyCompletionCount * 7);
+      const weeksAlive = getWeeksAliveForWeek(
+        toIsoString(room.alive_since) ?? new Date().toISOString(),
+        nextWeekStart
+      );
+      // Weeks alive is 1-based. The first scored week earns a 2% bonus, so week 4 earns 8%.
+      const longevityMultiplier = roundScore(1 + weeksAlive * 0.02);
+      const awardedPoints = roundScore(basePoints * longevityMultiplier);
+
+      const client = await db.connect();
+      try {
+        await client.query("BEGIN");
+        const insertResult = await client.query<{ awarded_points: string }>(
+          `INSERT INTO play_room_weekly_scores (
+             room_id,
+             week_start,
+             week_end,
+             member_count,
+             daily_completion_count,
+             weekly_completion_count,
+             base_points,
+             longevity_multiplier,
+             awarded_points,
+             weeks_alive
+           )
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+           ON CONFLICT (room_id, week_start) DO NOTHING
+           RETURNING awarded_points`,
+          [
+            room.id,
+            weekStart,
+            weekEnd,
+            memberCount,
+            dailyCompletionCount,
+            weeklyCompletionCount,
+            basePoints,
+            longevityMultiplier,
+            awardedPoints,
+            weeksAlive,
+          ]
+        );
+
+        if ((insertResult.rowCount ?? 0) > 0) {
+          await client.query(
+            `UPDATE play_rooms
+             SET total_score = total_score + $2,
+                 updated_at = now()
+             WHERE id = $1`,
+            [room.id, awardedPoints]
+          );
+          memoryRooms.delete(room.room_code.toUpperCase());
+        }
+        await client.query("COMMIT");
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      } finally {
+        client.release();
+      }
+
+      nextWeekStart = addUtcDays(nextWeekStart, 7);
+    }
+  }
+};
+
+const deleteInactivePlayRooms = async () => {
+  await ensurePlayRoomTables();
+  const result = await db.query(
+    `DELETE FROM play_rooms
+     WHERE last_activity_at < now() - interval '${PLAYROOM_INACTIVITY_DAYS} days'
+     RETURNING room_code`
+  );
+
+  (result.rows as Array<{ room_code: string }>).forEach((row) => {
+    clearPendingRoomPersist(row.room_code.toUpperCase());
+    memoryRooms.delete(row.room_code.toUpperCase());
+    Array.from(memoryPlayerRooms.entries()).forEach(([userId, roomCode]) => {
+      if (roomCode.toUpperCase() === row.room_code.toUpperCase()) {
+        memoryPlayerRooms.delete(userId);
+      }
+    });
+  });
+};
+
+const flushPendingRoomPersists = async () => {
+  const roomCodes = Array.from(pendingRoomPersistTimers.keys());
+  await Promise.all(
+    roomCodes.map(async (roomCode) => {
+      clearPendingRoomPersist(roomCode);
+      await flushDeferredRoomPersist(roomCode);
+    })
+  );
+};
+
+export const runPlayRoomMaintenance = async (force = false) => {
+  const now = Date.now();
+  if (!force && now - lastMaintenanceAt < PLAYROOM_MAINTENANCE_INTERVAL_MS / 2) {
+    return;
+  }
+  if (maintenancePromise) {
+    await maintenancePromise;
+    return;
+  }
+
+  maintenancePromise = (async () => {
+    await flushPendingRoomPersists();
+    await finalizePlayRoomWeeklyScores();
+    await deleteInactivePlayRooms();
+    lastMaintenanceAt = Date.now();
+  })().finally(() => {
+    maintenancePromise = null;
+  });
+
+  await maintenancePromise;
+};
+
+export const initializePlayRoomMaintenance = () => {
+  if (maintenanceInterval) {
+    return;
+  }
+
+  void runPlayRoomMaintenance(true).catch((error) => {
+    console.warn("[playroom] initial maintenance failed", error);
+  });
+
+  maintenanceInterval = setInterval(() => {
+    void runPlayRoomMaintenance().catch((error) => {
+      console.warn("[playroom] maintenance failed", error);
+    });
+  }, PLAYROOM_MAINTENANCE_INTERVAL_MS);
+};
+
+const createRoomListEntry = (
+  room: PlayRoom,
+  membership: PlayRoomMembershipRow,
+  userId: string
+): PlayRoomListEntry => {
+  const newActivityCount = asNumber(membership.new_activity_count);
+  return {
+    roomCode: room.roomCode,
+    roomName: room.roomName,
+    phase: room.phase,
+    memberCount: room.players.length,
+    presentCount: getPresentPlayers(room).length,
+    totalScore: room.totalScore,
+    weeksAlive: getWeeksAliveNow(room.aliveSince),
+    createdAt: toIsoString(membership.created_at) ?? room.createdAt,
+    lastEnteredAt: toIsoString(membership.last_entered_at),
+    lastLeftAt: toIsoString(membership.last_left_at),
+    lastActivityAt: toIsoString(membership.last_activity_at) ?? room.lastActivityAt,
+    hasNewActivity: newActivityCount > 0,
+    newActivityCount,
+    isHost: membership.host_user_id === userId,
+  };
+};
+
+export const fetchPlayRoomSummariesForUser = async (
+  userId: string
+): Promise<PlayRoomListEntry[]> => {
+  await runPlayRoomMaintenance();
+  await ensurePlayRoomTables();
+
+  const result = await db.query(
+    `SELECT rooms.room_code,
+            memberships.last_entered_at,
+            memberships.last_left_at,
+            rooms.last_activity_at,
+            rooms.created_at,
+            rooms.alive_since,
+            rooms.total_score,
+            rooms.host_user_id,
+            COALESCE((
+              SELECT COUNT(*)::text
+              FROM play_room_activities activities
+              WHERE activities.room_id = rooms.id
+                AND activities.created_at > COALESCE(
+                  memberships.last_left_at,
+                  memberships.last_entered_at,
+                  memberships.joined_at
+                )
+            ), '0') AS new_activity_count
+     FROM play_room_memberships memberships
+     JOIN play_rooms rooms ON rooms.id = memberships.room_id
+     WHERE memberships.user_id = $1
+     ORDER BY memberships.last_entered_at DESC NULLS LAST, rooms.last_activity_at DESC`,
+    [userId]
+  );
+
+  const rooms = await Promise.all(
+    (result.rows as PlayRoomMembershipRow[]).map(async (membership) => {
+      const room = await loadRoom(membership.room_code);
+      if (!room) {
+        return null;
+      }
+      return createRoomListEntry(room, membership, userId);
+    })
+  );
+
+  return rooms.filter((entry): entry is PlayRoomListEntry => Boolean(entry));
+};
 
 export const createPlayRoom = async (params: {
   userId: string;
   name: string;
   handle: string;
+  roomName?: string | null;
 }) => {
+  await runPlayRoomMaintenance();
   const cleanedUp = await leaveExistingRoomIfNeeded(params.userId);
   const roomCode = await generateRoomCode();
   const now = new Date().toISOString();
-  const room = await saveRoom({
-    roomCode,
-    hostUserId: params.userId,
-    phase: "lobby",
-    createdAt: now,
-    updatedAt: now,
-    players: [createPlayer({ ...params, isHost: true })],
-    selectedTask: null,
-    pokerArcade: emptyPokerArcadeState(),
-  });
-  await setPlayerRoomCode(params.userId, room.roomCode);
+  const room = await saveRoom(
+    {
+      roomId: randomUUID(),
+      roomCode,
+      roomName: normalizeRoomName(params.roomName, roomCode),
+      hostUserId: params.userId,
+      phase: "lobby",
+      createdAt: now,
+      updatedAt: now,
+      aliveSince: now,
+      lastActivityAt: now,
+      totalScore: 0,
+      players: [createPlayer({ ...params, isHost: true, isPresent: true })],
+      selectedTask: null,
+      pokerArcade: emptyPokerArcadeState(),
+    },
+    {
+      activity: {
+        type: "room_created",
+        summary: `${params.name.trim() || "A player"} created the room.`,
+        userId: params.userId,
+      },
+    }
+  );
+
+  setPlayerRoomCode(params.userId, room.roomCode);
   return {
     roomCode: room.roomCode,
-    updatedRoomCodes: Array.from(new Set([...cleanedUp.updatedRoomCodes, room.roomCode])),
+    updatedRoomCodes: Array.from(
+      new Set([...cleanedUp.updatedRoomCodes, room.roomCode])
+    ),
   };
 };
 
@@ -704,64 +1505,91 @@ export const joinPlayRoom = async (params: {
   handle: string;
   roomCode: string;
 }) => {
+  await runPlayRoomMaintenance();
   const requestedRoomCode = params.roomCode.trim().toUpperCase();
   if (!requestedRoomCode) {
     throw new PlayRoomError("Room code is required.");
   }
 
-  const currentRoomCode = await getPlayerRoomCode(params.userId);
+  const currentRoomCode = getRoomCodesForActiveUser(params.userId);
   const cleanedUp =
     currentRoomCode && currentRoomCode.toUpperCase() === requestedRoomCode
       ? { previousRoomCode: currentRoomCode, updatedRoomCodes: [] as string[] }
       : await leaveExistingRoomIfNeeded(params.userId);
+
   const room = await loadRoom(requestedRoomCode);
   if (!room) {
     throw new PlayRoomError("That room could not be found.", 404);
   }
-  if (
-    room.phase !== "lobby" &&
-    room.phase !== "character_select" &&
-    getPlayerIndex(room, params.userId) === -1
-  ) {
-    throw new PlayRoomError("That room has already started.");
-  }
 
   const existingPlayerIndex = getPlayerIndex(room, params.userId);
+  const now = new Date().toISOString();
+  let activitySummary = `${params.name.trim() || "A player"} entered the room.`;
+
   if (existingPlayerIndex >= 0) {
     room.players[existingPlayerIndex] = {
       ...room.players[existingPlayerIndex]!,
       name: params.name.trim() || room.players[existingPlayerIndex]!.name,
-      handle: normalizeHandle(params.handle) || room.players[existingPlayerIndex]!.handle,
+      handle:
+        normalizeHandle(params.handle) || room.players[existingPlayerIndex]!.handle,
+      isPresent: true,
+      lastEnteredAt: now,
     };
+    ensureProgressedRoomCharacter(room, room.players[existingPlayerIndex]!);
+    activitySummary = `${room.players[existingPlayerIndex]!.name} re-entered the room.`;
   } else {
     if (room.players.length >= MAX_PLAYERS) {
       throw new PlayRoomError("That room is already full.");
     }
-    room.players.push(createPlayer(params));
+    if (room.phase !== "lobby" && room.phase !== "character_select") {
+      throw new PlayRoomError(
+        "That room is mid-session. Only existing members can re-enter right now."
+      );
+    }
+    room.players.push(createPlayer({ ...params, isPresent: true }));
+    activitySummary = `${params.name.trim() || "A player"} joined the room.`;
   }
 
-  const savedRoom = await saveOrDeleteRoom(room);
+  const savedRoom = await saveOrDeleteRoom(room, {
+    activity: {
+      type: existingPlayerIndex >= 0 ? "room_reentered" : "room_joined",
+      summary: activitySummary,
+      userId: params.userId,
+    },
+  });
   if (!savedRoom) {
     throw new PlayRoomError("Unable to join that room.");
   }
-  await setPlayerRoomCode(params.userId, savedRoom.roomCode);
+
+  setPlayerRoomCode(params.userId, savedRoom.roomCode);
   return {
     roomCode: savedRoom.roomCode,
-    updatedRoomCodes: Array.from(new Set([...cleanedUp.updatedRoomCodes, savedRoom.roomCode])),
+    updatedRoomCodes: Array.from(
+      new Set([...cleanedUp.updatedRoomCodes, savedRoom.roomCode])
+    ),
   };
 };
 
 export const leavePlayRoom = async (userId: string) => {
-  const roomCode = await getPlayerRoomCode(userId);
+  const roomCode = getRoomCodesForActiveUser(userId);
   if (!roomCode) {
     return { updatedRoomCodes: [] as string[] };
   }
+
+  clearPlayerRoomCode(userId);
   const room = await loadRoom(roomCode);
-  await clearPlayerRoomCode(userId);
   if (!room) {
     return { updatedRoomCodes: [] as string[] };
   }
-  const updatedRoom = await removePlayerFromRoom(room, userId);
+
+  const player = getPlayer(room, userId);
+  if (player) {
+    player.isPresent = false;
+    player.lastLeftAt = new Date().toISOString();
+    player.isReadyAtPedestal = false;
+  }
+
+  const updatedRoom = await saveOrDeleteRoom(room);
   return {
     updatedRoomCodes: updatedRoom ? [updatedRoom.roomCode] : [roomCode],
   };
@@ -770,19 +1598,23 @@ export const leavePlayRoom = async (userId: string) => {
 export const forceRemovePlayRoomUser = async (userId: string) => leavePlayRoom(userId);
 
 export const getPlayRoomStateForUser = async (userId: string) => {
-  const roomCode = await getPlayerRoomCode(userId);
+  const roomCode = getRoomCodesForActiveUser(userId);
   if (!roomCode) {
     return { roomCode: null, state: null as PlayRoomClientState | null };
   }
+
   const room = await loadRoom(roomCode);
   if (!room) {
-    await clearPlayerRoomCode(userId);
+    clearPlayerRoomCode(userId);
     return { roomCode: null, state: null as PlayRoomClientState | null };
   }
-  if (getPlayerIndex(room, userId) === -1) {
-    await clearPlayerRoomCode(userId);
+
+  const player = getPlayer(room, userId);
+  if (!player || !player.isPresent) {
+    clearPlayerRoomCode(userId);
     return { roomCode: null, state: null as PlayRoomClientState | null };
   }
+
   return {
     roomCode: room.roomCode,
     state: serializeRoomState(room),
@@ -803,37 +1635,39 @@ export const lockPlayRoomCharacter = async (params: {
   userId: string;
   characterId: PlayCharacterId;
 }) => {
-  const roomCode = await getPlayerRoomCode(params.userId);
+  const roomCode = getRoomCodesForActiveUser(params.userId);
   if (!roomCode) {
     throw new PlayRoomError("Join a room first.");
   }
   const room = await loadRoom(roomCode);
   if (!room) {
-    await clearPlayerRoomCode(params.userId);
+    clearPlayerRoomCode(params.userId);
     throw new PlayRoomError("Room not found.", 404);
   }
   if (room.phase !== "character_select") {
     throw new PlayRoomError("Character selection is not active.");
   }
   const player = getPlayer(room, params.userId);
-  if (!player) {
-    await clearPlayerRoomCode(params.userId);
+  if (!player || !player.isPresent) {
+    clearPlayerRoomCode(params.userId);
     throw new PlayRoomError("You are not in that room.");
   }
   if (player.selectedCharacter) {
     throw new PlayRoomError("Your character is already locked in.");
   }
-  const takenBy = room.players.find(
-    (candidate) =>
-      candidate.userId !== params.userId &&
-      candidate.selectedCharacter === params.characterId
-  );
-  if (takenBy) {
-    throw new PlayRoomError(`${takenBy.name} already locked that character.`);
-  }
+
   player.selectedCharacter = params.characterId;
   player.selectedAt = new Date().toISOString();
-  const savedRoom = await saveOrDeleteRoom(room);
+  const savedRoom = await saveOrDeleteRoom(room, {
+    activity: {
+      type: "character_locked",
+      summary: `${player.name} locked a character.`,
+      userId: params.userId,
+      metadata: {
+        characterId: params.characterId,
+      },
+    },
+  });
   if (!savedRoom) {
     throw new PlayRoomError("Unable to lock in your character.");
   }
@@ -845,21 +1679,21 @@ export const movePlayRoomPlayer = async (params: {
   positionX: number;
   positionY: number;
 }) => {
-  const roomCode = await getPlayerRoomCode(params.userId);
+  const roomCode = getRoomCodesForActiveUser(params.userId);
   if (!roomCode) {
     throw new PlayRoomError("Join a room first.");
   }
   const room = await loadRoom(roomCode);
   if (!room) {
-    await clearPlayerRoomCode(params.userId);
+    clearPlayerRoomCode(params.userId);
     throw new PlayRoomError("Room not found.", 404);
   }
   if (room.phase !== "shared_room" && room.phase !== "task_reveal") {
     throw new PlayRoomError("The shared room is not active.");
   }
   const player = getPlayer(room, params.userId);
-  if (!player) {
-    await clearPlayerRoomCode(params.userId);
+  if (!player || !player.isPresent) {
+    clearPlayerRoomCode(params.userId);
     throw new PlayRoomError("You are not in that room.");
   }
   player.position = {
@@ -874,7 +1708,9 @@ export const movePlayRoomPlayer = async (params: {
       ROOM_HEIGHT / 2 - PLAYER_MARGIN
     ),
   };
-  const savedRoom = await saveOrDeleteRoom(room);
+  const savedRoom = await saveOrDeleteRoom(room, {
+    persistStrategy: "deferred",
+  });
   if (!savedRoom) {
     throw new PlayRoomError("Unable to move player.");
   }
@@ -885,51 +1721,64 @@ export const movePlayRoomPlayer = async (params: {
 };
 
 export const readyPlayRoomPlayer = async (userId: string) => {
-  const roomCode = await getPlayerRoomCode(userId);
+  const roomCode = getRoomCodesForActiveUser(userId);
   if (!roomCode) {
     throw new PlayRoomError("Join a room first.");
   }
   const room = await loadRoom(roomCode);
   if (!room) {
-    await clearPlayerRoomCode(userId);
+    clearPlayerRoomCode(userId);
     throw new PlayRoomError("Room not found.", 404);
   }
   if (room.phase !== "shared_room" && room.phase !== "task_reveal") {
     throw new PlayRoomError("The ready button is not active yet.");
   }
   const player = getPlayer(room, userId);
-  if (!player) {
-    await clearPlayerRoomCode(userId);
+  if (!player || !player.isPresent) {
+    clearPlayerRoomCode(userId);
     throw new PlayRoomError("You are not in that room.");
   }
-  const distance = Math.hypot(player.position.x - PEDESTAL.x, player.position.y - PEDESTAL.y);
+
+  const distance = Math.hypot(
+    player.position.x - PEDESTAL.x,
+    player.position.y - PEDESTAL.y
+  );
   if (distance > PEDESTAL.interactionRadius) {
     throw new PlayRoomError("Move closer to the pedestal to press ready.");
   }
+
+  const hadSelectedTask = Boolean(room.selectedTask);
   player.isReadyAtPedestal = true;
-  const savedRoom = await saveOrDeleteRoom(room);
+  const savedRoom = await saveOrDeleteRoom(room, {
+    activity: {
+      type: hadSelectedTask ? "ready_reaffirmed" : "ready_pressed",
+      summary: `${player.name} pressed ready.`,
+      userId,
+    },
+  });
   if (!savedRoom) {
     throw new PlayRoomError("Unable to mark ready.");
   }
+
   return { roomCode: savedRoom.roomCode };
 };
 
 export const proposePlayRoomPoker = async (userId: string) => {
-  const roomCode = await getPlayerRoomCode(userId);
+  const roomCode = getRoomCodesForActiveUser(userId);
   if (!roomCode) {
     throw new PlayRoomError("Join a room first.");
   }
   const room = await loadRoom(roomCode);
   if (!room) {
-    await clearPlayerRoomCode(userId);
+    clearPlayerRoomCode(userId);
     throw new PlayRoomError("Room not found.", 404);
   }
   if (room.phase !== "shared_room" && room.phase !== "task_reveal") {
     throw new PlayRoomError("Poker can only be started from the shared room.");
   }
   const player = getPlayer(room, userId);
-  if (!player) {
-    await clearPlayerRoomCode(userId);
+  if (!player || !player.isPresent) {
+    clearPlayerRoomCode(userId);
     throw new PlayRoomError("You are not in that room.");
   }
   const distance = Math.hypot(player.position.x - ARCADE.x, player.position.y - ARCADE.y);
@@ -948,7 +1797,13 @@ export const proposePlayRoomPoker = async (userId: string) => {
     buyIn: PLAYROOM_PRIVATE_POKER_BUYIN,
   };
 
-  const savedRoom = await saveOrDeleteRoom(room);
+  const savedRoom = await saveOrDeleteRoom(room, {
+    activity: {
+      type: "poker_vote_started",
+      summary: `${player.name} started a poker vote.`,
+      userId,
+    },
+  });
   if (!savedRoom) {
     throw new PlayRoomError("Unable to open the poker arcade.");
   }
@@ -960,13 +1815,13 @@ export const respondPlayRoomPoker = async (params: {
   userId: string;
   accept: boolean;
 }) => {
-  const roomCode = await getPlayerRoomCode(params.userId);
+  const roomCode = getRoomCodesForActiveUser(params.userId);
   if (!roomCode) {
     throw new PlayRoomError("Join a room first.");
   }
   const room = await loadRoom(roomCode);
   if (!room) {
-    await clearPlayerRoomCode(params.userId);
+    clearPlayerRoomCode(params.userId);
     throw new PlayRoomError("Room not found.", 404);
   }
   if (room.phase !== "shared_room" && room.phase !== "task_reveal") {
@@ -976,14 +1831,20 @@ export const respondPlayRoomPoker = async (params: {
     throw new PlayRoomError("There is no poker request to respond to.");
   }
   const player = getPlayer(room, params.userId);
-  if (!player) {
-    await clearPlayerRoomCode(params.userId);
+  if (!player || !player.isPresent) {
+    clearPlayerRoomCode(params.userId);
     throw new PlayRoomError("You are not in that room.");
   }
 
   if (!params.accept) {
     room.pokerArcade = emptyPokerArcadeState();
-    const savedRoom = await saveOrDeleteRoom(room);
+    const savedRoom = await saveOrDeleteRoom(room, {
+      activity: {
+        type: "poker_vote_declined",
+        summary: `${player.name} declined the poker vote.`,
+        userId: params.userId,
+      },
+    });
     if (!savedRoom) {
       throw new PlayRoomError("Unable to clear the poker vote.");
     }
@@ -994,8 +1855,14 @@ export const respondPlayRoomPoker = async (params: {
     new Set([...room.pokerArcade.acceptedUserIds, params.userId])
   );
 
-  if (room.pokerArcade.acceptedUserIds.length < room.players.length) {
-    const savedRoom = await saveOrDeleteRoom(room);
+  if (room.pokerArcade.acceptedUserIds.length < getPresentPlayers(room).length) {
+    const savedRoom = await saveOrDeleteRoom(room, {
+      activity: {
+        type: "poker_vote_accepted",
+        summary: `${player.name} accepted the poker vote.`,
+        userId: params.userId,
+      },
+    });
     if (!savedRoom) {
       throw new PlayRoomError("Unable to record the poker vote.");
     }
@@ -1004,7 +1871,7 @@ export const respondPlayRoomPoker = async (params: {
 
   try {
     const pokerResult = await startPrivatePokerTable({
-      players: room.players.map((participant) => ({
+      players: getPresentPlayers(room).map((participant) => ({
         userId: participant.userId,
         name: participant.name,
         handle: participant.handle,
@@ -1012,7 +1879,13 @@ export const respondPlayRoomPoker = async (params: {
       amount: room.pokerArcade.buyIn ?? PLAYROOM_PRIVATE_POKER_BUYIN,
     });
     room.pokerArcade = emptyPokerArcadeState();
-    const savedRoom = await saveOrDeleteRoom(room);
+    const savedRoom = await saveOrDeleteRoom(room, {
+      activity: {
+        type: "poker_started",
+        summary: "The room launched a poker table.",
+        userId: params.userId,
+      },
+    });
     if (!savedRoom) {
       throw new PlayRoomError("Unable to sync the room after starting poker.");
     }
@@ -1026,11 +1899,48 @@ export const respondPlayRoomPoker = async (params: {
   }
 };
 
+const recordTaskCompletion = async (params: {
+  roomId: string;
+  userId: string;
+  task: PlayTaskPayload;
+  completedAt: string;
+}) => {
+  await ensurePlayRoomTables();
+  const completedDate = new Date(params.completedAt);
+  const completionDay = formatUtcDate(getUtcDayStart(completedDate));
+  const completionWeekStart = formatUtcDate(getUtcWeekStart(completedDate));
+
+  await db.query(
+    `INSERT INTO play_room_task_completions (
+       id,
+       room_id,
+       user_id,
+       task_id,
+       task_category,
+       completed_at,
+       completion_day,
+       completion_week_start
+     )
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     ON CONFLICT DO NOTHING`,
+    [
+      randomUUID(),
+      params.roomId,
+      params.userId,
+      params.task.id,
+      params.task.category,
+      params.completedAt,
+      completionDay,
+      completionWeekStart,
+    ]
+  );
+};
+
 export const submitPlayRoomTask = async (params: {
   userId: string;
   submission: string;
 }) => {
-  const roomCode = await getPlayerRoomCode(params.userId);
+  const roomCode = getRoomCodesForActiveUser(params.userId);
   if (!roomCode) {
     throw new PlayRoomError("Join a room first.");
   }
@@ -1042,16 +1952,18 @@ export const submitPlayRoomTask = async (params: {
 
   const room = await loadRoom(roomCode);
   if (!room) {
-    await clearPlayerRoomCode(params.userId);
+    clearPlayerRoomCode(params.userId);
     throw new PlayRoomError("Room not found.", 404);
   }
   if (room.phase !== "task_reveal" || !room.selectedTask) {
-    throw new PlayRoomError("The judge only accepts submissions after the task is revealed.");
+    throw new PlayRoomError(
+      "The judge only accepts submissions after the task is revealed."
+    );
   }
 
   const player = getPlayer(room, params.userId);
-  if (!player) {
-    await clearPlayerRoomCode(params.userId);
+  if (!player || !player.isPresent) {
+    clearPlayerRoomCode(params.userId);
     throw new PlayRoomError("You are not in that room.");
   }
 
@@ -1060,9 +1972,10 @@ export const submitPlayRoomTask = async (params: {
     throw new PlayRoomError("Walk up to the judge before submitting.");
   }
 
+  const selectedTask = cloneTask(room.selectedTask);
   const verdict = await judgePlayTaskSubmission({
-    taskCategory: room.selectedTask.category,
-    taskText: room.selectedTask.text,
+    taskCategory: selectedTask.category,
+    taskText: selectedTask.text,
     playerName: player.name,
     characterLabel: player.selectedCharacter ?? "unselected",
     submission,
@@ -1070,8 +1983,8 @@ export const submitPlayRoomTask = async (params: {
 
   const freshRoom = (await loadRoom(roomCode)) ?? room;
   const freshPlayer = getPlayer(freshRoom, params.userId);
-  if (!freshPlayer) {
-    await clearPlayerRoomCode(params.userId);
+  if (!freshPlayer || !freshPlayer.isPresent) {
+    clearPlayerRoomCode(params.userId);
     throw new PlayRoomError("You are no longer in that room.");
   }
   if (freshRoom.phase !== "task_reveal" || !freshRoom.selectedTask) {
@@ -1082,10 +1995,72 @@ export const submitPlayRoomTask = async (params: {
   freshPlayer.taskSubmittedAt = verdict.judgedAt;
   freshPlayer.taskJudgeVerdict = verdict;
 
-  const savedRoom = await saveOrDeleteRoom(freshRoom);
+  const savedRoom = await saveOrDeleteRoom(freshRoom, {
+    activity: {
+      type: verdict.decision === "pass" ? "task_passed" : "task_failed",
+      summary:
+        verdict.decision === "pass"
+          ? `${freshPlayer.name} completed a ${selectedTask.category} task.`
+          : `${freshPlayer.name} submitted a ${selectedTask.category} task.`,
+      userId: params.userId,
+      metadata: {
+        taskId: selectedTask.id,
+        taskCategory: selectedTask.category,
+        decision: verdict.decision,
+      },
+    },
+  });
   if (!savedRoom) {
     throw new PlayRoomError("Unable to save the judge verdict.");
   }
+
+  if (verdict.decision === "pass") {
+    await recordTaskCompletion({
+      roomId: savedRoom.roomId,
+      userId: params.userId,
+      task: selectedTask,
+      completedAt: verdict.judgedAt,
+    });
+  }
+
+  return { roomCode: savedRoom.roomCode };
+};
+
+export const recordPlayRoomChatActivity = async (params: {
+  userId: string;
+  text: string;
+}) => {
+  const roomCode = getRoomCodesForActiveUser(params.userId);
+  if (!roomCode) {
+    return null;
+  }
+
+  const room = await loadRoom(roomCode);
+  if (!room) {
+    clearPlayerRoomCode(params.userId);
+    return null;
+  }
+
+  if (room.phase !== "shared_room" && room.phase !== "task_reveal") {
+    return null;
+  }
+
+  const player = getPlayer(room, params.userId);
+  if (!player || !player.isPresent) {
+    clearPlayerRoomCode(params.userId);
+    return null;
+  }
+
+  const savedRoom = await saveRoom(room, {
+    activity: {
+      type: "chat_message",
+      summary: `${player.name} sent a message.`,
+      userId: params.userId,
+      metadata: {
+        preview: params.text.slice(0, 80),
+      },
+    },
+  });
 
   return { roomCode: savedRoom.roomCode };
 };

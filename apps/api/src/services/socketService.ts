@@ -15,6 +15,18 @@ import {
   queuePokerPlayer,
   rebuyPoker,
 } from "./pokerService";
+import {
+  createPlayRoom,
+  forceRemovePlayRoomUser,
+  getPlayRoomState,
+  getPlayRoomStateForUser,
+  joinPlayRoom,
+  leavePlayRoom,
+  lockPlayRoomCharacter,
+  movePlayRoomPlayer,
+  readyPlayRoomPlayer,
+  type PlayCharacterId,
+} from "./playroomService";
 import { leaveRankedGame } from "./rankedService";
 
 let io: Server | null = null;
@@ -84,6 +96,7 @@ const removePokerChatMessagesForUser = (userId: string) => {
 };
 
 const pokerRoomForTable = (tableId: string) => `poker:table:${tableId}`;
+const playRoomForCode = (roomCode: string) => `playroom:${roomCode}`;
 
 const emitPokerStatesForTable = async (tableId: string) => {
   if (!io) {
@@ -96,6 +109,18 @@ const emitPokerStatesForTable = async (tableId: string) => {
       io?.to(socketId).emit("poker:state", { state });
     }
   });
+};
+
+const emitPlayRoomStateForRoom = async (roomCode: string) => {
+  if (!io) {
+    return;
+  }
+  const state = await getPlayRoomState(roomCode);
+  if (!state) {
+    io.to(playRoomForCode(roomCode)).emit("playroom:state", { state: null });
+    return;
+  }
+  io.to(playRoomForCode(roomCode)).emit("playroom:state", { state });
 };
 
 const emitPokerErrorsForUsers = (userIds: readonly string[], message: string) => {
@@ -326,6 +351,17 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
     const emitPokerError = (message: string) => {
       socket.emit("poker:error", { error: message });
     };
+    const emitPlayRoomError = (message: string) => {
+      socket.emit("playroom:error", { error: message });
+    };
+
+    const leaveJoinedPlayRoomRooms = () => {
+      Array.from(socket.rooms).forEach((roomName) => {
+        if (roomName.startsWith("playroom:")) {
+          socket.leave(roomName);
+        }
+      });
+    };
 
     const joinPokerTableRoom = async () => {
       const result = await getPokerStateForUser(userId);
@@ -336,6 +372,15 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
       if (result.queued) {
         socket.emit("poker:queued", { queuePosition: result.queuePosition });
       }
+    };
+
+    const joinPlayRoomSocketRoom = async () => {
+      leaveJoinedPlayRoomRooms();
+      const result = await getPlayRoomStateForUser(userId);
+      if (result.roomCode) {
+        socket.join(playRoomForCode(result.roomCode));
+      }
+      socket.emit("playroom:state", { state: result.state });
     };
 
     socket.on("poker:state", async () => {
@@ -525,6 +570,123 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
       }
     });
 
+    socket.on("playroom:state", async () => {
+      try {
+        await joinPlayRoomSocketRoom();
+      } catch (error) {
+        emitPlayRoomError(
+          error instanceof Error ? error.message : "Unable to load room."
+        );
+      }
+    });
+
+    socket.on("playroom:create", async () => {
+      try {
+        if (!userProfile) {
+          throw new Error("Missing user profile");
+        }
+        const result = await createPlayRoom({
+          userId,
+          name: userProfile.name,
+          handle: userProfile.handle,
+        });
+        await joinPlayRoomSocketRoom();
+        await Promise.all(
+          result.updatedRoomCodes.map((roomCode) => emitPlayRoomStateForRoom(roomCode))
+        );
+      } catch (error) {
+        emitPlayRoomError(
+          error instanceof Error ? error.message : "Unable to create room."
+        );
+      }
+    });
+
+    socket.on("playroom:join", async (payload?: { roomCode?: string }) => {
+      try {
+        if (!userProfile) {
+          throw new Error("Missing user profile");
+        }
+        const result = await joinPlayRoom({
+          userId,
+          name: userProfile.name,
+          handle: userProfile.handle,
+          roomCode: payload?.roomCode ?? "",
+        });
+        await joinPlayRoomSocketRoom();
+        await Promise.all(
+          result.updatedRoomCodes.map((roomCode) => emitPlayRoomStateForRoom(roomCode))
+        );
+      } catch (error) {
+        emitPlayRoomError(
+          error instanceof Error ? error.message : "Unable to join room."
+        );
+      }
+    });
+
+    socket.on("playroom:leave", async () => {
+      try {
+        const result = await leavePlayRoom(userId);
+        leaveJoinedPlayRoomRooms();
+        socket.emit("playroom:state", { state: null });
+        await Promise.all(
+          result.updatedRoomCodes.map((roomCode) => emitPlayRoomStateForRoom(roomCode))
+        );
+      } catch (error) {
+        emitPlayRoomError(
+          error instanceof Error ? error.message : "Unable to leave room."
+        );
+      }
+    });
+
+    socket.on("playroom:select-character", async (payload?: { characterId?: string }) => {
+      try {
+        const characterId = payload?.characterId as PlayCharacterId | undefined;
+        if (
+          characterId !== "rook" &&
+          characterId !== "penguin" &&
+          characterId !== "businessman" &&
+          characterId !== "dog" &&
+          characterId !== "mug"
+        ) {
+          throw new Error("Invalid character selection.");
+        }
+        const result = await lockPlayRoomCharacter({ userId, characterId });
+        await emitPlayRoomStateForRoom(result.roomCode);
+      } catch (error) {
+        emitPlayRoomError(
+          error instanceof Error ? error.message : "Unable to lock character."
+        );
+      }
+    });
+
+    socket.on(
+      "playroom:move",
+      async (payload?: { directionX?: number; directionY?: number; deltaMs?: number }) => {
+        try {
+          const result = await movePlayRoomPlayer({
+            userId,
+            directionX: Number(payload?.directionX ?? 0),
+            directionY: Number(payload?.directionY ?? 0),
+            deltaMs: Number(payload?.deltaMs ?? 16),
+          });
+          await emitPlayRoomStateForRoom(result.roomCode);
+        } catch {
+          // Movement is high-frequency; invalid updates can be ignored silently.
+        }
+      }
+    );
+
+    socket.on("playroom:ready", async () => {
+      try {
+        const result = await readyPlayRoomPlayer(userId);
+        await emitPlayRoomStateForRoom(result.roomCode);
+      } catch (error) {
+        emitPlayRoomError(
+          error instanceof Error ? error.message : "Unable to mark ready."
+        );
+      }
+    });
+
     socket.on("game:heartbeat", (payload?: { game?: string }) => {
       const game = payload?.game;
       if (game === "poker" || game === "convo") {
@@ -630,6 +792,14 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
           await removePokerUser(userId);
         } catch (error) {
           console.warn("[socket] failed to remove poker player", error);
+        }
+        try {
+          const result = await forceRemovePlayRoomUser(userId);
+          await Promise.all(
+            result.updatedRoomCodes.map((roomCode) => emitPlayRoomStateForRoom(roomCode))
+          );
+        } catch (error) {
+          console.warn("[socket] failed to remove play room user", error);
         }
         try {
           await leaveRankedGame(userId);

@@ -119,11 +119,11 @@ export const SiteHeader = () => {
   const badgeCount = unreadCount > 99 ? "99+" : `${unreadCount}`;
   const coinCount = user?.coins ?? 0;
   const isEmbedded = searchParams.get("embedded") === "1";
+  const isPlayPage = pathname === "/play";
 
   if (
     isEmbedded ||
     pathname === "/" ||
-    pathname === "/play" ||
     pathname === "/challenges" ||
     pathname.startsWith("/clubs") ||
     pathname === "/friends" ||
@@ -137,7 +137,11 @@ export const SiteHeader = () => {
   }
 
   return (
-    <header className="relative z-10 pointer-events-auto">
+    <header
+      className={`relative z-10 pointer-events-auto ${
+        isPlayPage ? "border-b border-black/8 bg-white/96 backdrop-blur" : ""
+      }`}
+    >
       <div className="mx-auto grid max-w-6xl grid-cols-[1fr_auto_1fr] items-center px-4 py-6">
         <Link
           href="/"
@@ -182,7 +186,11 @@ export const SiteHeader = () => {
                 href="/leaderboard"
                 onClick={handleNavClick("/leaderboard")}
                 aria-label="Leaderboard"
-                className="flex items-center gap-1 rounded-full border border-card-border/70 bg-white/80 px-3 py-1 text-xs font-semibold text-ink shadow-sm transition hover:-translate-y-0.5 hover:border-accent/50"
+                className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold shadow-sm transition hover:-translate-y-0.5 ${
+                  isPlayPage
+                    ? "border border-black/10 bg-white text-black hover:border-black/20"
+                    : "border border-card-border/70 bg-white/80 text-ink hover:border-accent/50"
+                }`}
               >
                 <span role="img" aria-label="coins">
                   🪙
@@ -193,7 +201,11 @@ export const SiteHeader = () => {
                 href="/notifications"
                 onClick={handleNavClick("/notifications")}
                 aria-label="Notifications"
-                className="relative rounded-full border border-card-border/70 bg-white/80 p-2 text-ink/80 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/50 hover:text-ink"
+                className={`relative rounded-full p-2 shadow-sm transition hover:-translate-y-0.5 ${
+                  isPlayPage
+                    ? "border border-black/10 bg-white text-black/70 hover:border-black/20 hover:text-black"
+                    : "border border-card-border/70 bg-white/80 text-ink/80 hover:border-accent/50 hover:text-ink"
+                }`}
               >
                 <svg
                   viewBox="0 0 24 24"
@@ -217,7 +229,11 @@ export const SiteHeader = () => {
                 href="/profile"
                 onClick={handleNavClick("/profile")}
                 aria-label="Profile"
-                className="rounded-full border border-card-border/70 bg-white/80 p-1 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/50"
+                className={`rounded-full p-1 shadow-sm transition hover:-translate-y-0.5 ${
+                  isPlayPage
+                    ? "border border-black/10 bg-white hover:border-black/20"
+                    : "border border-card-border/70 bg-white/80 hover:border-accent/50"
+                }`}
               >
                 <Avatar
                   name={profileName}

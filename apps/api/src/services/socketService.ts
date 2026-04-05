@@ -25,7 +25,9 @@ import {
   leavePlayRoom,
   lockPlayRoomCharacter,
   movePlayRoomPlayer,
+  proposePlayRoomPoker,
   readyPlayRoomPlayer,
+  respondPlayRoomPoker,
   submitPlayRoomTask,
   type PlayCharacterId,
 } from "./playroomService";
@@ -720,6 +722,34 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
       } catch (error) {
         emitPlayRoomError(
           error instanceof Error ? error.message : "Unable to submit to the judge."
+        );
+      }
+    });
+
+    socket.on("playroom:poker:propose", async () => {
+      try {
+        const result = await proposePlayRoomPoker(userId);
+        await emitPlayRoomStateForRoom(result.roomCode);
+      } catch (error) {
+        emitPlayRoomError(
+          error instanceof Error ? error.message : "Unable to start poker voting."
+        );
+      }
+    });
+
+    socket.on("playroom:poker:respond", async (payload?: { accept?: boolean }) => {
+      try {
+        const result = await respondPlayRoomPoker({
+          userId,
+          accept: Boolean(payload?.accept),
+        });
+        await emitPlayRoomStateForRoom(result.roomCode);
+        if (result.pokerTableId) {
+          await emitPokerStatesForTable(result.pokerTableId);
+        }
+      } catch (error) {
+        emitPlayRoomError(
+          error instanceof Error ? error.message : "Unable to answer the poker request."
         );
       }
     });

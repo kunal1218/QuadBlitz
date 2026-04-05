@@ -10,6 +10,7 @@ import type {
 } from "./types";
 
 type BusyAction = "create" | "join" | "leave" | "select" | "ready" | "submit" | null;
+type ExtendedBusyAction = BusyAction | "poker_propose" | "poker_vote";
 
 type UsePlayRoomParams = {
   inviteRoomCode: string | null;
@@ -25,7 +26,7 @@ export const usePlayRoom = ({
   const [roomState, setRoomState] = useState<PlayRoomState | null>(null);
   const [chatMessages, setChatMessages] = useState<PlayRoomChatMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [busyAction, setBusyAction] = useState<BusyAction>(null);
+  const [busyAction, setBusyAction] = useState<ExtendedBusyAction>(null);
   const [isConnected, setIsConnected] = useState(socket.connected);
   const inviteRoomRef = useRef<string | null>(inviteRoomCode);
 
@@ -256,6 +257,25 @@ export const usePlayRoom = ({
     [emitWhenConnected]
   );
 
+  const proposePokerArcade = useCallback(() => {
+    setError(null);
+    setBusyAction("poker_propose");
+    emitWhenConnected(() => {
+      socket.emit("playroom:poker:propose");
+    });
+  }, [emitWhenConnected]);
+
+  const respondPokerArcade = useCallback(
+    (accept: boolean) => {
+      setError(null);
+      setBusyAction("poker_vote");
+      emitWhenConnected(() => {
+        socket.emit("playroom:poker:respond", { accept });
+      });
+    },
+    [emitWhenConnected]
+  );
+
   return {
     roomState: isAuthenticated ? roomState : null,
     chatMessages: isAuthenticated ? chatMessages : [],
@@ -270,6 +290,8 @@ export const usePlayRoom = ({
     readyUp,
     submitTask,
     sendChatMessage,
+    proposePokerArcade,
+    respondPokerArcade,
     clearError: () => setError(null),
   };
 };

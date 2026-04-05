@@ -5,6 +5,7 @@ import {
   normalizePlayJudgeVerdict,
   type PlayJudgeVerdict,
 } from "./geminiJudgeService";
+import { startPrivatePokerTable } from "./pokerService";
 
 export class PlayRoomError extends Error {
   status: number;
@@ -40,6 +41,14 @@ export type PlayTaskPayload = {
   placeholderLabel?: string;
 };
 
+export type PlayRoomPokerArcadeState = {
+  status: "idle" | "voting";
+  requestedByUserId: string | null;
+  requestedAt: string | null;
+  acceptedUserIds: string[];
+  buyIn: number | null;
+};
+
 type Vector2 = {
   x: number;
   y: number;
@@ -68,6 +77,7 @@ type PlayRoom = {
   updatedAt: string;
   players: PlayRoomPlayer[];
   selectedTask: PlayTaskPayload | null;
+  pokerArcade: PlayRoomPokerArcadeState;
 };
 
 export type PlayRoomClientState = {
@@ -96,6 +106,11 @@ export type PlayRoomClientState = {
       y: number;
       interactionRadius: number;
     };
+    arcade: {
+      x: number;
+      y: number;
+      interactionRadius: number;
+    };
   };
   players: Array<{
     userId: string;
@@ -113,6 +128,7 @@ export type PlayRoomClientState = {
     };
   }>;
   selectedTask: PlayTaskPayload | null;
+  pokerArcade: PlayRoomPokerArcadeState;
 };
 
 export type PlayRoomPositionsState = {
@@ -128,13 +144,14 @@ const ROOM_HEIGHT = 560;
 const PLAYER_MARGIN = 56;
 const WALL_HEIGHT = Math.round(ROOM_HEIGHT * 0.22);
 const WALL_BOUNDARY_Y = -ROOM_HEIGHT / 2 + WALL_HEIGHT;
-const PLAYER_MIN_Y = -88;
+const PLAYER_MIN_Y = -118;
 const MIN_PLAYERS_TO_START = 2;
 const MAX_PLAYERS = 5;
 const ROOM_CODE_LENGTH = 5;
 const SESSION_TTL_SECONDS = 60 * 60 * 6;
 const PLAYROOMS_KEY = "playroom:rooms";
 const ROOM_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const PLAYROOM_PRIVATE_POKER_BUYIN = 100;
 const PEDESTAL = {
   x: 0,
   y: 0,
@@ -143,6 +160,11 @@ const PEDESTAL = {
 const JUDGE = {
   x: 0,
   y: PLAYER_MIN_Y,
+  interactionRadius: 104,
+};
+const ARCADE = {
+  x: -Math.round(ROOM_WIDTH / 4),
+  y: 84,
   interactionRadius: 104,
 };
 const SPAWN_POINTS: Vector2[] = [
@@ -237,6 +259,20 @@ const clamp = (value: number, min: number, max: number) =>
 
 const cloneTask = (task: PlayTaskPayload) => ({ ...task });
 const cloneJudgeVerdict = (verdict: unknown) => normalizePlayJudgeVerdict(verdict);
+const emptyPokerArcadeState = (): PlayRoomPokerArcadeState => ({
+  status: "idle",
+  requestedByUserId: null,
+  requestedAt: null,
+  acceptedUserIds: [],
+  buyIn: null,
+});
+const clonePokerArcadeState = (state?: PlayRoomPokerArcadeState | null): PlayRoomPokerArcadeState => ({
+  status: state?.status === "voting" ? "voting" : "idle",
+  requestedByUserId: state?.requestedByUserId ?? null,
+  requestedAt: state?.requestedAt ?? null,
+  acceptedUserIds: Array.isArray(state?.acceptedUserIds) ? [...state!.acceptedUserIds] : [],
+  buyIn: typeof state?.buyIn === "number" ? state.buyIn : null,
+});
 const emptyTaskSubmission = () => ({
   taskSubmissionText: null,
   taskSubmittedAt: null,
@@ -253,6 +289,7 @@ const cloneRoom = (room: PlayRoom): PlayRoom => ({
       : null,
   })),
   selectedTask: room.selectedTask ? cloneTask(room.selectedTask) : null,
+  pokerArcade: clonePokerArcadeState(room.pokerArcade),
 });
 
 const normalizeRoom = (room: PlayRoom): PlayRoom => {
@@ -288,6 +325,25 @@ const normalizeRoom = (room: PlayRoom): PlayRoom => {
     normalizedPlayers.find((player) => player.userId === room.hostUserId)?.userId ??
     normalizedPlayers[0]?.userId ??
     room.hostUserId;
+  const normalizedPlayerIds = new Set(normalizedPlayers.map((player) => player.userId));
+  const rawPokerArcade = clonePokerArcadeState(room.pokerArcade);
+  const pokerArcade =
+    rawPokerArcade.status === "voting" &&
+    rawPokerArcade.requestedByUserId &&
+    normalizedPlayerIds.has(rawPokerArcade.requestedByUserId)
+      ? {
+          status: "voting" as const,
+          requestedByUserId: rawPokerArcade.requestedByUserId,
+          requestedAt: rawPokerArcade.requestedAt ?? new Date().toISOString(),
+          acceptedUserIds: Array.from(
+            new Set(rawPokerArcade.acceptedUserIds.filter((userId) => normalizedPlayerIds.has(userId)))
+          ),
+          buyIn:
+            typeof rawPokerArcade.buyIn === "number" && rawPokerArcade.buyIn > 0
+              ? Math.floor(rawPokerArcade.buyIn)
+              : PLAYROOM_PRIVATE_POKER_BUYIN,
+        }
+      : emptyPokerArcadeState();
   return {
     roomCode: room.roomCode,
     hostUserId,
@@ -299,6 +355,7 @@ const normalizeRoom = (room: PlayRoom): PlayRoom => {
       isHost: player.userId === hostUserId,
     })),
     selectedTask: room.selectedTask ? cloneTask(room.selectedTask) : null,
+    pokerArcade,
   };
 };
 
@@ -324,6 +381,9 @@ const serializeRoomState = (room: PlayRoom): PlayRoomClientState => ({
     judge: {
       ...JUDGE,
     },
+    arcade: {
+      ...ARCADE,
+    },
   },
   players: room.players.map((player) => ({
     userId: player.userId,
@@ -341,6 +401,7 @@ const serializeRoomState = (room: PlayRoom): PlayRoomClientState => ({
     },
   })),
   selectedTask: room.selectedTask ? cloneTask(room.selectedTask) : null,
+  pokerArcade: clonePokerArcadeState(room.pokerArcade),
 });
 
 const serializeRoomPositions = (room: PlayRoom): PlayRoomPositionsState => ({
@@ -478,6 +539,7 @@ const synchronizeRoomPhase = (room: PlayRoom) => {
   if (room.phase === "lobby" && room.players.length >= MIN_PLAYERS_TO_START) {
     room.phase = "character_select";
     room.selectedTask = null;
+    room.pokerArcade = emptyPokerArcadeState();
     room.players = room.players.map((player) => ({
       ...player,
       selectedCharacter: null,
@@ -491,6 +553,7 @@ const synchronizeRoomPhase = (room: PlayRoom) => {
   if (room.phase === "character_select" && room.players.length < MIN_PLAYERS_TO_START) {
     room.phase = "lobby";
     room.selectedTask = null;
+    room.pokerArcade = emptyPokerArcadeState();
     room.players = room.players.map((player) => ({
       ...player,
       selectedCharacter: null,
@@ -508,8 +571,27 @@ const synchronizeRoomPhase = (room: PlayRoom) => {
   ) {
     room.phase = "shared_room";
     room.selectedTask = null;
+    room.pokerArcade = emptyPokerArcadeState();
     applySharedRoomSpawnPoints(room);
     return room;
+  }
+
+  if (room.phase !== "shared_room" && room.phase !== "task_reveal") {
+    room.pokerArcade = emptyPokerArcadeState();
+    return room;
+  }
+
+  if (
+    room.pokerArcade.status === "voting" &&
+    (!room.pokerArcade.requestedByUserId ||
+      !room.players.some((player) => player.userId === room.pokerArcade.requestedByUserId))
+  ) {
+    room.pokerArcade = emptyPokerArcadeState();
+  } else if (room.pokerArcade.status === "voting") {
+    const activeIds = new Set(room.players.map((player) => player.userId));
+    room.pokerArcade.acceptedUserIds = Array.from(
+      new Set(room.pokerArcade.acceptedUserIds.filter((userId) => activeIds.has(userId)))
+    );
   }
 
   if (
@@ -607,6 +689,7 @@ export const createPlayRoom = async (params: {
     updatedAt: now,
     players: [createPlayer({ ...params, isHost: true })],
     selectedTask: null,
+    pokerArcade: emptyPokerArcadeState(),
   });
   await setPlayerRoomCode(params.userId, room.roomCode);
   return {
@@ -829,6 +912,118 @@ export const readyPlayRoomPlayer = async (userId: string) => {
     throw new PlayRoomError("Unable to mark ready.");
   }
   return { roomCode: savedRoom.roomCode };
+};
+
+export const proposePlayRoomPoker = async (userId: string) => {
+  const roomCode = await getPlayerRoomCode(userId);
+  if (!roomCode) {
+    throw new PlayRoomError("Join a room first.");
+  }
+  const room = await loadRoom(roomCode);
+  if (!room) {
+    await clearPlayerRoomCode(userId);
+    throw new PlayRoomError("Room not found.", 404);
+  }
+  if (room.phase !== "shared_room" && room.phase !== "task_reveal") {
+    throw new PlayRoomError("Poker can only be started from the shared room.");
+  }
+  const player = getPlayer(room, userId);
+  if (!player) {
+    await clearPlayerRoomCode(userId);
+    throw new PlayRoomError("You are not in that room.");
+  }
+  const distance = Math.hypot(player.position.x - ARCADE.x, player.position.y - ARCADE.y);
+  if (distance > ARCADE.interactionRadius) {
+    throw new PlayRoomError("Walk up to the arcade machine to start poker.");
+  }
+  if (room.pokerArcade.status === "voting") {
+    throw new PlayRoomError("A poker request is already waiting for votes.");
+  }
+
+  room.pokerArcade = {
+    status: "voting",
+    requestedByUserId: userId,
+    requestedAt: new Date().toISOString(),
+    acceptedUserIds: [userId],
+    buyIn: PLAYROOM_PRIVATE_POKER_BUYIN,
+  };
+
+  const savedRoom = await saveOrDeleteRoom(room);
+  if (!savedRoom) {
+    throw new PlayRoomError("Unable to open the poker arcade.");
+  }
+
+  return { roomCode: savedRoom.roomCode, pokerTableId: null as string | null };
+};
+
+export const respondPlayRoomPoker = async (params: {
+  userId: string;
+  accept: boolean;
+}) => {
+  const roomCode = await getPlayerRoomCode(params.userId);
+  if (!roomCode) {
+    throw new PlayRoomError("Join a room first.");
+  }
+  const room = await loadRoom(roomCode);
+  if (!room) {
+    await clearPlayerRoomCode(params.userId);
+    throw new PlayRoomError("Room not found.", 404);
+  }
+  if (room.phase !== "shared_room" && room.phase !== "task_reveal") {
+    throw new PlayRoomError("Poker voting is not active.");
+  }
+  if (room.pokerArcade.status !== "voting") {
+    throw new PlayRoomError("There is no poker request to respond to.");
+  }
+  const player = getPlayer(room, params.userId);
+  if (!player) {
+    await clearPlayerRoomCode(params.userId);
+    throw new PlayRoomError("You are not in that room.");
+  }
+
+  if (!params.accept) {
+    room.pokerArcade = emptyPokerArcadeState();
+    const savedRoom = await saveOrDeleteRoom(room);
+    if (!savedRoom) {
+      throw new PlayRoomError("Unable to clear the poker vote.");
+    }
+    return { roomCode: savedRoom.roomCode, pokerTableId: null as string | null };
+  }
+
+  room.pokerArcade.acceptedUserIds = Array.from(
+    new Set([...room.pokerArcade.acceptedUserIds, params.userId])
+  );
+
+  if (room.pokerArcade.acceptedUserIds.length < room.players.length) {
+    const savedRoom = await saveOrDeleteRoom(room);
+    if (!savedRoom) {
+      throw new PlayRoomError("Unable to record the poker vote.");
+    }
+    return { roomCode: savedRoom.roomCode, pokerTableId: null as string | null };
+  }
+
+  try {
+    const pokerResult = await startPrivatePokerTable({
+      players: room.players.map((participant) => ({
+        userId: participant.userId,
+        name: participant.name,
+        handle: participant.handle,
+      })),
+      amount: room.pokerArcade.buyIn ?? PLAYROOM_PRIVATE_POKER_BUYIN,
+    });
+    room.pokerArcade = emptyPokerArcadeState();
+    const savedRoom = await saveOrDeleteRoom(room);
+    if (!savedRoom) {
+      throw new PlayRoomError("Unable to sync the room after starting poker.");
+    }
+    return { roomCode: savedRoom.roomCode, pokerTableId: pokerResult.tableId };
+  } catch (error) {
+    room.pokerArcade = emptyPokerArcadeState();
+    await saveOrDeleteRoom(room);
+    throw new PlayRoomError(
+      error instanceof Error ? error.message : "Unable to start the poker table."
+    );
+  }
 };
 
 export const submitPlayRoomTask = async (params: {

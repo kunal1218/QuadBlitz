@@ -31,6 +31,14 @@ export type PlayJudgeVerdict = {
   model: string;
 };
 
+export type PlayRoomPokerArcadeState = {
+  status: "idle" | "voting";
+  requestedByUserId: string | null;
+  requestedAt: string | null;
+  acceptedUserIds: string[];
+  buyIn: number | null;
+};
+
 export type PlayVector2 = {
   x: number;
   y: number;
@@ -78,9 +86,15 @@ export type PlayRoomState = {
       y: number;
       interactionRadius: number;
     };
+    arcade: {
+      x: number;
+      y: number;
+      interactionRadius: number;
+    };
   };
   players: PlayRoomPlayerState[];
   selectedTask: PlayTaskPayload | null;
+  pokerArcade: PlayRoomPokerArcadeState;
 };
 
 export type PlayRoomPositionsState = {
@@ -98,4 +112,53 @@ export type PlayRoomChatMessage = {
   text: string;
   createdAt: string;
   expiresAt: string;
+};
+
+export type PokerClientState = {
+  tableId: string;
+  maxSeats: number;
+  status: "waiting" | "in_hand" | "showdown";
+  street: "preflop" | "flop" | "turn" | "river" | "showdown";
+  pot: number;
+  community: string[];
+  seats: Array<
+    | {
+        seatIndex: number;
+        userId: string;
+        name: string;
+        handle: string;
+        chips: number;
+        bet: number;
+        status: "active" | "folded" | "all_in" | "out";
+        isDealer: boolean;
+        cards?: string[];
+        showCards?: boolean;
+      }
+    | null
+  >;
+  currentPlayerIndex: number | null;
+  currentBet: number;
+  minRaise: number;
+  smallBlindIndex: number | null;
+  bigBlindIndex: number | null;
+  youSeatIndex: number | null;
+  turnStartedAt: string | null;
+  turnDurationSeconds: number;
+  serverTime: string;
+  lastHandResult?: {
+    winners: Array<{ userId: string; name: string; amount: number }>;
+    totalPot: number;
+    isSplit: boolean;
+    at: string;
+  } | null;
+  actions?: {
+    canCheck: boolean;
+    canCall: boolean;
+    canRaise: boolean;
+    canBet: boolean;
+    callAmount: number;
+    minRaise: number;
+    maxRaise: number;
+  };
+  log: Array<{ id: string; text: string }>;
 };

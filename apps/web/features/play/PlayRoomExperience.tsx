@@ -4,7 +4,13 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/Button";
 import { useAuth } from "@/features/auth";
-import { CharacterAvatar, JudgeAvatar, PLAY_CHARACTERS, getCharacterLabel } from "./playData";
+import {
+  ArcadeMachineAvatar,
+  CharacterAvatar,
+  JudgeAvatar,
+  PLAY_CHARACTERS,
+  getCharacterLabel,
+} from "./playData";
 import type {
   PlayCharacterId,
   PlayRoomChatMessage,
@@ -13,7 +19,9 @@ import type {
   PlayTaskPayload,
   PlayVector2,
 } from "./types";
+import { PlayPokerOverlay } from "./PlayPokerOverlay";
 import { usePlayRoom } from "./usePlayRoom";
+import { usePlayRoomPoker } from "./usePlayRoomPoker";
 import { usePlayRoomVoice } from "./usePlayRoomVoice";
 
 const normalizeRoomCode = (value: string | null) =>
@@ -477,6 +485,75 @@ const JudgeSubmissionModal = ({
   );
 };
 
+const PokerArcadeVoteCard = ({
+  roomState,
+  currentUserId,
+  isBusy,
+  onAccept,
+  onDecline,
+}: {
+  roomState: PlayRoomState;
+  currentUserId: string | null | undefined;
+  isBusy: boolean;
+  onAccept: () => void;
+  onDecline: () => void;
+}) => {
+  const vote = roomState.pokerArcade;
+  if (vote.status !== "voting") {
+    return null;
+  }
+
+  const requester =
+    roomState.players.find((player) => player.userId === vote.requestedByUserId) ?? null;
+  const hasAccepted = currentUserId ? vote.acceptedUserIds.includes(currentUserId) : false;
+  const waitingOn = Math.max(0, roomState.players.length - vote.acceptedUserIds.length);
+  const isRequester = vote.requestedByUserId === currentUserId;
+
+  return (
+    <div className="absolute inset-x-0 top-6 z-30 flex justify-center px-4">
+      <div className="w-full max-w-md rounded-[30px] border border-[#dbe5ff] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(245,248,255,0.96)_100%)] p-5 shadow-[0_24px_60px_rgba(20,86,244,0.16)] backdrop-blur">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#5d73b3]">
+          Arcade Machine
+        </p>
+        <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#1f2430]">
+          {isRequester
+            ? "Poker vote started"
+            : `${requester?.name ?? "A player"} wants to play poker`}
+        </h3>
+        <p className="mt-3 text-sm leading-6 text-[#687287]">
+          Private table, room players only, automatic 100-coin buy-in.
+        </p>
+        <div className="mt-4 rounded-[22px] border border-[#dbe5ff] bg-[#eef4ff] px-4 py-4 text-sm text-[#445066]">
+          {hasAccepted
+            ? waitingOn > 0
+              ? `Waiting on ${waitingOn} more player${waitingOn === 1 ? "" : "s"} to accept.`
+              : "Launching poker table."
+            : "Accept to move the room into poker."}
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          {!hasAccepted ? (
+            <Button
+              className="rounded-full bg-[#1756f5] px-5 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-white shadow-[0_14px_28px_rgba(23,86,245,0.22)] hover:translate-y-0 hover:bg-[#0f49e2]"
+              disabled={isBusy}
+              onClick={onAccept}
+            >
+              {isBusy ? "Working..." : "Join Poker"}
+            </Button>
+          ) : null}
+          <button
+            type="button"
+            onClick={onDecline}
+            disabled={isBusy}
+            className="rounded-full border border-[#dbe5ff] bg-white px-5 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-[#5d73b3] shadow-[0_10px_24px_rgba(20,86,244,0.08)] disabled:opacity-60"
+          >
+            {isRequester ? "Cancel Vote" : hasAccepted ? "Back Out" : "Not Now"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const SharedRoomPanel = ({
   roomState,
   chatMessages,
@@ -485,7 +562,11 @@ const SharedRoomPanel = ({
   onReady,
   onSubmitTask,
   onSendChatMessage,
+  onProposePokerArcade,
+  onRespondPokerArcade,
   isSubmittingTask,
+  isPokerVoting,
+  pokerOverlayOpen,
   onLeave,
 }: {
   roomState: PlayRoomState;
@@ -495,7 +576,11 @@ const SharedRoomPanel = ({
   onReady: () => void;
   onSubmitTask: (submission: string) => void;
   onSendChatMessage: (text: string) => void;
+  onProposePokerArcade: () => void;
+  onRespondPokerArcade: (accept: boolean) => void;
   isSubmittingTask: boolean;
+  isPokerVoting: boolean;
+  pokerOverlayOpen: boolean;
   onLeave: () => void;
 }) => {
   const me = getPlayerById(roomState, currentUserId);
@@ -571,9 +656,12 @@ const SharedRoomPanel = ({
         setShowRoomState(true);
       }
       if (event.key === "t" || event.key === "T") {
-        if (!isChatting && !isJudgeModalOpen) {
+        if (!isChatting && !isJudgeModalOpen && !pokerOverlayOpen) {
           setIsPushToTalkActive(true);
         }
+      }
+      if (pokerOverlayOpen) {
+        return;
       }
       if (event.key === "Enter") {
         event.preventDefault();
@@ -644,7 +732,7 @@ const SharedRoomPanel = ({
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("blur", handleBlur);
     };
-  }, [chatDraft, isChatting, isJudgeModalOpen, me, onReady, onSendChatMessage]);
+  }, [chatDraft, isChatting, isJudgeModalOpen, me, onReady, onSendChatMessage, pokerOverlayOpen]);
 
   useEffect(() => {
     let frame = 0;
@@ -669,7 +757,7 @@ const SharedRoomPanel = ({
         const currentPosition = nextPositions[player.userId] ?? player.position;
         const serverPosition = serverPositions[player.userId] ?? player.position;
         if (player.userId === me?.userId) {
-          if (isChatting) {
+          if (isChatting || pokerOverlayOpen) {
             nextPositions[player.userId] = {
               x: lerp(currentPosition.x, serverPosition.x, smoothing * 0.72),
               y: lerp(currentPosition.y, serverPosition.y, smoothing * 0.72),
@@ -734,10 +822,11 @@ const SharedRoomPanel = ({
     return () => {
       window.cancelAnimationFrame(frame);
     };
-  }, [isChatting, me, onMove, playerMinY]);
+  }, [isChatting, me, onMove, playerMinY, pokerOverlayOpen]);
 
   const pedestal = roomState.room.pedestal;
   const judge = roomState.room.judge;
+  const arcade = roomState.room.arcade;
   const readyCount = roomState.players.filter((player) => player.isReadyAtPedestal).length;
   const myVisualPosition =
     me ? renderPositions[me.userId] ?? me.position : null;
@@ -751,12 +840,22 @@ const SharedRoomPanel = ({
     myVisualPosition &&
     Math.hypot(myVisualPosition.x - judge.x, myVisualPosition.y - judge.y) <=
       judge.interactionRadius;
+  const isNearArcade =
+    myVisualPosition &&
+    Math.hypot(myVisualPosition.x - arcade.x, myVisualPosition.y - arcade.y) <=
+      arcade.interactionRadius;
   const judgeLeft = ((judge.x + roomState.room.width / 2) / roomState.room.width) * 100;
   const judgeTop = ((judge.y + roomState.room.height / 2) / roomState.room.height) * 100;
+  const arcadeLeft = ((arcade.x + roomState.room.width / 2) / roomState.room.width) * 100;
+  const arcadeTop = ((arcade.y + roomState.room.height / 2) / roomState.room.height) * 100;
   const canSubmitToJudge =
     roomState.phase === "task_reveal" &&
     Boolean(roomState.selectedTask) &&
     Boolean(isNearJudge);
+  const canUseArcade =
+    !pokerOverlayOpen &&
+    roomState.pokerArcade.status === "idle" &&
+    Boolean(isNearArcade);
   const isJudgeModalVisible =
     isJudgeModalOpen &&
     roomState.phase === "task_reveal" &&
@@ -774,6 +873,13 @@ const SharedRoomPanel = ({
       return;
     }
     onSubmitTask(submissionDraft);
+  };
+
+  const handleArcadeClick = () => {
+    if (!canUseArcade) {
+      return;
+    }
+    onProposePokerArcade();
   };
 
   return (
@@ -834,6 +940,14 @@ const SharedRoomPanel = ({
           onSubmit={handleJudgeSubmit}
         />
       ) : null}
+
+      <PokerArcadeVoteCard
+        roomState={roomState}
+        currentUserId={currentUserId}
+        isBusy={isPokerVoting}
+        onAccept={() => onRespondPokerArcade(true)}
+        onDecline={() => onRespondPokerArcade(false)}
+      />
 
       <div className="absolute left-5 top-5 z-20 rounded-full border border-[#dbe5ff] bg-white/94 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#5d73b3] shadow-[0_12px_30px_rgba(20,86,244,0.1)] backdrop-blur">
         Room {roomState.roomCode}
@@ -944,13 +1058,36 @@ const SharedRoomPanel = ({
         <div className="mt-2 rounded-full border border-[#dbe5ff] bg-white/94 px-3 py-1 text-[11px] font-semibold text-[#1f2430] shadow-[0_10px_24px_rgba(20,86,244,0.08)]">
           Judge
         </div>
-        <div className="mt-2 rounded-full border border-[#dbe5ff] bg-white/88 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#5d73b3] shadow-[0_10px_24px_rgba(20,86,244,0.08)]">
-          {roomState.phase !== "task_reveal"
-            ? "Judge opens after task reveal"
-            : canSubmitToJudge
-              ? "Click judge to submit"
-              : "Walk up to submit"}
+        {roomState.phase === "task_reveal" ? (
+          <div className="mt-2 rounded-full border border-[#dbe5ff] bg-white/88 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#5d73b3] shadow-[0_10px_24px_rgba(20,86,244,0.08)]">
+            {canSubmitToJudge ? "Click judge to submit" : "Walk up to submit"}
+          </div>
+        ) : null}
+      </div>
+
+      <div
+        className="absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+        style={{ left: `${arcadeLeft}%`, top: `${arcadeTop}%` }}
+      >
+        <button
+          type="button"
+          onClick={handleArcadeClick}
+          disabled={!canUseArcade || isPokerVoting}
+          className={`group transition ${canUseArcade ? "hover:-translate-y-0.5" : "opacity-92"} disabled:opacity-70`}
+        >
+          <ArcadeMachineAvatar
+            size={126}
+            className={canUseArcade ? "drop-shadow-[0_10px_18px_rgba(20,86,244,0.14)]" : "opacity-92"}
+          />
+        </button>
+        <div className="mt-2 rounded-full border border-[#dbe5ff] bg-white/94 px-3 py-1 text-[11px] font-semibold text-[#1f2430] shadow-[0_10px_24px_rgba(20,86,244,0.08)]">
+          Poker Arcade
         </div>
+        {roomState.pokerArcade.status === "idle" ? (
+          <div className="mt-2 rounded-full border border-[#dbe5ff] bg-white/88 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#5d73b3] shadow-[0_10px_24px_rgba(20,86,244,0.08)]">
+            {canUseArcade ? "Click to start poker" : "Walk up to play poker"}
+          </div>
+        ) : null}
       </div>
 
       {roomState.players.map((player) => {
@@ -1011,7 +1148,7 @@ const SharedRoomPanel = ({
         <span className="pr-2">Leave Room</span>
       </button>
 
-      {isChatting ? (
+      {isChatting && !pokerOverlayOpen ? (
         <div className="absolute bottom-5 left-1/2 z-20 w-[min(92vw,480px)] -translate-x-1/2">
           <div className="rounded-full border border-[#bfd0ff] bg-white/96 px-3 py-3 shadow-[0_18px_38px_rgba(20,86,244,0.14)] backdrop-blur">
             <input
@@ -1070,9 +1207,25 @@ export const PlayRoomExperience = () => {
     readyUp,
     submitTask,
     sendChatMessage,
+    proposePokerArcade,
+    respondPokerArcade,
     clearError,
   } = usePlayRoom({
     inviteRoomCode,
+    isAuthenticated,
+    token,
+  });
+  const {
+    pokerState,
+    pokerError,
+    pokerBusyAction,
+    turnTimeLeft,
+    turnProgress,
+    act,
+    leaveTable,
+    rebuy,
+    showCards,
+  } = usePlayRoomPoker({
     isAuthenticated,
     token,
   });
@@ -1195,17 +1348,37 @@ export const PlayRoomExperience = () => {
 
   if (roomState && (roomState.phase === "shared_room" || roomState.phase === "task_reveal")) {
     content = (
-      <SharedRoomPanel
-        roomState={roomState}
-        chatMessages={chatMessages}
-        currentUserId={user?.id}
-        onMove={movePlayer}
-        onReady={readyUp}
-        onSubmitTask={submitTask}
-        onSendChatMessage={sendChatMessage}
-        isSubmittingTask={busyAction === "submit"}
-        onLeave={handleLeaveRoom}
-      />
+      <>
+        <SharedRoomPanel
+          roomState={roomState}
+          chatMessages={chatMessages}
+          currentUserId={user?.id}
+          onMove={movePlayer}
+          onReady={readyUp}
+          onSubmitTask={submitTask}
+          onSendChatMessage={sendChatMessage}
+          onProposePokerArcade={proposePokerArcade}
+          onRespondPokerArcade={respondPokerArcade}
+          isSubmittingTask={busyAction === "submit"}
+          isPokerVoting={busyAction === "poker_propose" || busyAction === "poker_vote"}
+          pokerOverlayOpen={Boolean(pokerState)}
+          onLeave={handleLeaveRoom}
+        />
+        {pokerState ? (
+          <PlayPokerOverlay
+            pokerState={pokerState}
+            currentUserId={user?.id}
+            pokerError={pokerError}
+            pokerBusyAction={pokerBusyAction}
+            turnTimeLeft={turnTimeLeft}
+            turnProgress={turnProgress}
+            onAct={act}
+            onLeave={leaveTable}
+            onRebuy={rebuy}
+            onShowCards={showCards}
+          />
+        ) : null}
+      </>
     );
   }
 

@@ -1815,6 +1815,90 @@ export const queuePokerPlayer = async (params: {
   };
 };
 
+export const startPrivatePokerTable = async (params: {
+  players: Array<{
+    userId: string;
+    name: string;
+    handle?: string | null;
+  }>;
+  amount?: number;
+}) => {
+  const uniquePlayers = Array.from(
+    new Map(
+      params.players.map((player) => [
+        player.userId,
+        {
+          userId: player.userId,
+          name: player.name.trim() || "Player",
+          handle: normalizeHandle(player.handle),
+        },
+      ])
+    ).values()
+  );
+
+  if (uniquePlayers.length < MIN_PLAYERS) {
+    throw new PokerError("At least two players are needed to start poker.", 400);
+  }
+  if (uniquePlayers.length > MAX_SEATS) {
+    throw new PokerError("That poker group is too large for one table.", 400);
+  }
+
+  const buyInAmount = Math.floor(params.amount ?? 100);
+  if (!Number.isFinite(buyInAmount) || buyInAmount < MIN_BUYIN) {
+    throw new PokerError(`Minimum buy-in is ${MIN_BUYIN} coins.`, 400);
+  }
+
+  for (const player of uniquePlayers) {
+    const activeTableId = await getPlayerTableId(player.userId);
+    if (activeTableId) {
+      throw new PokerError(`${player.name} is already seated at another poker table.`, 409);
+    }
+    const queued = await getQueuePosition(player.userId);
+    if (queued !== null) {
+      throw new PokerError(`${player.name} is already queued for poker.`, 409);
+    }
+  }
+
+  const table = createTable(10, 25);
+  const seatedPlayers: PokerPlayer[] = [];
+
+  try {
+    for (const player of uniquePlayers) {
+      await seatPlayerAtTable(
+        table,
+        {
+          userId: player.userId,
+          name: player.name,
+          handle: player.handle,
+          amount: buyInAmount,
+          enqueuedAt: Date.now(),
+          prepaid: false,
+        },
+        buyInAmount
+      );
+      const seated = getPlayerById(table, player.userId);
+      if (seated) {
+        seatedPlayers.push(seated);
+      }
+    }
+
+    startHand(table);
+    await saveTable(table);
+
+    return {
+      tableId: table.id,
+      updatedTableIds: [table.id],
+    };
+  } catch (error) {
+    for (const seated of seatedPlayers) {
+      await refundPlayerChips(seated);
+      await clearPlayerTableId(seated.userId);
+      table.seats[seated.seatIndex] = null;
+    }
+    throw error;
+  }
+};
+
 export const getPokerStateForUser = async (userId: string) => {
   const tableId = await getPlayerTableId(userId);
   if (!tableId) {

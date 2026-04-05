@@ -28,6 +28,11 @@ type JudgeAvatarProps = {
   className?: string;
 };
 
+type ArcadeMachineProps = {
+  size?: number;
+  className?: string;
+};
+
 const BODY_FILL = "#FFFFFF";
 const SHADE_FILL = "#E9EEF5";
 const OUTLINE = "#121212";
@@ -298,6 +303,46 @@ const JudgeCharacter = () => (
   </>
 );
 
+const ArcadeMachineCharacter = () => (
+  <>
+    <ellipse cx="60" cy="110" rx="34" ry="8" fill={SHADOW} />
+    <path
+      d="M33 34c0-7.8 6.2-14 14-14h26c7.8 0 14 6.2 14 14v54c0 8.8-7.2 16-16 16H49c-8.8 0-16-7.2-16-16V34Z"
+      fill={BODY_FILL}
+      stroke={OUTLINE}
+      strokeWidth="4"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M43 34h34c5.5 0 10 4.5 10 10v22H43V34Z"
+      fill={SHADE_FILL}
+      stroke={OUTLINE}
+      strokeWidth="4"
+      strokeLinejoin="round"
+    />
+    <rect x="49" y="40" width="30" height="18" rx="7" fill={FACE_FILL} stroke={OUTLINE} strokeWidth="3.2" />
+    <circle cx="57" cy="78" r="5" fill="#F25F77" stroke={OUTLINE} strokeWidth="3" />
+    <path d="M66 78h11" stroke={OUTLINE} strokeWidth="3.4" strokeLinecap="round" />
+    <path d="M71.5 72.5v11" stroke={OUTLINE} strokeWidth="3.4" strokeLinecap="round" />
+    <path d="M44 104h12v10H44Z" fill={BODY_FILL} stroke={OUTLINE} strokeWidth="4" strokeLinejoin="round" />
+    <path d="M64 104h12v10H64Z" fill={BODY_FILL} stroke={OUTLINE} strokeWidth="4" strokeLinejoin="round" />
+    <path
+      d="M30 24c0-6.5 6.5-6.5 6.5 0"
+      fill="none"
+      stroke={OUTLINE}
+      strokeWidth="3.2"
+      strokeLinecap="round"
+    />
+    <path
+      d="M24 18c0-6.5 6.5-6.5 6.5 0"
+      fill="none"
+      stroke={OUTLINE}
+      strokeWidth="3.2"
+      strokeLinecap="round"
+    />
+  </>
+);
+
 export const CharacterAvatar = ({
   characterId,
   size = 100,
@@ -344,5 +389,18 @@ export const JudgeAvatar = ({ size = 118, className }: JudgeAvatarProps) => (
     xmlns="http://www.w3.org/2000/svg"
   >
     <JudgeCharacter />
+  </svg>
+);
+
+export const ArcadeMachineAvatar = ({ size = 118, className }: ArcadeMachineProps) => (
+  <svg
+    viewBox="0 0 120 120"
+    width={size}
+    height={size}
+    aria-hidden="true"
+    className={className}
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <ArcadeMachineCharacter />
   </svg>
 );

@@ -27,6 +27,8 @@ import { usePlayRoomList } from "./usePlayRoomList";
 import { usePlayRoomPoker } from "./usePlayRoomPoker";
 import { usePlayRoomVoice, type PlayRoomVoiceMode } from "./usePlayRoomVoice";
 
+const PLAY_VOICE_SETTINGS_STORAGE_KEY = "quadblitz_play_voice_settings";
+
 const normalizeRoomCode = (value: string | null) =>
   value?.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5) ?? null;
 
@@ -209,6 +211,34 @@ const formatVoiceStatusLabel = (voiceStatus: "idle" | "requesting" | "ready" | "
 
 const formatRoomTitle = (hasRooms: boolean) =>
   hasRooms ? "Create Another Room" : "Create Your First Room";
+
+const readStoredVoiceSettings = (): {
+  voiceMode: PlayRoomVoiceMode;
+  micMuted: boolean;
+} | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const raw = window.localStorage.getItem(PLAY_VOICE_SETTINGS_STORAGE_KEY);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as {
+      voiceMode?: PlayRoomVoiceMode;
+      micMuted?: boolean;
+    };
+    return {
+      voiceMode:
+        parsed.voiceMode === "voice_stream" ? "voice_stream" : "push_to_talk",
+      micMuted: Boolean(parsed.micMuted),
+    };
+  } catch {
+    return null;
+  }
+};
 
 const formatRoomDescription = (hasRooms: boolean) =>
   hasRooms
@@ -1229,6 +1259,7 @@ const SharedRoomPanel = ({
   const keyStateRef = useRef({ up: false, down: false, left: false, right: false });
   const roomRef = useRef(roomState);
   const judgeWalkTimerRef = useRef<number | null>(null);
+  const hasLoadedVoiceSettingsRef = useRef(false);
   const previousPokerOverlayRef = useRef(pokerOverlayOpen);
   const serverPositionsRef = useRef<Record<string, PlayVector2>>(createPositionMap(presentPlayers));
   const visualPositionsRef = useRef<Record<string, PlayVector2>>(createPositionMap(presentPlayers));
@@ -1281,6 +1312,36 @@ const SharedRoomPanel = ({
 
     chatInputRef.current?.focus();
   }, [isChatting]);
+
+  useEffect(() => {
+    const storedSettings = readStoredVoiceSettings();
+    const loadTimer = window.setTimeout(() => {
+      if (storedSettings) {
+        setVoiceMode(storedSettings.voiceMode);
+        setIsMicMuted(storedSettings.micMuted);
+      }
+
+      hasLoadedVoiceSettingsRef.current = true;
+    }, 0);
+
+    return () => {
+      window.clearTimeout(loadTimer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !hasLoadedVoiceSettingsRef.current) {
+      return;
+    }
+
+    window.localStorage.setItem(
+      PLAY_VOICE_SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        voiceMode,
+        micMuted: isMicMuted,
+      })
+    );
+  }, [isMicMuted, voiceMode]);
 
   useEffect(() => {
     if (previousPokerOverlayRef.current === pokerOverlayOpen) {

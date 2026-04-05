@@ -759,6 +759,48 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
       }
     });
 
+    socket.on(
+      "playroom:voice:signal",
+      async (payload?: { targetUserId?: string; signal?: unknown }) => {
+        try {
+          const result = await getPlayRoomStateForUser(userId);
+          if (!result.roomCode || !result.state) {
+            return;
+          }
+          if (
+            result.state.phase !== "shared_room" &&
+            result.state.phase !== "task_reveal"
+          ) {
+            return;
+          }
+
+          const targetUserId = payload?.targetUserId?.trim();
+          if (!targetUserId || targetUserId === userId) {
+            return;
+          }
+          const targetIsInRoom = result.state.players.some(
+            (player) => player.userId === targetUserId
+          );
+          if (!targetIsInRoom) {
+            return;
+          }
+
+          const targetSocketId = userSocketMap.get(targetUserId);
+          if (!targetSocketId) {
+            return;
+          }
+
+          io?.to(targetSocketId).emit("playroom:voice:signal", {
+            roomCode: result.roomCode,
+            fromUserId: userId,
+            signal: payload?.signal ?? null,
+          });
+        } catch {
+          // Voice signaling is ephemeral; failures can be ignored.
+        }
+      }
+    );
+
     socket.on("game:heartbeat", (payload?: { game?: string }) => {
       const game = payload?.game;
       if (game === "poker" || game === "convo") {

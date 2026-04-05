@@ -14,6 +14,7 @@ import type {
   PlayVector2,
 } from "./types";
 import { usePlayRoom } from "./usePlayRoom";
+import { usePlayRoomVoice } from "./usePlayRoomVoice";
 
 const normalizeRoomCode = (value: string | null) =>
   value?.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5) ?? null;
@@ -500,6 +501,7 @@ const SharedRoomPanel = ({
   const [submissionDraft, setSubmissionDraft] = useState("");
   const [isChatting, setIsChatting] = useState(false);
   const [chatDraft, setChatDraft] = useState("");
+  const [isPushToTalkActive, setIsPushToTalkActive] = useState(false);
   const [renderPositions, setRenderPositions] = useState<Record<string, PlayVector2>>(() =>
     createPositionMap(roomState.players)
   );
@@ -509,6 +511,11 @@ const SharedRoomPanel = ({
   const roomRef = useRef(roomState);
   const serverPositionsRef = useRef<Record<string, PlayVector2>>(createPositionMap(roomState.players));
   const visualPositionsRef = useRef<Record<string, PlayVector2>>(createPositionMap(roomState.players));
+  const { voiceError, voiceStatus, isPushToTalkLive } = usePlayRoomVoice({
+    roomState,
+    currentUserId,
+    pushToTalkActive: isPushToTalkActive,
+  });
 
   useEffect(() => {
     roomRef.current = roomState;
@@ -551,6 +558,11 @@ const SharedRoomPanel = ({
         event.preventDefault();
         setShowRoomState(true);
       }
+      if (event.key === "t" || event.key === "T") {
+        if (!isChatting && !isJudgeModalOpen) {
+          setIsPushToTalkActive(true);
+        }
+      }
       if (event.key === "Enter") {
         event.preventDefault();
         if (isChatting) {
@@ -587,6 +599,9 @@ const SharedRoomPanel = ({
         event.preventDefault();
         setShowRoomState(false);
       }
+      if (event.key === "t" || event.key === "T") {
+        setIsPushToTalkActive(false);
+      }
       if (isChatting) {
         return;
       }
@@ -606,6 +621,7 @@ const SharedRoomPanel = ({
     const handleBlur = () => {
       keyStateRef.current = { up: false, down: false, left: false, right: false };
       setShowRoomState(false);
+      setIsPushToTalkActive(false);
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -616,7 +632,7 @@ const SharedRoomPanel = ({
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("blur", handleBlur);
     };
-  }, [chatDraft, isChatting, me, onReady, onSendChatMessage]);
+  }, [chatDraft, isChatting, isJudgeModalOpen, me, onReady, onSendChatMessage]);
 
   useEffect(() => {
     let frame = 0;
@@ -714,7 +730,7 @@ const SharedRoomPanel = ({
   const myVisualPosition =
     me ? renderPositions[me.userId] ?? me.position : null;
   const hasReadied = Boolean(me?.isReadyAtPedestal);
-  const myVerdict = me?.taskSubmission.verdict ?? null;
+  const myVerdict = me?.taskSubmission?.verdict ?? null;
   const isNearPedestal =
     myVisualPosition &&
     Math.hypot(myVisualPosition.x - pedestal.x, myVisualPosition.y - pedestal.y) <=
@@ -830,6 +846,27 @@ const SharedRoomPanel = ({
           </div>
         </section>
       ) : null}
+
+      <div className="absolute left-1/2 top-5 z-20 flex -translate-x-1/2 flex-col items-center gap-2">
+        <div
+          className={`rounded-full border px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] shadow-[0_12px_28px_rgba(20,86,244,0.08)] backdrop-blur ${
+            isPushToTalkLive
+              ? "border-[#bfe8c6] bg-[#effdf2] text-[#24673a]"
+              : "border-[#dbe5ff] bg-white/90 text-[#5d73b3]"
+          }`}
+        >
+          {isPushToTalkLive
+            ? "Mic Live"
+            : voiceStatus === "requesting"
+              ? "Connecting Mic"
+              : "Hold T To Talk"}
+        </div>
+        {voiceError ? (
+          <div className="max-w-[280px] rounded-[20px] border border-[#ffd4d4] bg-[#fff3f3] px-4 py-3 text-center text-xs font-medium leading-5 text-[#b45151] shadow-[0_12px_28px_rgba(223,76,76,0.08)]">
+            {voiceError}
+          </div>
+        ) : null}
+      </div>
 
       <div className="absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 translate-y-20 flex-col items-center gap-2">
         <button
@@ -984,7 +1021,7 @@ const SharedRoomPanel = ({
       ) : null}
 
       <div className="absolute bottom-5 right-5 z-20 rounded-full border border-[#dbe5ff] bg-white/88 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#5d73b3] shadow-[0_12px_28px_rgba(20,86,244,0.08)] backdrop-blur">
-        WASD move · Enter chat · Click ready · Walk to judge and click to submit · Hold Tab for room state
+        WASD move · Hold T to talk · Enter chat · Click ready · Walk to judge and click to submit · Hold Tab for room state
       </div>
     </section>
   );

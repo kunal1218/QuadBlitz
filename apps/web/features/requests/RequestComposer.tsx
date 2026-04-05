@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/Button";
-import { Card } from "@/components/Card";
 
 export type RequestComposerPayload = {
   title: string;
@@ -19,9 +17,9 @@ type RequestComposerProps = {
 };
 
 const labelClasses =
-  "text-xs font-semibold uppercase tracking-[0.2em] text-muted";
+  "text-[11px] font-bold uppercase tracking-[0.24em] text-[#7f8eab]";
 const inputClasses =
-  "w-full rounded-2xl border border-card-border/70 bg-white/80 px-4 py-3 text-sm text-ink placeholder:text-muted/60 focus:border-accent/60 focus:outline-none focus:ring-2 focus:ring-accent/20";
+  "w-full rounded-[22px] border border-[#d9e4fb] bg-white px-4 py-3 text-[14px] text-[#1d2432] placeholder:text-[#9aa6bb] focus:border-[#8fb0ff] focus:outline-none focus:ring-4 focus:ring-[#dce8ff]";
 
 export const RequestComposer = ({
   onSubmit,
@@ -46,6 +44,7 @@ export const RequestComposer = ({
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
+
     if (!canSubmit) {
       setError("Add a title, description, and a city or mark it remote.");
       return;
@@ -70,17 +69,19 @@ export const RequestComposer = ({
   };
 
   const handleLocate = () => {
-    if (disabled || isLocating) return;
+    if (disabled || isLocating) {
+      return;
+    }
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       setError("Geolocation not available.");
       return;
     }
+
     setIsLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
-        const approx = `${latitude.toFixed(3)}, ${longitude.toFixed(3)}`;
-        setCity(approx);
+        setCity(`${latitude.toFixed(3)}, ${longitude.toFixed(3)}`);
         setIsLocating(false);
         setError(null);
       },
@@ -93,16 +94,24 @@ export const RequestComposer = ({
   };
 
   return (
-    <Card className="space-y-4 border border-card-border/70 bg-white/80 shadow-sm">
+    <form
+      className="rounded-[34px] border border-[#d9e4fb] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(247,250,255,0.95)_100%)] p-6 shadow-[0_28px_70px_rgba(35,72,152,0.12)] sm:p-7"
+      onSubmit={handleSubmit}
+    >
       <div className="flex flex-col gap-1">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted">
-          Post a request
+        <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-[#7f8eab]">
+          New Request
         </p>
-        <p className="text-sm text-muted">
-          Share what you need help with so others can jump in fast.
+        <h3 className="text-[28px] font-[800] tracking-[-0.06em] text-[#1b2230]">
+          Ask for help
+        </h3>
+        <p className="max-w-[540px] text-[14px] leading-[1.8] text-[#647187]">
+          Share what you need, where it is happening, and how quickly someone should
+          jump in.
         </p>
       </div>
-      <form className="space-y-4" onSubmit={handleSubmit}>
+
+      <div className="mt-6 space-y-5">
         <label className="block space-y-2">
           <span className={labelClasses}>Title</span>
           <input
@@ -114,41 +123,43 @@ export const RequestComposer = ({
             required
           />
         </label>
+
         <label className="block space-y-2">
           <span className={labelClasses}>Description</span>
           <textarea
-            className={`${inputClasses} min-h-[100px]`}
+            className={`${inputClasses} min-h-[150px] resize-none`}
             value={description}
             onChange={(event) => setDescription(event.target.value)}
-            placeholder="Give a quick rundown so helpers know what's up."
+            placeholder="Give a quick rundown so helpers know what they are stepping into."
             disabled={disabled}
             required
           />
         </label>
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="block space-y-2">
-            <span className={labelClasses}>City</span>
+
+        <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_220px]">
+          <div className="space-y-2">
+            <span className={labelClasses}>Location</span>
             <input
               className={inputClasses}
               value={city}
               onChange={(event) => setCity(event.target.value)}
-              placeholder="City for in-person meetups"
+              placeholder="City, building, or area"
               disabled={disabled || isRemote}
               required={!isRemote}
             />
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
+            <div className="flex flex-wrap items-center gap-2 pt-1">
               <button
                 type="button"
-                className="rounded-full border border-card-border/70 px-3 py-1 text-xs font-semibold text-muted transition hover:border-accent/40 hover:text-ink disabled:opacity-60"
+                className="rounded-full border border-[#d9e4fb] bg-white px-3 py-2 text-[11px] font-semibold text-[#627086] transition hover:border-[#c8d8fb] hover:text-[#1456f4] disabled:opacity-60"
                 onClick={handleLocate}
                 disabled={disabled || isRemote || isLocating}
               >
                 {isLocating ? "Detecting..." : "Use my location"}
               </button>
-              <label className="inline-flex items-center gap-2 cursor-pointer">
+              <label className="inline-flex items-center gap-2 rounded-full border border-[#d9e4fb] bg-white px-3 py-2 text-[11px] font-semibold text-[#627086]">
                 <input
                   type="checkbox"
-                  className="h-4 w-4 rounded border-card-border/70 text-accent focus:ring-accent/40"
+                  className="h-4 w-4 rounded border-[#cfd9ea] text-[#1456f4] focus:ring-[#b9ceff]"
                   checked={isRemote}
                   onChange={(event) => setIsRemote(event.target.checked)}
                   disabled={disabled}
@@ -156,7 +167,7 @@ export const RequestComposer = ({
                 Remote request
               </label>
             </div>
-          </label>
+          </div>
 
           <label className="block space-y-2">
             <span className={labelClasses}>Urgency</span>
@@ -170,23 +181,27 @@ export const RequestComposer = ({
             >
               <option value="low">Low</option>
               <option value="medium">Medium</option>
-              <option value="high">High</option>
+              <option value="high">Urgent</option>
             </select>
           </label>
         </div>
 
         {error && (
-          <p className="rounded-2xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-accent">
+          <p className="rounded-[22px] border border-[#ffd5e0] bg-[#fff2f6] px-4 py-3 text-[13px] font-medium text-[#cc3d67]">
             {error}
           </p>
         )}
 
         <div className="flex justify-end">
-          <Button type="submit" disabled={!canSubmit || isSaving} requiresAuth={false}>
-            {isSaving ? "Posting..." : "Post request"}
-          </Button>
+          <button
+            type="submit"
+            disabled={!canSubmit || isSaving}
+            className="rounded-full bg-[#1456f4] px-6 py-3 text-[13px] font-semibold text-white shadow-[0_18px_34px_rgba(20,86,244,0.26)] transition hover:bg-[#0e4bd9] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isSaving ? "Posting..." : "Post Request"}
+          </button>
         </div>
-      </form>
-    </Card>
+      </div>
+    </form>
   );
 };

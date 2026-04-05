@@ -248,6 +248,23 @@ const SiteIcon = () => (
   </svg>
 );
 
+const RequestsNavIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" {...props}>
+    <path
+      d="M4.2 2.75h7.6a1.05 1.05 0 0 1 1.05 1.05v8.4a1.05 1.05 0 0 1-1.05 1.05H4.2a1.05 1.05 0 0 1-1.05-1.05V3.8A1.05 1.05 0 0 1 4.2 2.75Z"
+      stroke="currentColor"
+      strokeWidth="1.55"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M5.15 5.25h5.7M5.15 8h5.7M5.15 10.75h3.45"
+      stroke="currentColor"
+      strokeWidth="1.55"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
 const HeaderWordmark = () => (
   <span className="inline-flex items-center gap-[10px]">
     <SiteIcon />
@@ -264,9 +281,10 @@ const headerNavItems: Array<{
 }> = [
   { href: "/", label: "HOME", icon: HomeNavIcon },
   { href: "/play", label: "PLAY", icon: PlayNavIcon },
-  { href: "/challenges", label: "CHALLENGES", icon: ChallengeNavIcon },
   { href: "/friends", label: "CHAT", icon: ChatNavIcon },
   { href: "/map", label: "MAPS", icon: MapsNavIcon },
+  { href: "/requests", label: "REQUESTS", icon: RequestsNavIcon },
+  { href: "/challenges", label: "CHALLENGES", icon: ChallengeNavIcon },
   { href: "/clubs", label: "GROUPS", icon: GroupsNavIcon },
   { href: "/marketplace", label: "MARKET", icon: MarketNavIcon },
 ];

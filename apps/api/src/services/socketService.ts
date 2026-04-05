@@ -18,6 +18,7 @@ import {
 import {
   createPlayRoom,
   forceRemovePlayRoomUser,
+  getPlayRoomPositions,
   getPlayRoomState,
   getPlayRoomStateForUser,
   joinPlayRoom,
@@ -121,6 +122,17 @@ const emitPlayRoomStateForRoom = async (roomCode: string) => {
     return;
   }
   io.to(playRoomForCode(roomCode)).emit("playroom:state", { state });
+};
+
+const emitPlayRoomPositionsForRoom = async (roomCode: string) => {
+  if (!io) {
+    return;
+  }
+  const positions = await getPlayRoomPositions(roomCode);
+  if (!positions) {
+    return;
+  }
+  io.to(playRoomForCode(roomCode)).emit("playroom:positions", { positions });
 };
 
 const emitPokerErrorsForUsers = (userIds: readonly string[], message: string) => {
@@ -661,15 +673,16 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
 
     socket.on(
       "playroom:move",
-      async (payload?: { directionX?: number; directionY?: number; deltaMs?: number }) => {
+      async (payload?: { positionX?: number; positionY?: number }) => {
         try {
           const result = await movePlayRoomPlayer({
             userId,
-            directionX: Number(payload?.directionX ?? 0),
-            directionY: Number(payload?.directionY ?? 0),
-            deltaMs: Number(payload?.deltaMs ?? 16),
+            positionX: Number(payload?.positionX ?? 0),
+            positionY: Number(payload?.positionY ?? 0),
           });
-          await emitPlayRoomStateForRoom(result.roomCode);
+          io?.to(playRoomForCode(result.roomCode)).emit("playroom:positions", {
+            positions: result.positions,
+          });
         } catch {
           // Movement is high-frequency; invalid updates can be ignored silently.
         }
@@ -796,7 +809,10 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
         try {
           const result = await forceRemovePlayRoomUser(userId);
           await Promise.all(
-            result.updatedRoomCodes.map((roomCode) => emitPlayRoomStateForRoom(roomCode))
+            result.updatedRoomCodes.flatMap((roomCode) => [
+              emitPlayRoomStateForRoom(roomCode),
+              emitPlayRoomPositionsForRoom(roomCode),
+            ])
           );
         } catch (error) {
           console.warn("[socket] failed to remove play room user", error);

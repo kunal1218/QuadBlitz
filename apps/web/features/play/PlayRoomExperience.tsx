@@ -19,6 +19,11 @@ const formatHandle = (handle: string) => (handle.startsWith("@") ? handle : `@${
 const getPlayerById = (roomState: PlayRoomState, userId: string | null | undefined) =>
   roomState.players.find((player) => player.userId === userId) ?? null;
 
+const createPositionMap = (players: PlayRoomState["players"]) =>
+  Object.fromEntries(players.map((player) => [player.userId, { ...player.position }]));
+
+const lerp = (from: number, to: number, amount: number) => from + (to - from) * amount;
+
 const StatusBanner = ({
   error,
   onDismiss,
@@ -353,42 +358,48 @@ const SharedRoomPanel = ({
   currentUserId,
   onMove,
   onReady,
+  onLeave,
 }: {
   roomState: PlayRoomState;
   currentUserId: string | null | undefined;
-  onMove: (directionX: number, directionY: number, deltaMs: number) => void;
+  onMove: (positionX: number, positionY: number) => void;
   onReady: () => void;
+  onLeave: () => void;
 }) => {
   const me = getPlayerById(roomState, currentUserId);
-  const [localPosition, setLocalPosition] = useState<PlayVector2>(me?.position ?? { x: 0, y: 0 });
+  const [showRoomState, setShowRoomState] = useState(false);
+  const [renderPositions, setRenderPositions] = useState<Record<string, PlayVector2>>(() =>
+    createPositionMap(roomState.players)
+  );
   const keyStateRef = useRef({ up: false, down: false, left: false, right: false });
   const roomRef = useRef(roomState);
-  const localPositionRef = useRef<PlayVector2>(me?.position ?? { x: 0, y: 0 });
-  const lastPositionRef = useRef<PlayVector2>(me?.position ?? { x: 0, y: 0 });
+  const serverPositionsRef = useRef<Record<string, PlayVector2>>(createPositionMap(roomState.players));
+  const visualPositionsRef = useRef<Record<string, PlayVector2>>(createPositionMap(roomState.players));
 
   useEffect(() => {
     roomRef.current = roomState;
+    serverPositionsRef.current = createPositionMap(roomState.players);
+    const nextVisual = { ...visualPositionsRef.current };
+    const activeIds = new Set(roomState.players.map((player) => player.userId));
+    Object.keys(nextVisual).forEach((userId) => {
+      if (!activeIds.has(userId)) {
+        delete nextVisual[userId];
+      }
+    });
+    roomState.players.forEach((player) => {
+      if (!nextVisual[player.userId]) {
+        nextVisual[player.userId] = { ...player.position };
+      }
+    });
+    visualPositionsRef.current = nextVisual;
   }, [roomState]);
 
   useEffect(() => {
-    localPositionRef.current = localPosition;
-  }, [localPosition]);
-
-  useEffect(() => {
-    if (!me) {
-      return;
-    }
-    const changedEnough =
-      Math.abs(me.position.x - lastPositionRef.current.x) > 14 ||
-      Math.abs(me.position.y - lastPositionRef.current.y) > 14;
-    if (changedEnough || roomState.phase === "task_reveal") {
-      localPositionRef.current = me.position;
-      lastPositionRef.current = me.position;
-    }
-  }, [me, roomState.phase]);
-
-  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Tab") {
+        event.preventDefault();
+        setShowRoomState(true);
+      }
       if (event.key === "w" || event.key === "W" || event.key === "ArrowUp") {
         keyStateRef.current.up = true;
       }
@@ -403,9 +414,11 @@ const SharedRoomPanel = ({
       }
       if ((event.key === "e" || event.key === "E") && me && !me.isReadyAtPedestal) {
         const pedestal = roomRef.current.room.pedestal;
+        const myVisualPosition =
+          visualPositionsRef.current[me.userId] ?? serverPositionsRef.current[me.userId] ?? me.position;
         const distance = Math.hypot(
-          localPositionRef.current.x - pedestal.x,
-          localPositionRef.current.y - pedestal.y
+          myVisualPosition.x - pedestal.x,
+          myVisualPosition.y - pedestal.y
         );
         if (distance <= pedestal.interactionRadius) {
           onReady();
@@ -413,6 +426,10 @@ const SharedRoomPanel = ({
       }
     };
     const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.key === "Tab") {
+        event.preventDefault();
+        setShowRoomState(false);
+      }
       if (event.key === "w" || event.key === "W" || event.key === "ArrowUp") {
         keyStateRef.current.up = false;
       }
@@ -426,20 +443,22 @@ const SharedRoomPanel = ({
         keyStateRef.current.right = false;
       }
     };
+    const handleBlur = () => {
+      keyStateRef.current = { up: false, down: false, left: false, right: false };
+      setShowRoomState(false);
+    };
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", handleBlur);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", handleBlur);
     };
   }, [me, onReady]);
 
   useEffect(() => {
-    if (!me) {
-      return;
-    }
-
     let frame = 0;
     let lastTick = performance.now();
     let lastEmitAt = performance.now();
@@ -447,29 +466,62 @@ const SharedRoomPanel = ({
     const loop = (now: number) => {
       const elapsed = now - lastTick;
       lastTick = now;
-      const inputX = (keyStateRef.current.right ? 1 : 0) - (keyStateRef.current.left ? 1 : 0);
-      const inputY = (keyStateRef.current.down ? 1 : 0) - (keyStateRef.current.up ? 1 : 0);
-      if (inputX !== 0 || inputY !== 0) {
-        const magnitude = Math.hypot(inputX, inputY) || 1;
-        const speed = 260;
-        const widthHalf = roomRef.current.room.width / 2;
-        const heightHalf = roomRef.current.room.height / 2;
-        const nextX =
-          localPositionRef.current.x + ((inputX / magnitude) * speed * elapsed) / 1000;
-        const nextY =
-          localPositionRef.current.y + ((inputY / magnitude) * speed * elapsed) / 1000;
-        const optimisticPosition = {
-          x: clamp(nextX, -widthHalf + 56, widthHalf - 56),
-          y: clamp(nextY, -heightHalf + 56, heightHalf - 56),
-        };
-        localPositionRef.current = optimisticPosition;
-        setLocalPosition(optimisticPosition);
-        lastPositionRef.current = optimisticPosition;
-        if (now - lastEmitAt >= 40) {
-          onMove(inputX / magnitude, inputY / magnitude, elapsed);
-          lastEmitAt = now;
+      const smoothing = 1 - Math.exp(-elapsed / 90);
+      const nextPositions = { ...visualPositionsRef.current };
+      const serverPositions = serverPositionsRef.current;
+      const activeIds = new Set(roomRef.current.players.map((player) => player.userId));
+      Object.keys(nextPositions).forEach((userId) => {
+        if (!activeIds.has(userId)) {
+          delete nextPositions[userId];
         }
-      }
+      });
+
+      roomRef.current.players.forEach((player) => {
+        const currentPosition = nextPositions[player.userId] ?? player.position;
+        const serverPosition = serverPositions[player.userId] ?? player.position;
+        if (player.userId === me?.userId) {
+          const inputX =
+            (keyStateRef.current.right ? 1 : 0) - (keyStateRef.current.left ? 1 : 0);
+          const inputY =
+            (keyStateRef.current.down ? 1 : 0) - (keyStateRef.current.up ? 1 : 0);
+          if (inputX !== 0 || inputY !== 0) {
+            const magnitude = Math.hypot(inputX, inputY) || 1;
+            const speed = 260;
+            const widthHalf = roomRef.current.room.width / 2;
+            const heightHalf = roomRef.current.room.height / 2;
+            const optimisticPosition = {
+              x: clamp(
+                currentPosition.x + ((inputX / magnitude) * speed * elapsed) / 1000,
+                -widthHalf + 56,
+                widthHalf - 56
+              ),
+              y: clamp(
+                currentPosition.y + ((inputY / magnitude) * speed * elapsed) / 1000,
+                -heightHalf + 56,
+                heightHalf - 56
+              ),
+            };
+            nextPositions[player.userId] = optimisticPosition;
+            if (now - lastEmitAt >= 70) {
+              onMove(optimisticPosition.x, optimisticPosition.y);
+              lastEmitAt = now;
+            }
+            return;
+          }
+          nextPositions[player.userId] = {
+            x: lerp(currentPosition.x, serverPosition.x, smoothing * 0.72),
+            y: lerp(currentPosition.y, serverPosition.y, smoothing * 0.72),
+          };
+          return;
+        }
+        nextPositions[player.userId] = {
+          x: lerp(currentPosition.x, serverPosition.x, smoothing),
+          y: lerp(currentPosition.y, serverPosition.y, smoothing),
+        };
+      });
+
+      visualPositionsRef.current = nextPositions;
+      setRenderPositions(nextPositions);
       frame = window.requestAnimationFrame(loop);
     };
 
@@ -481,122 +533,134 @@ const SharedRoomPanel = ({
 
   const pedestal = roomState.room.pedestal;
   const readyCount = roomState.players.filter((player) => player.isReadyAtPedestal).length;
+  const myVisualPosition =
+    me ? renderPositions[me.userId] ?? me.position : null;
   const isNearPedestal =
-    me &&
-    Math.hypot(localPosition.x - pedestal.x, localPosition.y - pedestal.y) <= pedestal.interactionRadius;
+    myVisualPosition &&
+    Math.hypot(myVisualPosition.x - pedestal.x, myVisualPosition.y - pedestal.y) <=
+      pedestal.interactionRadius;
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[1.3fr_0.7fr]">
-      <section className="relative overflow-hidden rounded-[32px] border border-black/10 bg-white p-4 shadow-[0_20px_60px_rgba(17,17,17,0.08)]">
-        <TaskEnvelope
-          key={roomState.selectedTask?.id ?? "closed"}
-          task={roomState.phase === "task_reveal" ? roomState.selectedTask : null}
-        />
-        <div
-          className="relative overflow-hidden rounded-[28px] border border-black/10 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.95),_rgba(239,241,244,0.92)_55%,_rgba(225,229,234,1))]"
-          style={{ aspectRatio: `${roomState.room.width} / ${roomState.room.height}` }}
-        >
-          <div
-            className="absolute inset-0 opacity-50"
-            style={{
-              backgroundImage:
-                "linear-gradient(rgba(17,17,17,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(17,17,17,0.05) 1px, transparent 1px)",
-              backgroundSize: "44px 44px",
-            }}
-          />
-          <div
-            className="absolute h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full border border-black/10 bg-white shadow-[0_14px_30px_rgba(17,17,17,0.12)]"
-            style={{
-              left: "50%",
-              top: "50%",
-            }}
-          >
-            <div className="absolute left-1/2 top-1/2 h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-black bg-[#39D353]" />
-          </div>
-          <div
-            className="absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 translate-y-20 flex-col items-center gap-2"
-          >
-            <button
-              type="button"
-              disabled={!isNearPedestal || Boolean(me?.isReadyAtPedestal)}
-              onClick={onReady}
-              className={`rounded-full border px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] transition ${
-                isNearPedestal && !me?.isReadyAtPedestal
-                  ? "border-black bg-[#39D353] text-black"
-                  : "border-black/10 bg-white/85 text-black/45"
-              }`}
-            >
-              {me?.isReadyAtPedestal ? "Ready Locked" : "Press Ready"}
-            </button>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-black/45">
-              Walk in and press E or click
+    <section className="relative h-[calc(100dvh-88px)] min-h-[620px] w-full overflow-hidden bg-white">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.98),_rgba(241,244,248,0.96)_38%,_rgba(229,234,240,1)_100%)]" />
+      <div
+        className="absolute inset-0 opacity-45"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(17,17,17,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(17,17,17,0.045) 1px, transparent 1px)",
+          backgroundSize: "56px 56px",
+        }}
+      />
+
+      <TaskEnvelope
+        key={roomState.selectedTask?.id ?? "closed"}
+        task={roomState.phase === "task_reveal" ? roomState.selectedTask : null}
+      />
+
+      <div className="absolute left-5 top-5 z-20 rounded-full border border-black/10 bg-white/92 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-black/50 shadow-sm backdrop-blur">
+        Room {roomState.roomCode}
+      </div>
+
+      {showRoomState ? (
+        <section className="absolute left-5 top-20 z-20 w-[min(340px,calc(100vw-2.5rem))] rounded-[28px] border border-black/10 bg-white/94 p-5 shadow-[0_24px_60px_rgba(17,17,17,0.12)] backdrop-blur">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-black/45">
+            Room State
+          </p>
+          <div className="mt-4 rounded-2xl border border-black/8 bg-black/[0.02] px-4 py-4">
+            <div className="text-sm font-semibold text-black">
+              {roomState.phase === "task_reveal" ? "Envelope unlocked" : "Pedestal ready check"}
+            </div>
+            <div className="mt-2 text-sm text-black/55">
+              {readyCount}/{roomState.players.length} player{roomState.players.length === 1 ? "" : "s"} ready.
             </div>
           </div>
-          {roomState.players.map((player) => {
-            const useOptimisticPosition =
-              player.userId === currentUserId &&
-              me &&
-              (Math.abs(localPosition.x - player.position.x) > 6 ||
-                Math.abs(localPosition.y - player.position.y) > 6);
-            const displayPosition = useOptimisticPosition ? localPosition : player.position;
-            const left = ((displayPosition.x + roomState.room.width / 2) / roomState.room.width) * 100;
-            const top = ((displayPosition.y + roomState.room.height / 2) / roomState.room.height) * 100;
-            return (
+          <div className="mt-4 space-y-3">
+            {roomState.players.map((player) => (
               <div
                 key={player.userId}
-                className="absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
-                style={{ left: `${left}%`, top: `${top}%` }}
+                className="rounded-2xl border border-black/8 bg-black/[0.02] px-4 py-3"
               >
-                {player.selectedCharacter ? (
-                  <CharacterAvatar
-                    characterId={player.selectedCharacter}
-                    size={80}
-                    className={player.userId === currentUserId ? "scale-105" : ""}
-                  />
-                ) : null}
-                <div className="mt-1 rounded-full border border-black/10 bg-white/92 px-3 py-1 text-[11px] font-semibold text-black shadow-sm">
-                  {player.name}
-                  {player.isReadyAtPedestal ? " • Ready" : ""}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-      <section className="rounded-[28px] border border-black/10 bg-white p-6 shadow-[0_16px_48px_rgba(17,17,17,0.06)]">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-black/45">
-          Room State
-        </p>
-        <div className="mt-4 rounded-2xl border border-black/8 bg-black/[0.02] px-4 py-4">
-          <div className="text-sm font-semibold text-black">
-            {roomState.phase === "task_reveal" ? "Envelope unlocked" : "Pedestal ready check"}
-          </div>
-          <div className="mt-2 text-sm text-black/55">
-            {readyCount}/{roomState.players.length} player{roomState.players.length === 1 ? "" : "s"} ready.
-          </div>
-        </div>
-        <div className="mt-5 space-y-3">
-          {roomState.players.map((player) => (
-            <div
-              key={player.userId}
-              className="rounded-2xl border border-black/8 bg-black/[0.02] px-4 py-3"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-sm font-semibold text-black">{player.name}</div>
-                  <div className="mt-1 text-xs text-black/55">
-                    {getCharacterLabel(player.selectedCharacter)}
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-black">{player.name}</div>
+                    <div className="mt-1 text-xs text-black/55">
+                      {getCharacterLabel(player.selectedCharacter)}
+                    </div>
+                  </div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-black/45">
+                    {player.isReadyAtPedestal ? "Ready" : "Moving"}
                   </div>
                 </div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-black/45">
-                  {player.isReadyAtPedestal ? "Ready" : "Moving"}
-                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <div className="absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 translate-y-20 flex-col items-center gap-2">
+        <button
+          type="button"
+          disabled={!isNearPedestal || Boolean(me?.isReadyAtPedestal)}
+          onClick={onReady}
+          className={`rounded-full border px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.24em] shadow-sm transition ${
+            isNearPedestal && !me?.isReadyAtPedestal
+              ? "border-black bg-[#39D353] text-black"
+              : "border-black/10 bg-white/88 text-black/45"
+          }`}
+        >
+          {me?.isReadyAtPedestal ? "Ready Locked" : "Press Ready"}
+        </button>
+        <div className="rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-black/45 backdrop-blur">
+          Walk in and press E or click
         </div>
-      </section>
-    </div>
+      </div>
+
+      <div
+        className="absolute left-1/2 top-1/2 z-0 h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full border border-black/10 bg-white shadow-[0_16px_36px_rgba(17,17,17,0.12)]"
+      >
+        <div className="absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-black bg-[#39D353]" />
+      </div>
+
+      {roomState.players.map((player) => {
+        const displayPosition = renderPositions[player.userId] ?? player.position;
+        const left = ((displayPosition.x + roomState.room.width / 2) / roomState.room.width) * 100;
+        const top = ((displayPosition.y + roomState.room.height / 2) / roomState.room.height) * 100;
+        return (
+          <div
+            key={player.userId}
+            className="absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+            style={{ left: `${left}%`, top: `${top}%` }}
+          >
+            {player.selectedCharacter ? (
+              <CharacterAvatar
+                characterId={player.selectedCharacter}
+                size={96}
+                className={player.userId === currentUserId ? "scale-105" : ""}
+              />
+            ) : null}
+            <div className="mt-1 rounded-full border border-black/10 bg-white/92 px-3 py-1 text-[11px] font-semibold text-black shadow-sm">
+              {player.name}
+              {player.isReadyAtPedestal ? " • Ready" : ""}
+            </div>
+          </div>
+        );
+      })}
+
+      <button
+        type="button"
+        onClick={onLeave}
+        className="absolute bottom-5 left-5 z-20 flex items-center gap-3 rounded-full border border-black/10 bg-white/94 px-3 py-3 text-sm font-semibold text-black shadow-[0_18px_36px_rgba(17,17,17,0.12)] backdrop-blur transition hover:border-black/20"
+      >
+        <span className="flex h-8 w-8 items-center justify-center rounded-full border border-black/10 bg-black text-xl leading-none text-white">
+          ×
+        </span>
+        <span className="pr-2">Leave Room</span>
+      </button>
+
+      <div className="absolute bottom-5 right-5 z-20 rounded-full border border-black/10 bg-white/82 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-black/45 shadow-sm backdrop-blur">
+        WASD move · E ready · Hold Tab for room state
+      </div>
+    </section>
   );
 };
 
@@ -725,27 +789,33 @@ export const PlayRoomExperience = () => {
 
   if (roomState && (roomState.phase === "shared_room" || roomState.phase === "task_reveal")) {
     content = (
-      <RoomShell
-        title="Shared Room"
-        subtitle="Move with WASD, walk to the center pedestal, and ready up together."
-        roomCode={roomState.roomCode}
+      <SharedRoomPanel
+        roomState={roomState}
+        currentUserId={user?.id}
+        onMove={movePlayer}
+        onReady={readyUp}
         onLeave={handleLeaveRoom}
-      >
-        <SharedRoomPanel
-          roomState={roomState}
-          currentUserId={user?.id}
-          onMove={movePlayer}
-          onReady={readyUp}
-        />
-      </RoomShell>
+      />
     );
   }
+
+  const isSharedRoomPhase = Boolean(
+    roomState && (roomState.phase === "shared_room" || roomState.phase === "task_reveal")
+  );
 
   return (
     <div className="relative min-h-screen">
       <div className="pointer-events-none fixed inset-0 z-0 bg-white" />
-      <div className="relative z-10 mx-auto w-full max-w-7xl px-0 pb-10 pt-24 sm:pt-28">
-        {error ? <StatusBanner error={error} onDismiss={clearError} /> : null}
+      <div
+        className={`relative z-10 ${
+          isSharedRoomPhase ? "w-full" : "mx-auto w-full max-w-7xl px-0 pb-10 pt-24 sm:pt-28"
+        }`}
+      >
+        {error ? (
+          <div className={isSharedRoomPhase ? "absolute left-1/2 top-4 z-30 w-[min(92vw,720px)] -translate-x-1/2" : ""}>
+            <StatusBanner error={error} onDismiss={clearError} />
+          </div>
+        ) : null}
         {content}
       </div>
     </div>

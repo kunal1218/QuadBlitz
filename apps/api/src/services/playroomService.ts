@@ -91,11 +91,17 @@ export type PlayRoomClientState = {
   selectedTask: PlayTaskPayload | null;
 };
 
+export type PlayRoomPositionsState = {
+  roomCode: string;
+  players: Array<{
+    userId: string;
+    position: Vector2;
+  }>;
+};
+
 const ROOM_WIDTH = 920;
 const ROOM_HEIGHT = 560;
 const PLAYER_MARGIN = 56;
-const PLAYER_SPEED = 260;
-const MAX_MOVE_DELTA_MS = 64;
 const MIN_PLAYERS_TO_START = 2;
 const MAX_PLAYERS = 5;
 const ROOM_CODE_LENGTH = 5;
@@ -274,6 +280,14 @@ const serializeRoomState = (room: PlayRoom): PlayRoomClientState => ({
     isReadyAtPedestal: player.isReadyAtPedestal,
   })),
   selectedTask: room.selectedTask ? cloneTask(room.selectedTask) : null,
+});
+
+const serializeRoomPositions = (room: PlayRoom): PlayRoomPositionsState => ({
+  roomCode: room.roomCode,
+  players: room.players.map((player) => ({
+    userId: player.userId,
+    position: { ...player.position },
+  })),
 });
 
 const readRoomIds = async () => {
@@ -632,6 +646,11 @@ export const getPlayRoomState = async (roomCode: string) => {
   return room ? serializeRoomState(room) : null;
 };
 
+export const getPlayRoomPositions = async (roomCode: string) => {
+  const room = await loadRoom(roomCode);
+  return room ? serializeRoomPositions(room) : null;
+};
+
 export const lockPlayRoomCharacter = async (params: {
   userId: string;
   characterId: PlayCharacterId;
@@ -675,9 +694,8 @@ export const lockPlayRoomCharacter = async (params: {
 
 export const movePlayRoomPlayer = async (params: {
   userId: string;
-  directionX: number;
-  directionY: number;
-  deltaMs?: number;
+  positionX: number;
+  positionY: number;
 }) => {
   const roomCode = await getPlayerRoomCode(params.userId);
   if (!roomCode) {
@@ -696,29 +714,26 @@ export const movePlayRoomPlayer = async (params: {
     await clearPlayerRoomCode(params.userId);
     throw new PlayRoomError("You are not in that room.");
   }
-  const dx = Number.isFinite(params.directionX) ? params.directionX : 0;
-  const dy = Number.isFinite(params.directionY) ? params.directionY : 0;
-  const magnitude = Math.hypot(dx, dy);
-  if (magnitude <= 0) {
-    return { roomCode: room.roomCode };
-  }
-  const deltaMs = clamp(
-    Number.isFinite(params.deltaMs) ? Number(params.deltaMs) : 16,
-    8,
-    MAX_MOVE_DELTA_MS
-  );
-  const distance = (PLAYER_SPEED * deltaMs) / 1000;
-  const nextX = player.position.x + (dx / magnitude) * distance;
-  const nextY = player.position.y + (dy / magnitude) * distance;
   player.position = {
-    x: clamp(nextX, -ROOM_WIDTH / 2 + PLAYER_MARGIN, ROOM_WIDTH / 2 - PLAYER_MARGIN),
-    y: clamp(nextY, -ROOM_HEIGHT / 2 + PLAYER_MARGIN, ROOM_HEIGHT / 2 - PLAYER_MARGIN),
+    x: clamp(
+      Number.isFinite(params.positionX) ? params.positionX : player.position.x,
+      -ROOM_WIDTH / 2 + PLAYER_MARGIN,
+      ROOM_WIDTH / 2 - PLAYER_MARGIN
+    ),
+    y: clamp(
+      Number.isFinite(params.positionY) ? params.positionY : player.position.y,
+      -ROOM_HEIGHT / 2 + PLAYER_MARGIN,
+      ROOM_HEIGHT / 2 - PLAYER_MARGIN
+    ),
   };
   const savedRoom = await saveOrDeleteRoom(room);
   if (!savedRoom) {
     throw new PlayRoomError("Unable to move player.");
   }
-  return { roomCode: savedRoom.roomCode };
+  return {
+    roomCode: savedRoom.roomCode,
+    positions: serializeRoomPositions(savedRoom),
+  };
 };
 
 export const readyPlayRoomPlayer = async (userId: string) => {

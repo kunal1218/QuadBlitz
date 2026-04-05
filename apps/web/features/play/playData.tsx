@@ -7,11 +7,11 @@ export const PLAY_CHARACTERS: Array<{
   label: string;
   detail: string;
 }> = [
-  { id: "rook", label: "Chess Rook", detail: "Tower cap" },
-  { id: "penguin", label: "Penguin", detail: "Beak + bow tie" },
-  { id: "businessman", label: "Businessman", detail: "Tie + briefcase" },
-  { id: "dog", label: "Dog", detail: "Ear + tail" },
-  { id: "mug", label: "Mug", detail: "Handle + steam" },
+  { id: "rook", label: "Chess Rook", detail: "Chunky tower" },
+  { id: "penguin", label: "Penguin", detail: "Round little waddler" },
+  { id: "businessman", label: "Businessman", detail: "Suit and briefcase" },
+  { id: "dog", label: "Dog", detail: "Floppy-ear pup" },
+  { id: "mug", label: "Mug", detail: "Steamy coffee cup" },
 ];
 
 export const getCharacterLabel = (characterId: PlayCharacterId | null) =>
@@ -24,166 +24,263 @@ type CharacterAvatarProps = {
 };
 
 const BODY_FILL = "#FFFFFF";
-const BODY_SHADE = "#E9EEF5";
-const OUTLINE = "#111111";
-const VISOR_FILL = "#CFEAFD";
-const VISOR_SHADE = "#8AAFC8";
-const SHADOW = "#C4CBD3";
+const SHADE_FILL = "#E9EEF5";
+const OUTLINE = "#121212";
+const FACE_FILL = "#D8EEF8";
+const FACE_SHADE = "#90B3C7";
+const FACE_HIGHLIGHT = "#FFFFFF";
+const SHADOW = "#C9D0D7";
+const ACCENT = "#F2B24B";
+const ACCENT_DARK = "#2E4258";
+const BLUSH = "#F6C5D0";
 
-const Accessory = ({ characterId }: { characterId: PlayCharacterId }) => {
-  switch (characterId) {
-    case "rook":
-      return (
-        <>
-          <path
-            d="M34 16h8v8h6v-8h8v8h6v-8h8v12H34Z"
-            fill={BODY_FILL}
-            stroke={OUTLINE}
-            strokeWidth="4"
-            strokeLinejoin="round"
-          />
-          <path d="M38 56h28" stroke={OUTLINE} strokeWidth="4" strokeLinecap="round" />
-        </>
-      );
-    case "penguin":
-      return (
-        <>
-          <path
-            d="M38 66 46 60 54 66 46 72Z"
-            fill={BODY_FILL}
-            stroke={OUTLINE}
-            strokeWidth="4"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M43 76h6l3 6h-12Z"
-            fill={BODY_FILL}
-            stroke={OUTLINE}
-            strokeWidth="4"
-            strokeLinejoin="round"
-          />
-        </>
-      );
-    case "businessman":
-      return (
-        <>
-          <path d="M46 56h10v26l-5-6-5 6Z" fill={BODY_FILL} stroke={OUTLINE} strokeWidth="4" strokeLinejoin="round" />
-          <path d="M26 76h12v12H26Z" fill={BODY_FILL} stroke={OUTLINE} strokeWidth="4" strokeLinejoin="round" />
-          <path d="M31 72v5" stroke={OUTLINE} strokeWidth="4" strokeLinecap="round" />
-          <path d="M35 72v5" stroke={OUTLINE} strokeWidth="4" strokeLinecap="round" />
-        </>
-      );
-    case "dog":
-      return (
-        <>
-          <path
-            d="M24 30c0-8 7-14 15-14h2v22h-6c-6 0-11-4-11-8Z"
-            fill={BODY_FILL}
-            stroke={OUTLINE}
-            strokeWidth="4"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M77 74c8 0 13 6 13 13"
-            fill="none"
-            stroke={OUTLINE}
-            strokeWidth="4"
-            strokeLinecap="round"
-          />
-          <circle cx="44" cy="67" r="2.5" fill={OUTLINE} />
-        </>
-      );
-    case "mug":
-      return (
-        <>
-          <path
-            d="M76 42h10c4 0 8 4 8 9v7c0 5-4 9-8 9H76"
-            fill="none"
-            stroke={OUTLINE}
-            strokeWidth="4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <path d="M42 12c0-6 8-6 8 0" fill="none" stroke={OUTLINE} strokeWidth="4" strokeLinecap="round" />
-          <path d="M54 10c0-6 8-6 8 0" fill="none" stroke={OUTLINE} strokeWidth="4" strokeLinecap="round" />
-        </>
-      );
-    default:
-      return null;
-  }
-};
-
-export const CharacterAvatar = ({
-  characterId,
-  size = 100,
-  className,
-}: CharacterAvatarProps) => (
-  <svg
-    viewBox="0 0 110 120"
-    width={size}
-    height={size}
-    aria-hidden="true"
-    className={className}
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <ellipse cx="54" cy="108" rx="34" ry="9" fill={SHADOW} />
-    <rect
-      x="28"
-      y="22"
-      width="46"
-      height="58"
-      rx="22"
-      fill={BODY_FILL}
-      stroke={OUTLINE}
-      strokeWidth="4"
-    />
-    <rect
-      x="75"
-      y="38"
-      width="13"
-      height="33"
-      rx="6.5"
-      fill={BODY_SHADE}
-      stroke={OUTLINE}
-      strokeWidth="4"
-    />
-    <rect
-      x="34"
-      y="74"
-      width="15"
-      height="28"
-      rx="7"
-      fill={BODY_FILL}
-      stroke={OUTLINE}
-      strokeWidth="4"
-    />
-    <rect
-      x="54"
-      y="74"
-      width="15"
-      height="28"
-      rx="7"
-      fill={BODY_FILL}
-      stroke={OUTLINE}
-      strokeWidth="4"
-    />
+const Face = ({
+  cx,
+  cy,
+  rx = 16,
+  ry = 12,
+}: {
+  cx: number;
+  cy: number;
+  rx?: number;
+  ry?: number;
+}) => (
+  <g>
+    <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill={FACE_FILL} stroke={OUTLINE} strokeWidth="3.2" />
     <path
-      d="M30 51c0-10 8-18 18-18h15c9 0 15 5 15 13 0 10-8 18-18 18H45c-9 0-15-5-15-13Z"
-      fill={VISOR_FILL}
+      d={`M${cx - rx * 0.55} ${cy - 2.5}c2.6-3.5 6.2-5.2 10.8-5.2h${Math.max(6, rx * 0.65)}c3.6 0 6.7 1 9.1 3.2`}
+      fill="none"
+      stroke={FACE_SHADE}
+      strokeWidth="2.8"
+      strokeLinecap="round"
+    />
+    <ellipse
+      cx={cx - rx * 0.35}
+      cy={cy - ry * 0.45}
+      rx={rx * 0.42}
+      ry={ry * 0.24}
+      fill={FACE_HIGHLIGHT}
+      opacity="0.95"
+    />
+  </g>
+);
+
+const SmileFace = ({ cx, cy }: { cx: number; cy: number }) => (
+  <g>
+    <circle cx={cx - 6} cy={cy - 1} r="2.3" fill={OUTLINE} />
+    <circle cx={cx + 6} cy={cy - 1} r="2.3" fill={OUTLINE} />
+    <path
+      d={`M${cx - 6} ${cy + 5}c2.6 3.1 6.1 4.7 10.5 4.7 4.3 0 7.8-1.6 10.4-4.7`}
+      fill="none"
+      stroke={OUTLINE}
+      strokeWidth="3"
+      strokeLinecap="round"
+    />
+    <circle cx={cx - 12} cy={cy + 3} r="2.6" fill={BLUSH} opacity="0.7" />
+    <circle cx={cx + 12} cy={cy + 3} r="2.6" fill={BLUSH} opacity="0.7" />
+  </g>
+);
+
+const RookCharacter = () => (
+  <>
+    <ellipse cx="60" cy="109" rx="31" ry="8" fill={SHADOW} />
+    <path
+      d="M31 34h58v44c0 12.7-10.3 23-23 23H54c-12.7 0-23-10.3-23-23V34Z"
+      fill={BODY_FILL}
       stroke={OUTLINE}
       strokeWidth="4"
       strokeLinejoin="round"
     />
     <path
-      d="M37 46c2-5 6-7 11-7h11c4 0 7 1 10 4-4-1-8-1-12-1H47c-4 0-7 1-10 4Z"
-      fill={VISOR_SHADE}
-      opacity="0.8"
+      d="M28 23h12v11h10V23h10v11h10V23h12v18H28Z"
+      fill={BODY_FILL}
+      stroke={OUTLINE}
+      strokeWidth="4"
+      strokeLinejoin="round"
+    />
+    <rect x="43" y="46" width="34" height="26" rx="12" fill={SHADE_FILL} stroke={OUTLINE} strokeWidth="3.2" />
+    <Face cx={60} cy={59} rx={15} ry={10.5} />
+    <rect x="38" y="95" width="16" height="12" rx="6" fill={BODY_FILL} stroke={OUTLINE} strokeWidth="4" />
+    <rect x="66" y="95" width="16" height="12" rx="6" fill={BODY_FILL} stroke={OUTLINE} strokeWidth="4" />
+  </>
+);
+
+const PenguinCharacter = () => (
+  <>
+    <ellipse cx="60" cy="109" rx="29" ry="8" fill={SHADOW} />
+    <path
+      d="M37 32c0-10.5 10.4-19 23-19s23 8.5 23 19v46c0 13.3-10.7 24-24 24H61c-13.3 0-24-10.7-24-24V32Z"
+      fill={BODY_FILL}
+      stroke={OUTLINE}
+      strokeWidth="4"
+      strokeLinejoin="round"
     />
     <path
-      d="M40 40h13c3 0 5 1 6 3H43c-2 0-3-1-3-3Z"
-      fill="#FFFFFF"
-      opacity="0.95"
+      d="M34 50c-6 1-10 6.6-10 13.5 0 6.4 3.4 11.2 9 13.1l5-17.7Z"
+      fill={SHADE_FILL}
+      stroke={OUTLINE}
+      strokeWidth="4"
+      strokeLinejoin="round"
     />
-    <Accessory characterId={characterId} />
-  </svg>
+    <path
+      d="M86 50c6 1 10 6.6 10 13.5 0 6.4-3.4 11.2-9 13.1l-5-17.7Z"
+      fill={SHADE_FILL}
+      stroke={OUTLINE}
+      strokeWidth="4"
+      strokeLinejoin="round"
+    />
+    <ellipse cx="60" cy="64" rx="18" ry="22" fill={SHADE_FILL} opacity="0.75" />
+    <Face cx={60} cy={41} rx={16} ry={11} />
+    <path
+      d="M54 54h12l-6 8Z"
+      fill={ACCENT}
+      stroke={OUTLINE}
+      strokeWidth="3"
+      strokeLinejoin="round"
+    />
+    <SmileFace cx={60} cy={71} />
+    <path d="M46 101h12l-4 7H42Z" fill={ACCENT} stroke={OUTLINE} strokeWidth="3" strokeLinejoin="round" />
+    <path d="M62 101h12l4 7H66Z" fill={ACCENT} stroke={OUTLINE} strokeWidth="3" strokeLinejoin="round" />
+  </>
 );
+
+const BusinessmanCharacter = () => (
+  <>
+    <ellipse cx="60" cy="109" rx="30" ry="8" fill={SHADOW} />
+    <circle cx="59" cy="28" r="17" fill={BODY_FILL} stroke={OUTLINE} strokeWidth="4" />
+    <path
+      d="M43 25c1-8 7.5-13 16-13 8.2 0 14.3 4.4 16 11.5-6-1.6-10.6-2.3-15.4-2.3-5 0-10.5 1.2-16.6 3.8Z"
+      fill={ACCENT_DARK}
+      stroke={OUTLINE}
+      strokeWidth="3.4"
+      strokeLinejoin="round"
+    />
+    <circle cx="53" cy="29" r="2.1" fill={OUTLINE} />
+    <circle cx="65" cy="29" r="2.1" fill={OUTLINE} />
+    <path
+      d="M52 36c1.9 2.4 4.3 3.6 7.1 3.6 2.9 0 5.2-1.2 7.1-3.6"
+      fill="none"
+      stroke={OUTLINE}
+      strokeWidth="3"
+      strokeLinecap="round"
+    />
+    <path
+      d="M37 44h44l8 13v26c0 10.5-8.5 19-19 19H56c-10.5 0-19-8.5-19-19V57Z"
+      fill={BODY_FILL}
+      stroke={OUTLINE}
+      strokeWidth="4"
+      strokeLinejoin="round"
+    />
+    <path d="M49 44 60 58 71 44" fill={SHADE_FILL} stroke={OUTLINE} strokeWidth="3.2" strokeLinejoin="round" />
+    <path d="M56 58h8l-4 20Z" fill="#5B7CFA" stroke={OUTLINE} strokeWidth="3" strokeLinejoin="round" />
+    <path d="M33 65h12v24H33Z" fill={BODY_FILL} stroke={OUTLINE} strokeWidth="4" strokeLinejoin="round" />
+    <path d="M37 61h4" stroke={OUTLINE} strokeWidth="3.4" strokeLinecap="round" />
+    <path d="M46 95h12v12H46Z" fill={BODY_FILL} stroke={OUTLINE} strokeWidth="4" strokeLinejoin="round" />
+    <path d="M62 95h12v12H62Z" fill={BODY_FILL} stroke={OUTLINE} strokeWidth="4" strokeLinejoin="round" />
+  </>
+);
+
+const DogCharacter = () => (
+  <>
+    <ellipse cx="60" cy="109" rx="31" ry="8" fill={SHADOW} />
+    <path
+      d="M39 40c0-13 9.8-22 22-22 11.7 0 21 8.6 21 22v19c0 11.6-9.4 21-21 21h-1c-11.6 0-21-9.4-21-21V40Z"
+      fill={BODY_FILL}
+      stroke={OUTLINE}
+      strokeWidth="4"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M37 31c-7 0-12 5.1-12 12 0 5.4 3.1 9.6 8 11.1l8-15.9C40 34 39 31 37 31Z"
+      fill={SHADE_FILL}
+      stroke={OUTLINE}
+      strokeWidth="4"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M83 31c7 0 12 5.1 12 12 0 5.4-3.1 9.6-8 11.1l-8-15.9c1-4.2 2-7.2 4-7.2Z"
+      fill={SHADE_FILL}
+      stroke={OUTLINE}
+      strokeWidth="4"
+      strokeLinejoin="round"
+    />
+    <ellipse cx="60" cy="62" rx="16" ry="14" fill={SHADE_FILL} stroke={OUTLINE} strokeWidth="3.2" />
+    <circle cx="54" cy="59" r="2.2" fill={OUTLINE} />
+    <circle cx="66" cy="59" r="2.2" fill={OUTLINE} />
+    <path d="M57 66c1.4 1.7 3 2.5 4.9 2.5 2 0 3.6-.8 5-2.5" fill="none" stroke={OUTLINE} strokeWidth="3" strokeLinecap="round" />
+    <circle cx="60" cy="63.5" r="2.8" fill={OUTLINE} />
+    <path
+      d="M84 76c8 0 13 6.2 13 13.5"
+      fill="none"
+      stroke={OUTLINE}
+      strokeWidth="4"
+      strokeLinecap="round"
+    />
+    <path d="M45 95h13v12H45Z" fill={BODY_FILL} stroke={OUTLINE} strokeWidth="4" strokeLinejoin="round" />
+    <path d="M61 95h13v12H61Z" fill={BODY_FILL} stroke={OUTLINE} strokeWidth="4" strokeLinejoin="round" />
+  </>
+);
+
+const MugCharacter = () => (
+  <>
+    <ellipse cx="60" cy="109" rx="31" ry="8" fill={SHADOW} />
+    <path
+      d="M34 30h48v44c0 15-10.7 27-24 27s-24-12-24-27V30Z"
+      fill={BODY_FILL}
+      stroke={OUTLINE}
+      strokeWidth="4"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M82 42h11c8 0 14 6.1 14 14s-6 14-14 14H82"
+      fill="none"
+      stroke={OUTLINE}
+      strokeWidth="4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path d="M46 17c0-7 8-7 8 0" fill="none" stroke={OUTLINE} strokeWidth="3.4" strokeLinecap="round" />
+    <path d="M58 14c0-7 8-7 8 0" fill="none" stroke={OUTLINE} strokeWidth="3.4" strokeLinecap="round" />
+    <path d="M70 17c0-7 8-7 8 0" fill="none" stroke={OUTLINE} strokeWidth="3.4" strokeLinecap="round" />
+    <Face cx={58} cy={52} rx={16} ry={11} />
+    <SmileFace cx={58} cy={72} />
+    <rect x="44" y="95" width="12" height="12" rx="6" fill={BODY_FILL} stroke={OUTLINE} strokeWidth="4" />
+    <rect x="62" y="95" width="12" height="12" rx="6" fill={BODY_FILL} stroke={OUTLINE} strokeWidth="4" />
+  </>
+);
+
+export const CharacterAvatar = ({
+  characterId,
+  size = 100,
+  className,
+}: CharacterAvatarProps) => {
+  const renderCharacter = () => {
+    switch (characterId) {
+      case "rook":
+        return <RookCharacter />;
+      case "penguin":
+        return <PenguinCharacter />;
+      case "businessman":
+        return <BusinessmanCharacter />;
+      case "dog":
+        return <DogCharacter />;
+      case "mug":
+        return <MugCharacter />;
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <svg
+      viewBox="0 0 120 120"
+      width={size}
+      height={size}
+      aria-hidden="true"
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {renderCharacter()}
+    </svg>
+  );
+};

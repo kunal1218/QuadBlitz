@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { connectSocket, disconnectSocket, socket } from "@/lib/socket";
-import type { PlayCharacterId, PlayRoomState } from "./types";
+import type { PlayCharacterId, PlayRoomPositionsState, PlayRoomState } from "./types";
 
 type BusyAction = "create" | "join" | "leave" | "select" | "ready" | null;
 
@@ -55,6 +55,30 @@ export const usePlayRoom = ({
       setError(null);
       setRoomState(payload?.state ?? null);
     };
+    const handlePositions = (payload?: { positions?: PlayRoomPositionsState | null }) => {
+      const positions = payload?.positions;
+      if (!positions) {
+        return;
+      }
+      setRoomState((current) => {
+        if (!current || current.roomCode !== positions.roomCode) {
+          return current;
+        }
+        return {
+          ...current,
+          players: current.players.map((player) => {
+            const snapshot = positions.players.find((entry) => entry.userId === player.userId);
+            if (!snapshot) {
+              return player;
+            }
+            return {
+              ...player,
+              position: snapshot.position,
+            };
+          }),
+        };
+      });
+    };
     const handleError = (payload?: { error?: string }) => {
       setBusyAction(null);
       setError(payload?.error ?? "Unable to sync the play room.");
@@ -69,6 +93,7 @@ export const usePlayRoom = ({
     socket.on("disconnect", handleDisconnect);
     socket.on("connect_error", handleConnectError);
     socket.on("playroom:state", handleState);
+    socket.on("playroom:positions", handlePositions);
     socket.on("playroom:error", handleError);
 
     if (socket.connected) {
@@ -80,6 +105,7 @@ export const usePlayRoom = ({
       socket.off("disconnect", handleDisconnect);
       socket.off("connect_error", handleConnectError);
       socket.off("playroom:state", handleState);
+      socket.off("playroom:positions", handlePositions);
       socket.off("playroom:error", handleError);
       disconnectSocket();
     };
@@ -139,14 +165,13 @@ export const usePlayRoom = ({
   );
 
   const movePlayer = useCallback(
-    (directionX: number, directionY: number, deltaMs: number) => {
+    (positionX: number, positionY: number) => {
       if (!socket.connected) {
         return;
       }
       socket.emit("playroom:move", {
-        directionX,
-        directionY,
-        deltaMs,
+        positionX,
+        positionY,
       });
     },
     []

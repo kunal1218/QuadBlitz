@@ -58,3 +58,11 @@ export type PlayRoomState = {
   players: PlayRoomPlayerState[];
   selectedTask: PlayTaskPayload | null;
 };
+
+export type PlayRoomPositionsState = {
+  roomCode: string;
+  players: Array<{
+    userId: string;
+    position: PlayVector2;
+  }>;
+};

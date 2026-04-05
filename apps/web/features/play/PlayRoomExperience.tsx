@@ -383,7 +383,7 @@ const JudgeSubmissionModal = ({
   }
 
   const verdictTone =
-    verdict?.decision === "approved"
+    verdict?.decision === "pass"
       ? {
           border: "border-[#bfe8c6]",
           background: "bg-[#effdf2]",
@@ -453,7 +453,7 @@ const JudgeSubmissionModal = ({
                 </div>
               </div>
               <div className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${verdictTone.accent} ${verdictTone.background}`}>
-                {verdict.decision === "approved" ? "Approved" : "Retry"} · {verdict.score}/10
+                {verdict.decision === "pass" ? "Pass" : "Fail"}
               </div>
             </div>
             <p className="mt-3 text-sm leading-6 text-[#445066]">{verdict.feedback}</p>

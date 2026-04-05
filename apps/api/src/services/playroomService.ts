@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { getRedis } from "../db/redis";
 import {
   judgePlayTaskSubmission,
+  normalizePlayJudgeVerdict,
   type PlayJudgeVerdict,
 } from "./geminiJudgeService";
 
@@ -227,7 +228,7 @@ const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
 const cloneTask = (task: PlayTaskPayload) => ({ ...task });
-const cloneJudgeVerdict = (verdict: PlayJudgeVerdict) => ({ ...verdict });
+const cloneJudgeVerdict = (verdict: unknown) => normalizePlayJudgeVerdict(verdict);
 const emptyTaskSubmission = () => ({
   taskSubmissionText: null,
   taskSubmittedAt: null,

@@ -1,10 +1,9 @@
 type PlayTaskCategory = "weekly" | "daily";
 
-export type PlayJudgeDecision = "approved" | "retry";
+export type PlayJudgeDecision = "pass" | "fail";
 
 export type PlayJudgeVerdict = {
   decision: PlayJudgeDecision;
-  score: number;
   summary: string;
   feedback: string;
   judgedAt: string;
@@ -14,18 +13,26 @@ export type PlayJudgeVerdict = {
 const DEFAULT_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-3-flash-preview";
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${DEFAULT_MODEL}:generateContent`;
 
-const clamp = (value: number, min: number, max: number) =>
-  Math.min(max, Math.max(min, value));
-
-const normalizeDecision = (value: unknown): PlayJudgeDecision =>
-  typeof value === "string" && value.toLowerCase() === "approved" ? "approved" : "retry";
+const normalizeDecision = (value: unknown): PlayJudgeDecision => {
+  if (typeof value !== "string") {
+    return "fail";
+  }
+  const normalized = value.trim().toLowerCase();
+  return normalized === "pass" ||
+    normalized === "approved" ||
+    normalized === "approve" ||
+    normalized === "accepted" ||
+    normalized === "accept"
+    ? "pass"
+    : "fail";
+};
 
 const normalizeSummary = (value: unknown, decision: PlayJudgeDecision) => {
   const text = typeof value === "string" ? value.trim() : "";
   if (text) {
     return text.slice(0, 60);
   }
-  return decision === "approved" ? "Submission accepted" : "Needs another pass";
+  return decision === "pass" ? "Evidence accepted" : "Insufficient evidence";
 };
 
 const normalizeFeedback = (value: unknown, decision: PlayJudgeDecision) => {
@@ -33,9 +40,9 @@ const normalizeFeedback = (value: unknown, decision: PlayJudgeDecision) => {
   if (text) {
     return text.slice(0, 260);
   }
-  return decision === "approved"
-    ? "Judge accepted the submission as a plausible completion of the task."
-    : "Judge wants a clearer submission that directly completes the task.";
+  return decision === "pass"
+    ? "Judge accepted the submission as evidence that the task was completed."
+    : "Judge needs clearer evidence that the submitted item completes the task.";
 };
 
 const extractCandidateText = (payload: unknown) => {
@@ -62,11 +69,36 @@ const extractJsonBlock = (value: string) => {
   return trimmed;
 };
 
-const buildFallbackVerdict = (rawText: string, judgedAt: string): PlayJudgeVerdict => {
-  const decision = /approved|accept|pass/i.test(rawText) ? "approved" : "retry";
+export const normalizePlayJudgeVerdict = (value: unknown): PlayJudgeVerdict | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const verdict = value as {
+    decision?: unknown;
+    summary?: unknown;
+    feedback?: unknown;
+    judgedAt?: unknown;
+    model?: unknown;
+  };
+  const decision = normalizeDecision(verdict.decision);
+
   return {
     decision,
-    score: decision === "approved" ? 7 : 5,
+    summary: normalizeSummary(verdict.summary, decision),
+    feedback: normalizeFeedback(verdict.feedback, decision),
+    judgedAt:
+      typeof verdict.judgedAt === "string" && verdict.judgedAt.trim()
+        ? verdict.judgedAt
+        : new Date().toISOString(),
+    model: typeof verdict.model === "string" && verdict.model.trim() ? verdict.model : DEFAULT_MODEL,
+  };
+};
+
+const buildFallbackVerdict = (rawText: string, judgedAt: string): PlayJudgeVerdict => {
+  const decision = /approved|accept|pass/i.test(rawText) ? "pass" : "fail";
+  return {
+    decision,
     summary: normalizeSummary("", decision),
     feedback: normalizeFeedback(rawText, decision),
     judgedAt,
@@ -104,11 +136,10 @@ export const judgePlayTaskSubmission = async (params: {
             {
               text:
                 "You are Judge Quill, a concise and fair party-game judge. " +
-                "Evaluate whether the player's submission plausibly completes the assigned task. " +
+                "Evaluate only whether the player's submission is evidence that the assigned task was completed. " +
                 "Be lightly playful, but prioritize clarity over jokes. " +
-                'Return only valid JSON with keys: decision, score, summary, feedback. ' +
-                'decision must be either "approved" or "retry". ' +
-                "score must be an integer from 1 to 10. " +
+                'Return only valid JSON with keys: decision, summary, feedback. ' +
+                'decision must be either "pass" or "fail". ' +
                 "summary must be a short title. " +
                 "feedback must be one or two short sentences.",
             },
@@ -125,8 +156,9 @@ export const judgePlayTaskSubmission = async (params: {
                   `Character: ${params.characterLabel}\n` +
                   `Submission:\n${params.submission}\n\n` +
                   "Judge the submission only from the text provided. " +
-                  "If it clearly or plausibly completes the task, approve it. " +
-                  "If it is too vague, missing, or obviously unrelated, ask for a retry.",
+                  "Pass it only if the submission provides plausible evidence that the task was completed. " +
+                  "Fail it if the evidence is too vague, missing, or clearly unrelated. " +
+                  "Do not score, rank, or rate the submission.",
               },
             ],
           },
@@ -156,24 +188,16 @@ export const judgePlayTaskSubmission = async (params: {
     try {
       const parsed = JSON.parse(extractJsonBlock(rawText)) as {
         decision?: unknown;
-        score?: unknown;
         summary?: unknown;
         feedback?: unknown;
       };
-      const decision = normalizeDecision(parsed.decision);
-      const numericScore =
-        typeof parsed.score === "number"
-          ? parsed.score
-          : Number.parseInt(String(parsed.score ?? ""), 10);
-
-      return {
-        decision,
-        score: clamp(Number.isFinite(numericScore) ? numericScore : decision === "approved" ? 8 : 5, 1, 10),
-        summary: normalizeSummary(parsed.summary, decision),
-        feedback: normalizeFeedback(parsed.feedback, decision),
+      return normalizePlayJudgeVerdict({
+        decision: parsed.decision,
+        summary: parsed.summary,
+        feedback: parsed.feedback,
         judgedAt,
         model: DEFAULT_MODEL,
-      };
+      }) as PlayJudgeVerdict;
     } catch {
       return buildFallbackVerdict(rawText, judgedAt);
     }

@@ -21,11 +21,10 @@ export type PlayTaskPayload = {
   placeholderLabel?: string;
 };
 
-export type PlayJudgeDecision = "approved" | "retry";
+export type PlayJudgeDecision = "pass" | "fail";
 
 export type PlayJudgeVerdict = {
   decision: PlayJudgeDecision;
-  score: number;
   summary: string;
   feedback: string;
   judgedAt: string;

@@ -31,11 +31,11 @@ const StatusBanner = ({
   error: string;
   onDismiss: () => void;
 }) => (
-  <div className="mx-auto mb-4 flex w-full max-w-3xl items-start justify-between gap-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 shadow-sm">
+  <div className="mx-auto mb-4 flex w-full max-w-3xl items-start justify-between gap-4 rounded-[24px] border border-[#ffd3d3] bg-[linear-gradient(180deg,#fff6f6_0%,#fff1f1_100%)] px-5 py-4 text-sm text-[#a43f3f] shadow-[0_18px_40px_rgba(223,76,76,0.08)]">
     <span>{error}</span>
     <button
       type="button"
-      className="font-semibold text-rose-500 transition hover:text-rose-700"
+      className="font-semibold text-[#dc5b5b] transition hover:text-[#b53f3f]"
       onClick={onDismiss}
       aria-label="Dismiss play room error"
     >
@@ -64,16 +64,16 @@ const EntryCard = ({
   const buttonLabel = inviteRoomCode ? "Join Room" : "Create Room";
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-9rem)] max-w-5xl items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md rounded-[28px] border border-black/10 bg-white p-8 shadow-[0_30px_80px_rgba(17,17,17,0.08)]">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-black/45">
+    <div className="mx-auto flex min-h-[calc(100dvh-10rem)] max-w-5xl items-center justify-center px-4 py-12">
+      <div className="w-full max-w-md rounded-[32px] border border-[#dbe5ff] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(245,248,255,0.98)_100%)] p-8 shadow-[0_26px_70px_rgba(20,86,244,0.12)]">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#5d73b3]">
           Quadblitz Play
         </p>
-        <h1 className="mt-3 font-[family-name:var(--font-display)] text-3xl font-semibold text-black">
+        <h1 className="mt-3 font-[family-name:var(--font-display)] text-3xl font-semibold tracking-[-0.04em] text-[#1f2430]">
           {heading}
         </h1>
-        <p className="mt-3 text-sm leading-6 text-black/60">{description}</p>
-        <div className="mt-8 rounded-2xl border border-dashed border-black/12 bg-black/[0.02] px-4 py-3 text-xs uppercase tracking-[0.18em] text-black/45">
+        <p className="mt-3 text-sm leading-6 text-[#687287]">{description}</p>
+        <div className="mt-8 rounded-[22px] border border-[#dbe5ff] bg-[#f5f8ff] px-4 py-3 text-xs uppercase tracking-[0.18em] text-[#5970af]">
           {isAuthenticated
             ? isConnected
               ? "Realtime connected"
@@ -81,7 +81,7 @@ const EntryCard = ({
             : "Sign in required"}
         </div>
         <Button
-          className="mt-6 w-full justify-center rounded-2xl bg-black px-5 py-3.5 text-sm font-semibold text-white shadow-none hover:translate-y-0 hover:bg-black/90"
+          className="mt-6 w-full justify-center rounded-full bg-[#1756f5] px-5 py-3.5 text-sm font-semibold uppercase tracking-[0.16em] text-white shadow-[0_16px_30px_rgba(23,86,245,0.22)] hover:translate-y-0 hover:bg-[#0f49e2]"
           requiresAuth
           authMode={inviteRoomCode ? "login" : "signup"}
           disabled={isBusy}
@@ -108,19 +108,19 @@ const RoomShell = ({
   onLeave: () => void;
 }) => (
   <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-8">
-    <div className="flex flex-col gap-4 rounded-[28px] border border-black/10 bg-white p-6 shadow-[0_24px_80px_rgba(17,17,17,0.06)] sm:flex-row sm:items-end sm:justify-between">
+    <div className="flex flex-col gap-4 rounded-[30px] border border-[#dbe5ff] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(245,248,255,0.98)_100%)] p-6 shadow-[0_24px_72px_rgba(20,86,244,0.1)] sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-black/45">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#5d73b3]">
           Room {roomCode}
         </p>
-        <h1 className="mt-2 font-[family-name:var(--font-display)] text-3xl font-semibold text-black">
+        <h1 className="mt-2 font-[family-name:var(--font-display)] text-3xl font-semibold tracking-[-0.04em] text-[#1f2430]">
           {title}
         </h1>
-        <p className="mt-2 text-sm text-black/60">{subtitle}</p>
+        <p className="mt-2 text-sm text-[#687287]">{subtitle}</p>
       </div>
       <Button
         variant="outline"
-        className="rounded-2xl border-black/10 px-4 py-2.5 text-black hover:border-black/20"
+        className="rounded-full border-[#d0ddff] bg-white px-5 py-3 text-[#1456f4] shadow-none hover:border-[#b8cbff] hover:bg-[#f5f8ff]"
         onClick={onLeave}
       >
         Leave Room
@@ -144,53 +144,53 @@ const LobbyPanel = ({
 
   return (
     <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
-      <section className="rounded-[28px] border border-black/10 bg-white p-6 shadow-[0_16px_48px_rgba(17,17,17,0.06)]">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-black/45">
+      <section className="rounded-[30px] border border-[#dbe5ff] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(245,248,255,0.98)_100%)] p-6 shadow-[0_18px_56px_rgba(20,86,244,0.1)]">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#5d73b3]">
           Lobby
         </p>
-        <h2 className="mt-3 text-2xl font-semibold text-black">
+        <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[#1f2430]">
           {playersNeeded > 0
             ? `Waiting for ${playersNeeded} more player${playersNeeded === 1 ? "" : "s"}`
             : "Moving into character select"}
         </h2>
-        <p className="mt-2 text-sm text-black/60">
+        <p className="mt-2 text-sm text-[#687287]">
           {host ? `${host.name} is hosting.` : "A host is assigned automatically."} Share the
           invite link so at least two players can enter.
         </p>
-        <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-black/10 bg-black/[0.02] p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-6 flex flex-col gap-3 rounded-[24px] border border-[#dbe5ff] bg-[#edf3ff] p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-black/45">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#5d73b3]">
               Invite code
             </div>
-            <div className="mt-2 font-[family-name:var(--font-display)] text-3xl font-semibold tracking-[0.18em] text-black">
+            <div className="mt-2 font-[family-name:var(--font-display)] text-3xl font-semibold tracking-[0.18em] text-[#1456f4]">
               {roomState.roomCode}
             </div>
           </div>
           <Button
-            className="rounded-2xl bg-black px-4 py-2.5 text-white shadow-none hover:translate-y-0 hover:bg-black/90"
+            className="rounded-full bg-[#1756f5] px-5 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-white shadow-[0_14px_28px_rgba(23,86,245,0.2)] hover:translate-y-0 hover:bg-[#0f49e2]"
             onClick={onCopyInvite}
           >
             {copied ? "Invite Copied" : "Copy Invite Link"}
           </Button>
         </div>
       </section>
-      <section className="rounded-[28px] border border-black/10 bg-white p-6 shadow-[0_16px_48px_rgba(17,17,17,0.06)]">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-black/45">
+      <section className="rounded-[30px] border border-[#dbe5ff] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(245,248,255,0.98)_100%)] p-6 shadow-[0_18px_56px_rgba(20,86,244,0.1)]">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#5d73b3]">
           Players
         </p>
         <div className="mt-4 space-y-3">
           {roomState.players.map((player) => (
             <div
               key={player.userId}
-              className="flex items-center justify-between rounded-2xl border border-black/8 bg-black/[0.02] px-4 py-3"
+              className="flex items-center justify-between rounded-[22px] border border-[#dbe5ff] bg-white px-4 py-3 shadow-[0_10px_24px_rgba(20,86,244,0.06)]"
             >
               <div>
-                <div className="text-sm font-semibold text-black">
+                <div className="text-sm font-semibold text-[#1f2430]">
                   {player.name} {player.isHost ? "• Host" : ""}
                 </div>
-                <div className="mt-1 text-xs text-black/50">{formatHandle(player.handle)}</div>
+                <div className="mt-1 text-xs text-[#7c869a]">{formatHandle(player.handle)}</div>
               </div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-black/40">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#5d73b3]">
                 Waiting
               </div>
             </div>
@@ -217,19 +217,19 @@ const CharacterSelectPanel = ({
 
   return (
     <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
-      <section className="rounded-[28px] border border-black/10 bg-white p-6 shadow-[0_16px_48px_rgba(17,17,17,0.06)]">
+      <section className="rounded-[30px] border border-[#dbe5ff] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(245,248,255,0.98)_100%)] p-6 shadow-[0_18px_56px_rgba(20,86,244,0.1)]">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-black/45">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#5d73b3]">
               Character Select
             </p>
-            <h2 className="mt-2 text-2xl font-semibold text-black">
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#1f2430]">
               {me?.selectedCharacter
                 ? `Locked in as ${getCharacterLabel(me.selectedCharacter)}`
                 : "Pick one character"}
             </h2>
           </div>
-          <div className="text-sm text-black/55">
+          <div className="text-sm text-[#687287]">
             {everyoneLocked
               ? "All players are locked in."
               : "Selections are unique and lock immediately."}
@@ -251,8 +251,8 @@ const CharacterSelectPanel = ({
                 onClick={() => onLockCharacter(character.id)}
                 className={`group flex flex-col items-center rounded-[24px] border px-4 py-5 text-center transition ${
                   isMine
-                    ? "border-black bg-black text-white shadow-[0_16px_40px_rgba(17,17,17,0.16)]"
-                    : "border-black/10 bg-white text-black hover:-translate-y-0.5 hover:border-black/20"
+                    ? "border-[#1456f4] bg-[#1456f4] text-white shadow-[0_18px_36px_rgba(20,86,244,0.24)]"
+                    : "border-[#dbe5ff] bg-white text-[#1f2430] shadow-[0_10px_24px_rgba(20,86,244,0.06)] hover:-translate-y-0.5 hover:border-[#b8cbff] hover:bg-[#f9fbff]"
                 } ${isTaken || isLocked ? "cursor-not-allowed opacity-70" : ""}`}
               >
                 <CharacterAvatar
@@ -261,7 +261,7 @@ const CharacterSelectPanel = ({
                   className={isMine ? "drop-shadow-[0_8px_18px_rgba(255,255,255,0.18)]" : ""}
                 />
                 <div className="mt-3 text-sm font-semibold">{character.label}</div>
-                <div className={`mt-1 text-xs ${isMine ? "text-white/70" : "text-black/50"}`}>
+                <div className={`mt-1 text-xs ${isMine ? "text-white/78" : "text-[#7c869a]"}`}>
                   {isMine
                     ? "Locked In"
                     : isTaken
@@ -273,23 +273,23 @@ const CharacterSelectPanel = ({
           })}
         </div>
       </section>
-      <section className="rounded-[28px] border border-black/10 bg-white p-6 shadow-[0_16px_48px_rgba(17,17,17,0.06)]">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-black/45">
+      <section className="rounded-[30px] border border-[#dbe5ff] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(245,248,255,0.98)_100%)] p-6 shadow-[0_18px_56px_rgba(20,86,244,0.1)]">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#5d73b3]">
           Team Status
         </p>
         <div className="mt-4 space-y-3">
           {roomState.players.map((player) => (
             <div
               key={player.userId}
-              className="rounded-2xl border border-black/8 bg-black/[0.02] px-4 py-3"
+              className="rounded-[22px] border border-[#dbe5ff] bg-white px-4 py-3 shadow-[0_10px_24px_rgba(20,86,244,0.06)]"
             >
               <div className="flex items-center justify-between gap-3">
-                <div className="text-sm font-semibold text-black">{player.name}</div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-black/45">
+                <div className="text-sm font-semibold text-[#1f2430]">{player.name}</div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#5d73b3]">
                   {player.selectedCharacter ? "Ready" : "Choosing"}
                 </div>
               </div>
-              <div className="mt-2 text-xs text-black/55">
+              <div className="mt-2 text-xs text-[#7c869a]">
                 {player.selectedCharacter
                   ? getCharacterLabel(player.selectedCharacter)
                   : "No character locked yet"}
@@ -313,22 +313,22 @@ const TaskEnvelope = ({ task }: { task: PlayRoomState["selectedTask"] }) => {
     <div className="pointer-events-none absolute right-4 top-4 z-20 w-[min(92vw,340px)]">
       <button
         type="button"
-        className="pointer-events-auto relative ml-auto block w-full rounded-[28px] border border-black/10 bg-white/96 px-5 py-5 text-left shadow-[0_24px_60px_rgba(17,17,17,0.18)] backdrop-blur"
+        className="pointer-events-auto relative ml-auto block w-full rounded-[30px] border border-[#dbe5ff] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(245,248,255,0.98)_100%)] px-5 py-5 text-left shadow-[0_24px_60px_rgba(20,86,244,0.16)] backdrop-blur"
         onClick={() => setIsOpen((current) => !current)}
       >
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.3em] text-black/45">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#5d73b3]">
               Envelope
             </div>
-            <div className="mt-1 text-lg font-semibold text-black">
+            <div className="mt-1 text-lg font-semibold tracking-[-0.03em] text-[#1f2430]">
               {isOpen ? "Task revealed" : "Open your task"}
             </div>
           </div>
-          <div className="relative h-14 w-20 rounded-2xl border-2 border-black bg-white">
-            <div className="absolute inset-x-0 top-0 h-1/2 border-b-2 border-black" />
-            <div className="absolute left-0 right-0 top-[10px] mx-auto h-8 w-12 -rotate-45 border-l-2 border-t-2 border-black" />
-            <div className="absolute left-0 right-0 top-[10px] mx-auto h-8 w-12 rotate-45 border-r-2 border-t-2 border-black" />
+          <div className="relative h-14 w-20 rounded-2xl border-2 border-[#1456f4] bg-white">
+            <div className="absolute inset-x-0 top-0 h-1/2 border-b-2 border-[#1456f4]" />
+            <div className="absolute left-0 right-0 top-[10px] mx-auto h-8 w-12 -rotate-45 border-l-2 border-t-2 border-[#1456f4]" />
+            <div className="absolute left-0 right-0 top-[10px] mx-auto h-8 w-12 rotate-45 border-r-2 border-t-2 border-[#1456f4]" />
           </div>
         </div>
         <div
@@ -336,13 +336,13 @@ const TaskEnvelope = ({ task }: { task: PlayRoomState["selectedTask"] }) => {
             isOpen ? "max-h-[420px] pt-5 opacity-100" : "max-h-0 pt-0 opacity-0"
           }`}
         >
-          <div className="rounded-[22px] border border-black/10 bg-[#FFF9E9] px-4 py-4 shadow-[0_14px_36px_rgba(17,17,17,0.08)]">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-black/45">
+          <div className="rounded-[24px] border border-[#dbe5ff] bg-[#f5f8ff] px-4 py-4 shadow-[0_14px_36px_rgba(20,86,244,0.08)]">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#5d73b3]">
               {task.category}
             </div>
-            <p className="mt-3 text-sm leading-6 text-black">{task.text}</p>
+            <p className="mt-3 text-sm leading-6 text-[#1f2430]">{task.text}</p>
             {task.hasPlaceholderSlot ? (
-              <div className="mt-4 rounded-2xl border border-dashed border-black/20 bg-white/75 px-4 py-6 text-center text-xs uppercase tracking-[0.22em] text-black/45">
+              <div className="mt-4 rounded-[22px] border border-dashed border-[#bfd0ff] bg-white px-4 py-6 text-center text-xs uppercase tracking-[0.22em] text-[#5d73b3]">
                 {task.placeholderLabel ?? "Placeholder slot"}
               </div>
             ) : null}
@@ -552,7 +552,7 @@ const SharedRoomPanel = ({
       pedestal.interactionRadius;
 
   return (
-    <section className="relative h-[calc(100dvh-88px)] min-h-[620px] w-full overflow-hidden bg-white">
+    <section className="relative h-full min-h-0 w-full overflow-hidden bg-white">
       <style jsx>{`
         @keyframes play-room-rock {
           0% {
@@ -566,12 +566,13 @@ const SharedRoomPanel = ({
           }
         }
       `}</style>
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.98),_rgba(241,244,248,0.96)_38%,_rgba(229,234,240,1)_100%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.98),_rgba(239,245,255,0.98)_34%,_rgba(232,239,250,1)_100%)]" />
+      <div className="absolute inset-x-0 top-0 h-[22%] bg-[radial-gradient(circle_at_20%_0%,rgba(20,86,244,0.11),transparent_58%),radial-gradient(circle_at_85%_8%,rgba(20,86,244,0.08),transparent_48%)]" />
       <div
-        className="absolute inset-0 opacity-45"
+        className="absolute inset-0 opacity-50"
         style={{
           backgroundImage:
-            "linear-gradient(rgba(17,17,17,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(17,17,17,0.045) 1px, transparent 1px)",
+            "linear-gradient(rgba(20,86,244,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(20,86,244,0.05) 1px, transparent 1px)",
           backgroundSize: "56px 56px",
         }}
       />
@@ -581,20 +582,20 @@ const SharedRoomPanel = ({
         task={roomState.phase === "task_reveal" ? roomState.selectedTask : null}
       />
 
-      <div className="absolute left-5 top-5 z-20 rounded-full border border-black/10 bg-white/92 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-black/50 shadow-sm backdrop-blur">
+      <div className="absolute left-5 top-5 z-20 rounded-full border border-[#dbe5ff] bg-white/94 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#5d73b3] shadow-[0_12px_30px_rgba(20,86,244,0.1)] backdrop-blur">
         Room {roomState.roomCode}
       </div>
 
       {showRoomState ? (
-        <section className="absolute left-5 top-20 z-20 w-[min(340px,calc(100vw-2.5rem))] rounded-[28px] border border-black/10 bg-white/94 p-5 shadow-[0_24px_60px_rgba(17,17,17,0.12)] backdrop-blur">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-black/45">
+        <section className="absolute left-5 top-20 z-20 w-[min(360px,calc(100vw-2.5rem))] rounded-[30px] border border-[#dbe5ff] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(245,248,255,0.96)_100%)] p-5 shadow-[0_24px_60px_rgba(20,86,244,0.16)] backdrop-blur">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#5d73b3]">
             Room State
           </p>
-          <div className="mt-4 rounded-2xl border border-black/8 bg-black/[0.02] px-4 py-4">
-            <div className="text-sm font-semibold text-black">
+          <div className="mt-4 rounded-[22px] border border-[#dbe5ff] bg-[#eef4ff] px-4 py-4">
+            <div className="text-sm font-semibold text-[#1f2430]">
               {roomState.phase === "task_reveal" ? "Envelope unlocked" : "Pedestal ready check"}
             </div>
-            <div className="mt-2 text-sm text-black/55">
+            <div className="mt-2 text-sm text-[#687287]">
               {readyCount}/{roomState.players.length} player{roomState.players.length === 1 ? "" : "s"} ready.
             </div>
           </div>
@@ -602,16 +603,16 @@ const SharedRoomPanel = ({
             {roomState.players.map((player) => (
               <div
                 key={player.userId}
-                className="rounded-2xl border border-black/8 bg-black/[0.02] px-4 py-3"
+                className="rounded-[22px] border border-[#dbe5ff] bg-white px-4 py-3 shadow-[0_8px_20px_rgba(20,86,244,0.05)]"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-sm font-semibold text-black">{player.name}</div>
-                    <div className="mt-1 text-xs text-black/55">
+                    <div className="text-sm font-semibold text-[#1f2430]">{player.name}</div>
+                    <div className="mt-1 text-xs text-[#7c869a]">
                       {getCharacterLabel(player.selectedCharacter)}
                     </div>
                   </div>
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-black/45">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#5d73b3]">
                     {player.isReadyAtPedestal ? "Ready" : "Moving"}
                   </div>
                 </div>
@@ -626,28 +627,28 @@ const SharedRoomPanel = ({
           type="button"
           disabled={!isNearPedestal || hasReadied}
           onClick={onReady}
-          className={`rounded-full border px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.24em] shadow-sm transition ${
+          className={`rounded-full border px-6 py-3 text-[11px] font-semibold uppercase tracking-[0.24em] shadow-[0_16px_32px_rgba(20,86,244,0.14)] transition ${
             hasReadied
-              ? "border-black bg-[#39D353] text-black"
+              ? "border-[#1d3b14] bg-[#39D353] text-[#10240d]"
               : isNearPedestal
-                ? "border-black bg-[#F04C4C] text-white"
-                : "border-black/10 bg-[#F7B1B1] text-black/45"
+                ? "border-[#7a1e1e] bg-[#f04c4c] text-white"
+                : "border-[#f4cccc] bg-[#ffd9d9] text-[#a86666]"
           }`}
         >
           {hasReadied ? "Ready Locked" : "Press Ready"}
         </button>
-        <div className="rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-black/45 backdrop-blur">
+        <div className="rounded-full border border-[#dbe5ff] bg-white/90 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#5d73b3] shadow-[0_10px_24px_rgba(20,86,244,0.08)] backdrop-blur">
           Walk in and press E or click
         </div>
       </div>
 
       <div
-        className="absolute left-1/2 top-1/2 z-0 h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full border border-black/10 bg-white shadow-[0_16px_36px_rgba(17,17,17,0.12)]"
+        className="absolute left-1/2 top-1/2 z-0 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#dbe5ff] bg-[radial-gradient(circle_at_top,#ffffff_0%,#f5f8ff_100%)] shadow-[0_20px_48px_rgba(20,86,244,0.12)]"
       >
         <div
-          className={`absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-black transition-colors ${
+          className={`absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 transition-colors ${
             hasReadied ? "bg-[#39D353]" : "bg-[#F04C4C]"
-          }`}
+          } ${hasReadied ? "border-[#1d3b14]" : "border-[#7a1e1e]"}`}
         />
       </div>
 
@@ -679,7 +680,7 @@ const SharedRoomPanel = ({
                 />
               </div>
             ) : null}
-            <div className="mt-1 rounded-full border border-black/10 bg-white/92 px-3 py-1 text-[11px] font-semibold text-black shadow-sm">
+            <div className="mt-1 rounded-full border border-[#dbe5ff] bg-white/94 px-3 py-1 text-[11px] font-semibold text-[#1f2430] shadow-[0_10px_24px_rgba(20,86,244,0.08)]">
               {player.name}
               {player.isReadyAtPedestal ? " • Ready" : ""}
             </div>
@@ -690,15 +691,15 @@ const SharedRoomPanel = ({
       <button
         type="button"
         onClick={onLeave}
-        className="absolute bottom-5 left-5 z-20 flex items-center gap-3 rounded-full border border-black/10 bg-white/94 px-3 py-3 text-sm font-semibold text-black shadow-[0_18px_36px_rgba(17,17,17,0.12)] backdrop-blur transition hover:border-black/20"
+        className="absolute bottom-5 left-5 z-20 flex items-center gap-3 rounded-full border border-[#dbe5ff] bg-white/96 px-3 py-3 text-sm font-semibold text-[#1f2430] shadow-[0_18px_36px_rgba(20,86,244,0.12)] backdrop-blur transition hover:border-[#bfd0ff] hover:bg-[#f9fbff]"
       >
-        <span className="flex h-8 w-8 items-center justify-center rounded-full border border-black/10 bg-black text-xl leading-none text-white">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[#ffd7d7] bg-[#fff1f1] text-xl leading-none text-[#d14c4c]">
           ×
         </span>
         <span className="pr-2">Leave Room</span>
       </button>
 
-      <div className="absolute bottom-5 right-5 z-20 rounded-full border border-black/10 bg-white/82 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-black/45 shadow-sm backdrop-blur">
+      <div className="absolute bottom-5 right-5 z-20 rounded-full border border-[#dbe5ff] bg-white/88 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#5d73b3] shadow-[0_12px_28px_rgba(20,86,244,0.08)] backdrop-blur">
         WASD move · E ready · Hold Tab for room state
       </div>
     </section>
@@ -731,6 +732,7 @@ export const PlayRoomExperience = () => {
     token,
   });
   const [copied, setCopied] = useState(false);
+  const [headerHeight, setHeaderHeight] = useState(74);
   const copyTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -756,6 +758,24 @@ export const PlayRoomExperience = () => {
       window.history.replaceState({}, "", "/play");
     }
   }, [inviteRoomCode, roomState?.roomCode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const updateHeaderHeight = () => {
+      const header = document.querySelector<HTMLElement>("[data-site-header='true']");
+      setHeaderHeight(Math.round(header?.getBoundingClientRect().height ?? 74));
+    };
+
+    updateHeaderHeight();
+    window.addEventListener("resize", updateHeaderHeight);
+
+    return () => {
+      window.removeEventListener("resize", updateHeaderHeight);
+    };
+  }, []);
 
   const handlePrimaryAction = () => {
     if (inviteRoomCode) {
@@ -844,12 +864,45 @@ export const PlayRoomExperience = () => {
     roomState && (roomState.phase === "shared_room" || roomState.phase === "task_reveal")
   );
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const html = document.documentElement;
+    const body = document.body;
+    const previousHtmlOverflow = html.style.overflow;
+    const previousBodyOverflow = body.style.overflow;
+    const previousHtmlHeight = html.style.height;
+    const previousBodyHeight = body.style.height;
+
+    if (isSharedRoomPhase) {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      html.style.overflow = "hidden";
+      body.style.overflow = "hidden";
+      html.style.height = "100%";
+      body.style.height = "100%";
+    }
+
+    return () => {
+      html.style.overflow = previousHtmlOverflow;
+      body.style.overflow = previousBodyOverflow;
+      html.style.height = previousHtmlHeight;
+      body.style.height = previousBodyHeight;
+    };
+  }, [isSharedRoomPhase]);
+
   return (
-    <div className="relative min-h-screen">
+    <div
+      className={`relative ${isSharedRoomPhase ? "overflow-hidden" : "min-h-screen"}`}
+      style={isSharedRoomPhase ? { height: `calc(100dvh - ${headerHeight}px)` } : undefined}
+    >
       <div className="pointer-events-none fixed inset-0 z-0 bg-white" />
       <div
         className={`relative z-10 ${
-          isSharedRoomPhase ? "w-full" : "mx-auto w-full max-w-7xl px-0 pb-10 pt-24 sm:pt-28"
+          isSharedRoomPhase
+            ? "h-full w-full overflow-hidden"
+            : "mx-auto w-full max-w-7xl px-0 pb-10 pt-24 sm:pt-28"
         }`}
       >
         {error ? (

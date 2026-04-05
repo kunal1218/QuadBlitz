@@ -109,7 +109,14 @@ export const usePlayRoom = ({
       }
       setChatMessages((current) => {
         const next = current
-          .filter((entry) => entry.id !== message.id)
+          .filter(
+            (entry) =>
+              entry.id !== message.id &&
+              !(
+                entry.roomCode === message.roomCode &&
+                entry.userId === message.userId
+              )
+          )
           .concat(message);
         return next.filter((entry) => new Date(entry.expiresAt).getTime() > Date.now());
       });

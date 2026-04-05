@@ -852,7 +852,7 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
           userId,
           text,
           createdAt: new Date().toISOString(),
-          expiresAt: new Date(Date.now() + 10_000).toISOString(),
+          expiresAt: new Date(Date.now() + 5_000).toISOString(),
         };
 
         await recordPlayRoomChatActivity({ userId, text });

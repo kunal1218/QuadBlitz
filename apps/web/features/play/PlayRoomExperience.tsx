@@ -993,62 +993,64 @@ const SharedRoomPanel = ({
       roomRef.current.players
         .filter((player) => player.isPresent)
         .forEach((player) => {
-        const currentPosition = nextPositions[player.userId] ?? player.position;
-        const serverPosition = serverPositions[player.userId] ?? player.position;
-        if (player.userId === me?.userId) {
-          if (isChatting || pokerOverlayOpen) {
+          const currentPosition = nextPositions[player.userId] ?? player.position;
+          const serverPosition = serverPositions[player.userId] ?? player.position;
+          if (player.userId === me?.userId) {
+            if (isChatting || pokerOverlayOpen) {
+              nextPositions[player.userId] = {
+                x: lerp(currentPosition.x, serverPosition.x, smoothing * 0.72),
+                y: lerp(currentPosition.y, serverPosition.y, smoothing * 0.72),
+              };
+              nextMoving[player.userId] = false;
+              return;
+            }
+            const inputX =
+              (keyStateRef.current.right ? 1 : 0) - (keyStateRef.current.left ? 1 : 0);
+            const inputY =
+              (keyStateRef.current.down ? 1 : 0) - (keyStateRef.current.up ? 1 : 0);
+            if (inputX !== 0 || inputY !== 0) {
+              const magnitude = Math.hypot(inputX, inputY) || 1;
+              const speed = 260;
+              const widthHalf = roomRef.current.room.width / 2;
+              const heightHalf = roomRef.current.room.height / 2;
+              const optimisticPosition = {
+                x: clamp(
+                  currentPosition.x + ((inputX / magnitude) * speed * elapsed) / 1000,
+                  -widthHalf + 56,
+                  widthHalf - 56
+                ),
+                y: clamp(
+                  currentPosition.y + ((inputY / magnitude) * speed * elapsed) / 1000,
+                  playerMinY,
+                  heightHalf - 56
+                ),
+              };
+              nextPositions[player.userId] = optimisticPosition;
+              nextMoving[player.userId] = true;
+              if (now - lastEmitAt >= 70) {
+                onMove(optimisticPosition.x, optimisticPosition.y);
+                lastEmitAt = now;
+              }
+              return;
+            }
             nextPositions[player.userId] = {
               x: lerp(currentPosition.x, serverPosition.x, smoothing * 0.72),
               y: lerp(currentPosition.y, serverPosition.y, smoothing * 0.72),
             };
-            nextMoving[player.userId] = false;
-            return;
-          }
-          const inputX =
-            (keyStateRef.current.right ? 1 : 0) - (keyStateRef.current.left ? 1 : 0);
-          const inputY =
-            (keyStateRef.current.down ? 1 : 0) - (keyStateRef.current.up ? 1 : 0);
-          if (inputX !== 0 || inputY !== 0) {
-            const magnitude = Math.hypot(inputX, inputY) || 1;
-            const speed = 260;
-            const widthHalf = roomRef.current.room.width / 2;
-            const heightHalf = roomRef.current.room.height / 2;
-            const optimisticPosition = {
-              x: clamp(
-                currentPosition.x + ((inputX / magnitude) * speed * elapsed) / 1000,
-                -widthHalf + 56,
-                widthHalf - 56
-              ),
-              y: clamp(
-                currentPosition.y + ((inputY / magnitude) * speed * elapsed) / 1000,
-                playerMinY,
-                heightHalf - 56
-              ),
-            };
-            nextPositions[player.userId] = optimisticPosition;
-            nextMoving[player.userId] = true;
-            if (now - lastEmitAt >= 70) {
-              onMove(optimisticPosition.x, optimisticPosition.y);
-              lastEmitAt = now;
-            }
+            nextMoving[player.userId] =
+              Math.hypot(
+                serverPosition.x - currentPosition.x,
+                serverPosition.y - currentPosition.y
+              ) > 0.9;
             return;
           }
           nextPositions[player.userId] = {
-            x: lerp(currentPosition.x, serverPosition.x, smoothing * 0.72),
-            y: lerp(currentPosition.y, serverPosition.y, smoothing * 0.72),
+            x: lerp(currentPosition.x, serverPosition.x, smoothing),
+            y: lerp(currentPosition.y, serverPosition.y, smoothing),
           };
           nextMoving[player.userId] =
             Math.hypot(serverPosition.x - currentPosition.x, serverPosition.y - currentPosition.y) >
             0.9;
-          return;
-        }
-        nextPositions[player.userId] = {
-          x: lerp(currentPosition.x, serverPosition.x, smoothing),
-          y: lerp(currentPosition.y, serverPosition.y, smoothing),
-        };
-        nextMoving[player.userId] =
-          Math.hypot(serverPosition.x - currentPosition.x, serverPosition.y - currentPosition.y) >
-          0.9;
         });
 
       visualPositionsRef.current = nextPositions;
@@ -1089,6 +1091,7 @@ const SharedRoomPanel = ({
   const arcadeTop = ((arcade.y + roomState.room.height / 2) / roomState.room.height) * 100;
   const canSubmitToJudge =
     roomState.phase === "task_reveal" &&
+    !pokerOverlayOpen &&
     Boolean(roomState.selectedTask) &&
     Boolean(isNearJudge);
   const canUseArcade =
@@ -1165,7 +1168,11 @@ const SharedRoomPanel = ({
 
       <TaskEnvelope
         key={roomState.selectedTask?.id ?? "closed"}
-        task={roomState.phase === "task_reveal" ? roomState.selectedTask : null}
+        task={
+          roomState.phase === "task_reveal" && !pokerOverlayOpen
+            ? roomState.selectedTask
+            : null
+        }
       />
 
       {isJudgeModalVisible ? (
@@ -1188,9 +1195,11 @@ const SharedRoomPanel = ({
         onDecline={() => onRespondPokerArcade(false)}
       />
 
-      <div className="absolute left-5 top-5 z-20 rounded-full border border-[#dbe5ff] bg-white/94 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#5d73b3] shadow-[0_12px_30px_rgba(20,86,244,0.1)] backdrop-blur">
-        {roomState.roomName} • {roomState.roomCode}
-      </div>
+      {!pokerOverlayOpen ? (
+        <div className="absolute left-5 top-5 z-20 rounded-full border border-[#dbe5ff] bg-white/94 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#5d73b3] shadow-[0_12px_30px_rgba(20,86,244,0.1)] backdrop-blur">
+          {roomState.roomName} • {roomState.roomCode}
+        </div>
+      ) : null}
 
       <div
         className="absolute left-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
@@ -1269,17 +1278,19 @@ const SharedRoomPanel = ({
         ) : null}
       </div>
 
-      <div className="absolute left-1/2 top-1/2 z-0 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#dbe5ff] bg-[radial-gradient(circle_at_top,#ffffff_0%,#f5f8ff_100%)] shadow-[0_20px_48px_rgba(20,86,244,0.12)]">
-        <button
-          type="button"
-          aria-label={hasReadied ? "Ready button pressed" : "Ready button"}
-          disabled={!isNearPedestal || hasReadied}
-          onClick={onReady}
-          className={`absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 transition-colors ${
-            hasReadied ? "bg-[#39D353] border-[#1d3b14]" : "bg-[#F04C4C] border-[#7a1e1e]"
-          } ${isNearPedestal && !hasReadied ? "cursor-pointer shadow-[0_0_0_8px_rgba(255,255,255,0.28)]" : "cursor-default"} disabled:cursor-default`}
-        />
-      </div>
+      {!pokerOverlayOpen ? (
+        <div className="absolute left-1/2 top-1/2 z-0 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#dbe5ff] bg-[radial-gradient(circle_at_top,#ffffff_0%,#f5f8ff_100%)] shadow-[0_20px_48px_rgba(20,86,244,0.12)]">
+          <button
+            type="button"
+            aria-label={hasReadied ? "Ready button pressed" : "Ready button"}
+            disabled={!isNearPedestal || hasReadied}
+            onClick={onReady}
+            className={`absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 transition-colors ${
+              hasReadied ? "bg-[#39D353] border-[#1d3b14]" : "bg-[#F04C4C] border-[#7a1e1e]"
+            } ${isNearPedestal && !hasReadied ? "cursor-pointer shadow-[0_0_0_8px_rgba(255,255,255,0.28)]" : "cursor-default"} disabled:cursor-default`}
+          />
+        </div>
+      ) : null}
 
       <div
         className="absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
@@ -1335,52 +1346,58 @@ const SharedRoomPanel = ({
         ) : null}
       </div>
 
-      {presentPlayers.map((player) => {
-        const displayPosition = renderPositions[player.userId] ?? player.position;
-        const left = ((displayPosition.x + roomState.room.width / 2) / roomState.room.width) * 100;
-        const top = ((displayPosition.y + roomState.room.height / 2) / roomState.room.height) * 100;
-        const activeChatMessage = chatMessages.find((message) => message.userId === player.userId);
-        return (
-          <div
-            key={player.userId}
-            className="absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
-            style={{ left: `${left}%`, top: `${top}%` }}
-          >
-            <div className="relative">
-              {activeChatMessage ? (
-                <div className="absolute left-[calc(100%+12px)] top-1 z-20 max-w-[220px]">
-                  <div className="relative rounded-[22px] border border-[#cfe0ff] bg-white/98 px-3 py-2 text-xs font-medium leading-5 text-[#1f2430] shadow-[0_14px_30px_rgba(20,86,244,0.12)]">
-                    {activeChatMessage.text}
-                    <div className="absolute left-[-8px] top-4 h-4 w-4 rotate-45 border-b border-l border-[#cfe0ff] bg-white/98" />
-                  </div>
+      {!pokerOverlayOpen
+        ? presentPlayers.map((player) => {
+            const displayPosition = renderPositions[player.userId] ?? player.position;
+            const left =
+              ((displayPosition.x + roomState.room.width / 2) / roomState.room.width) * 100;
+            const top =
+              ((displayPosition.y + roomState.room.height / 2) / roomState.room.height) * 100;
+            const activeChatMessage = chatMessages.find(
+              (message) => message.userId === player.userId
+            );
+            return (
+              <div
+                key={player.userId}
+                className="absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+                style={{ left: `${left}%`, top: `${top}%` }}
+              >
+                <div className="relative">
+                  {activeChatMessage ? (
+                    <div className="absolute left-[calc(100%+12px)] top-1 z-20 max-w-[220px]">
+                      <div className="relative rounded-[22px] border border-[#cfe0ff] bg-white/98 px-3 py-2 text-xs font-medium leading-5 text-[#1f2430] shadow-[0_14px_30px_rgba(20,86,244,0.12)]">
+                        {activeChatMessage.text}
+                        <div className="absolute left-[-8px] top-4 h-4 w-4 rotate-45 border-b border-l border-[#cfe0ff] bg-white/98" />
+                      </div>
+                    </div>
+                  ) : null}
+                  {player.selectedCharacter ? (
+                    <div
+                      style={
+                        movingPlayerIds[player.userId]
+                          ? {
+                              animation: "play-room-rock 0.46s ease-in-out infinite",
+                              transformOrigin: "50% 88%",
+                            }
+                          : undefined
+                      }
+                    >
+                      <CharacterAvatar
+                        characterId={player.selectedCharacter}
+                        size={96}
+                        className={player.userId === currentUserId ? "scale-105" : ""}
+                      />
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
-              {player.selectedCharacter ? (
-                <div
-                  style={
-                    movingPlayerIds[player.userId]
-                      ? {
-                          animation: "play-room-rock 0.46s ease-in-out infinite",
-                          transformOrigin: "50% 88%",
-                        }
-                      : undefined
-                  }
-                >
-                  <CharacterAvatar
-                    characterId={player.selectedCharacter}
-                    size={96}
-                    className={player.userId === currentUserId ? "scale-105" : ""}
-                  />
+                <div className="mt-1 rounded-full border border-[#dbe5ff] bg-white/94 px-3 py-1 text-[11px] font-semibold text-[#1f2430] shadow-[0_10px_24px_rgba(20,86,244,0.08)]">
+                  {player.name}
+                  {player.isReadyAtPedestal ? " • Ready" : ""}
                 </div>
-              ) : null}
-            </div>
-            <div className="mt-1 rounded-full border border-[#dbe5ff] bg-white/94 px-3 py-1 text-[11px] font-semibold text-[#1f2430] shadow-[0_10px_24px_rgba(20,86,244,0.08)]">
-              {player.name}
-              {player.isReadyAtPedestal ? " • Ready" : ""}
-            </div>
-          </div>
-        );
-      })}
+              </div>
+            );
+          })
+        : null}
 
       <button
         type="button"
@@ -1681,6 +1698,7 @@ export const PlayRoomExperience = () => {
         />
         {pokerState ? (
           <PlayPokerOverlay
+            roomState={roomState}
             pokerState={pokerState}
             currentUserId={user?.id}
             pokerError={pokerError}

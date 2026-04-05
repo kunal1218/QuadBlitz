@@ -90,6 +90,51 @@ const RoomMemberStack = ({ count }: { count: number }) => {
   );
 };
 
+const PlayPromoCard = ({
+  title,
+  description,
+  cta,
+  tone = "blue",
+}: {
+  title: string;
+  description: string;
+  cta: string;
+  tone?: "blue" | "light";
+}) => (
+  <div
+    className={`rounded-[34px] border px-8 py-8 shadow-[0_20px_56px_rgba(30,55,120,0.1)] ${
+      tone === "blue"
+        ? "border-transparent bg-[linear-gradient(145deg,#1e56f3_0%,#2a67fb_55%,#407afc_100%)] text-white"
+        : "border-[#edf1fb] bg-white/95 text-[#18233a]"
+    }`}
+  >
+    <div
+      className={`flex h-14 w-14 items-center justify-center rounded-full ${
+        tone === "blue" ? "bg-white/14 text-white" : "bg-[#edf2ff] text-[#2b64f6]"
+      }`}
+    >
+      <span className="text-lg font-semibold">{tone === "blue" ? "+2%" : "i"}</span>
+    </div>
+    <h3 className="mt-8 font-[family-name:var(--font-display)] text-[2rem] font-semibold tracking-[-0.05em]">
+      {title}
+    </h3>
+    <p
+      className={`mt-4 text-[1rem] leading-8 ${
+        tone === "blue" ? "text-white/82" : "text-[#75809a]"
+      }`}
+    >
+      {description}
+    </p>
+    <div
+      className={`mt-8 text-sm font-semibold uppercase tracking-[0.18em] ${
+        tone === "blue" ? "text-white" : "text-[#2b64f6]"
+      }`}
+    >
+      {cta}
+    </div>
+  </div>
+);
+
 const formatRoomTitle = (hasRooms: boolean) =>
   hasRooms ? "Create Another Room" : "Create Your First Room";
 
@@ -139,16 +184,16 @@ const RoomCreateCard = ({
 }) => (
   <div
     className={`rounded-[36px] border border-[#e7eefc] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(250,252,255,0.98)_100%)] p-10 shadow-[0_28px_80px_rgba(30,55,120,0.1)] ${
-      compact ? "" : "w-full max-w-[470px]"
+      compact ? "" : "w-full max-w-[420px]"
     }`}
   >
     <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[#2b64f6]">
       Quadblitz Play
     </p>
-    <h1 className="mt-4 font-[family-name:var(--font-display)] text-[clamp(2.5rem,3vw,3.75rem)] font-semibold leading-[0.95] tracking-[-0.06em] text-[#18233a]">
+    <h1 className="mt-5 max-w-[10ch] font-[family-name:var(--font-display)] text-[clamp(2.15rem,2.7vw,3.5rem)] font-semibold leading-[0.95] tracking-[-0.06em] text-[#18233a]">
       {formatRoomTitle(hasRooms)}
     </h1>
-    <p className="mt-5 max-w-[28rem] text-[1.03rem] leading-8 text-[#75809a]">
+    <p className="mt-6 max-w-[23rem] text-[0.98rem] leading-8 text-[#75809a]">
       {formatRoomDescription(hasRooms)}
     </p>
     <label className="mt-6 block">
@@ -161,7 +206,7 @@ const RoomCreateCard = ({
         onChange={(event) => onRoomNameChange(event.target.value.slice(0, 48))}
         placeholder="Weekend Crew"
         maxLength={48}
-        className="mt-4 w-full rounded-full border border-[#edf1fb] bg-[#f7f9fe] px-7 py-5 text-[1.05rem] font-medium text-[#1f2430] outline-none transition placeholder:text-[#c2c9d8] focus:border-[#c8d7ff] focus:bg-white focus:ring-4 focus:ring-[#eaf0ff]"
+        className="mt-4 w-full rounded-full border border-[#eef2fb] bg-[#f7f9fe] px-7 py-5 text-[1rem] font-medium text-[#1f2430] outline-none transition placeholder:text-[#c2c9d8] focus:border-[#d5def8] focus:bg-white focus:ring-4 focus:ring-[#f2f5ff]"
       />
     </label>
 
@@ -179,7 +224,7 @@ const RoomCreateCard = ({
     </div>
 
     <Button
-      className="mt-8 w-full justify-center rounded-full bg-[#ff7b52] px-6 py-5 text-sm font-semibold uppercase tracking-[0.18em] text-white shadow-[0_18px_34px_rgba(255,123,82,0.28)] transition hover:translate-y-[-1px] hover:bg-[#ff6c3c]"
+      className="mt-8 w-full justify-center rounded-full bg-[#ff7b52] px-6 py-4.5 text-sm font-semibold uppercase tracking-[0.18em] text-white shadow-[0_18px_34px_rgba(255,123,82,0.24)] transition hover:translate-y-[-1px] hover:bg-[#ff6c3c]"
       requiresAuth
       authMode="signup"
       disabled={isBusy}
@@ -187,18 +232,6 @@ const RoomCreateCard = ({
     >
       {isBusy ? "Working..." : isAuthenticated ? "Create Room" : "Sign In To Create"}
     </Button>
-
-    {!hasRooms ? (
-      <div className="mt-8 rounded-[28px] bg-[linear-gradient(145deg,#2058f5_0%,#2e6bff_55%,#4f84ff_100%)] px-7 py-7 text-white shadow-[0_24px_50px_rgba(32,88,245,0.2)]">
-        <div className="text-3xl leading-none">✦</div>
-        <div className="mt-10 text-[1.75rem] font-semibold tracking-[-0.05em]">
-          Persistent Rooms
-        </div>
-        <p className="mt-4 text-sm leading-7 text-white/82">
-          Create one shared room and keep its identity, score, and activity history alive for your group.
-        </p>
-      </div>
-    ) : null}
   </div>
 );
 
@@ -267,9 +300,9 @@ const RoomHistoryPanel = ({
   onCreate: () => void;
   onOpenRoom: (roomCode: string) => void;
 }) => (
-  <div className="mx-auto flex min-h-[calc(100dvh-9rem)] max-w-7xl flex-col gap-8 px-4 py-10">
-    <div className="grid gap-8 xl:grid-cols-[470px_minmax(0,1fr)]">
-      <div className="xl:sticky xl:top-28 xl:self-start">
+  <div className="mx-auto flex min-h-[calc(100dvh-9rem)] max-w-[1340px] flex-col gap-8 px-6 py-12">
+    <div className="grid gap-8 xl:grid-cols-[420px_minmax(0,1fr)]">
+      <div className="space-y-6 xl:sticky xl:top-28 xl:self-start">
         <RoomCreateCard
           statusLabel={
             isAuthenticated
@@ -286,15 +319,21 @@ const RoomHistoryPanel = ({
           onCreate={onCreate}
           compact
         />
+        <PlayPromoCard
+          title="Room Streak Bonus"
+          description="Keep a room alive and it gains a 2% weekly score bonus for every week it survives."
+          cta="See scoring  ->"
+          tone="blue"
+        />
       </div>
 
-      <div>
+      <div className="space-y-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[#2b64f6]">
               Your Long-Term Rooms
             </p>
-            <h2 className="mt-4 font-[family-name:var(--font-display)] text-[clamp(2.6rem,4vw,4.4rem)] font-semibold leading-[0.95] tracking-[-0.07em] text-[#18233a]">
+            <h2 className="mt-4 max-w-[12ch] font-[family-name:var(--font-display)] text-[clamp(2.75rem,3.9vw,4.2rem)] font-semibold leading-[0.94] tracking-[-0.07em] text-[#18233a]">
               Pick up where your group left off
             </h2>
           </div>
@@ -304,11 +343,11 @@ const RoomHistoryPanel = ({
         </div>
 
         {isLoading ? (
-          <div className="mt-8 rounded-[38px] border border-[#edf1fb] bg-white/95 px-8 py-10 text-base text-[#75809a] shadow-[0_24px_70px_rgba(30,55,120,0.08)]">
+          <div className="rounded-[38px] border border-[#edf1fb] bg-white/95 px-8 py-10 text-base text-[#75809a] shadow-[0_24px_70px_rgba(30,55,120,0.08)]">
             Loading your rooms...
           </div>
         ) : rooms.length === 0 ? (
-          <div className="mt-8 rounded-[38px] border border-[#edf1fb] bg-white/95 p-8 shadow-[0_24px_70px_rgba(30,55,120,0.08)]">
+          <div className="rounded-[38px] border border-[#edf1fb] bg-white/95 p-8 shadow-[0_24px_70px_rgba(30,55,120,0.08)]">
             <div className="max-w-2xl">
               <div className="rounded-full border border-[#eef2fb] bg-[#f7f9fe] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#7f8ba4]">
                 No room history yet
@@ -348,7 +387,7 @@ const RoomHistoryPanel = ({
             </div>
           </div>
         ) : (
-          <div className="mt-8 space-y-5">
+          <div className="space-y-5">
             {rooms.map((room) => (
               <button
                 key={room.roomCode}
@@ -437,6 +476,21 @@ const RoomHistoryPanel = ({
             ))}
           </div>
         )}
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <PlayPromoCard
+            title="Performance Analytics"
+            description="See which rooms are active, how often your group returns, and how recent task completions are affecting score."
+            cta="View report"
+            tone="light"
+          />
+          <PlayPromoCard
+            title="Weekly Room League"
+            description="Daily tasks add 1 point, weekly tasks add 7 points, and persistent rooms compound their bonus over time."
+            cta="Review formula"
+            tone="light"
+          />
+        </div>
       </div>
     </div>
   </div>
@@ -1891,7 +1945,13 @@ export const PlayRoomExperience = () => {
       className={`relative ${isSharedRoomPhase ? "overflow-hidden" : "min-h-screen"}`}
       style={isSharedRoomPhase ? { height: `calc(100dvh - ${headerHeight}px)` } : undefined}
     >
-      <div className="pointer-events-none fixed inset-0 z-0 bg-white" />
+      <div
+        className={`pointer-events-none fixed inset-0 z-0 ${
+          isSharedRoomPhase
+            ? "bg-white"
+            : "bg-[radial-gradient(circle_at_top,#f8fbff_0%,#ffffff_55%,#fdfdff_100%)]"
+        }`}
+      />
       <div
         className={`relative z-10 ${
           isSharedRoomPhase

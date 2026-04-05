@@ -371,6 +371,7 @@ const SharedRoomPanel = ({
   const [renderPositions, setRenderPositions] = useState<Record<string, PlayVector2>>(() =>
     createPositionMap(roomState.players)
   );
+  const [movingPlayerIds, setMovingPlayerIds] = useState<Record<string, boolean>>({});
   const keyStateRef = useRef({ up: false, down: false, left: false, right: false });
   const roomRef = useRef(roomState);
   const serverPositionsRef = useRef<Record<string, PlayVector2>>(createPositionMap(roomState.players));
@@ -468,6 +469,7 @@ const SharedRoomPanel = ({
       lastTick = now;
       const smoothing = 1 - Math.exp(-elapsed / 90);
       const nextPositions = { ...visualPositionsRef.current };
+      const nextMoving: Record<string, boolean> = {};
       const serverPositions = serverPositionsRef.current;
       const activeIds = new Set(roomRef.current.players.map((player) => player.userId));
       Object.keys(nextPositions).forEach((userId) => {
@@ -502,6 +504,7 @@ const SharedRoomPanel = ({
               ),
             };
             nextPositions[player.userId] = optimisticPosition;
+            nextMoving[player.userId] = true;
             if (now - lastEmitAt >= 70) {
               onMove(optimisticPosition.x, optimisticPosition.y);
               lastEmitAt = now;
@@ -512,16 +515,23 @@ const SharedRoomPanel = ({
             x: lerp(currentPosition.x, serverPosition.x, smoothing * 0.72),
             y: lerp(currentPosition.y, serverPosition.y, smoothing * 0.72),
           };
+          nextMoving[player.userId] =
+            Math.hypot(serverPosition.x - currentPosition.x, serverPosition.y - currentPosition.y) >
+            0.9;
           return;
         }
         nextPositions[player.userId] = {
           x: lerp(currentPosition.x, serverPosition.x, smoothing),
           y: lerp(currentPosition.y, serverPosition.y, smoothing),
         };
+        nextMoving[player.userId] =
+          Math.hypot(serverPosition.x - currentPosition.x, serverPosition.y - currentPosition.y) >
+          0.9;
       });
 
       visualPositionsRef.current = nextPositions;
       setRenderPositions(nextPositions);
+      setMovingPlayerIds(nextMoving);
       frame = window.requestAnimationFrame(loop);
     };
 
@@ -535,6 +545,7 @@ const SharedRoomPanel = ({
   const readyCount = roomState.players.filter((player) => player.isReadyAtPedestal).length;
   const myVisualPosition =
     me ? renderPositions[me.userId] ?? me.position : null;
+  const hasReadied = Boolean(me?.isReadyAtPedestal);
   const isNearPedestal =
     myVisualPosition &&
     Math.hypot(myVisualPosition.x - pedestal.x, myVisualPosition.y - pedestal.y) <=
@@ -542,6 +553,19 @@ const SharedRoomPanel = ({
 
   return (
     <section className="relative h-[calc(100dvh-88px)] min-h-[620px] w-full overflow-hidden bg-white">
+      <style jsx>{`
+        @keyframes play-room-rock {
+          0% {
+            transform: rotate(-25deg);
+          }
+          50% {
+            transform: rotate(25deg);
+          }
+          100% {
+            transform: rotate(-25deg);
+          }
+        }
+      `}</style>
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.98),_rgba(241,244,248,0.96)_38%,_rgba(229,234,240,1)_100%)]" />
       <div
         className="absolute inset-0 opacity-45"
@@ -600,15 +624,17 @@ const SharedRoomPanel = ({
       <div className="absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 translate-y-20 flex-col items-center gap-2">
         <button
           type="button"
-          disabled={!isNearPedestal || Boolean(me?.isReadyAtPedestal)}
+          disabled={!isNearPedestal || hasReadied}
           onClick={onReady}
           className={`rounded-full border px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.24em] shadow-sm transition ${
-            isNearPedestal && !me?.isReadyAtPedestal
+            hasReadied
               ? "border-black bg-[#39D353] text-black"
-              : "border-black/10 bg-white/88 text-black/45"
+              : isNearPedestal
+                ? "border-black bg-[#F04C4C] text-white"
+                : "border-black/10 bg-[#F7B1B1] text-black/45"
           }`}
         >
-          {me?.isReadyAtPedestal ? "Ready Locked" : "Press Ready"}
+          {hasReadied ? "Ready Locked" : "Press Ready"}
         </button>
         <div className="rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-black/45 backdrop-blur">
           Walk in and press E or click
@@ -618,7 +644,11 @@ const SharedRoomPanel = ({
       <div
         className="absolute left-1/2 top-1/2 z-0 h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full border border-black/10 bg-white shadow-[0_16px_36px_rgba(17,17,17,0.12)]"
       >
-        <div className="absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-black bg-[#39D353]" />
+        <div
+          className={`absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-black transition-colors ${
+            hasReadied ? "bg-[#39D353]" : "bg-[#F04C4C]"
+          }`}
+        />
       </div>
 
       {roomState.players.map((player) => {
@@ -632,11 +662,22 @@ const SharedRoomPanel = ({
             style={{ left: `${left}%`, top: `${top}%` }}
           >
             {player.selectedCharacter ? (
-              <CharacterAvatar
-                characterId={player.selectedCharacter}
-                size={96}
-                className={player.userId === currentUserId ? "scale-105" : ""}
-              />
+              <div
+                style={
+                  movingPlayerIds[player.userId]
+                    ? {
+                        animation: "play-room-rock 0.46s ease-in-out infinite",
+                        transformOrigin: "50% 88%",
+                      }
+                    : undefined
+                }
+              >
+                <CharacterAvatar
+                  characterId={player.selectedCharacter}
+                  size={96}
+                  className={player.userId === currentUserId ? "scale-105" : ""}
+                />
+              </div>
             ) : null}
             <div className="mt-1 rounded-full border border-black/10 bg-white/92 px-3 py-1 text-[11px] font-semibold text-black shadow-sm">
               {player.name}

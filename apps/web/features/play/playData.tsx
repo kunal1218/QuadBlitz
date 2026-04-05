@@ -138,7 +138,6 @@ const PenguinCharacter = () => (
       strokeWidth="3"
       strokeLinejoin="round"
     />
-    <SmileFace cx={60} cy={71} />
     <path d="M46 101h12l-4 7H42Z" fill={ACCENT} stroke={OUTLINE} strokeWidth="3" strokeLinejoin="round" />
     <path d="M62 101h12l4 7H66Z" fill={ACCENT} stroke={OUTLINE} strokeWidth="3" strokeLinejoin="round" />
   </>

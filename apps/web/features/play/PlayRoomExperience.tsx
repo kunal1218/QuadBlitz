@@ -1020,9 +1020,6 @@ const SharedRoomPanel = ({
         </div>
       ) : null}
 
-      <div className="absolute bottom-5 right-5 z-20 rounded-full border border-[#dbe5ff] bg-white/88 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#5d73b3] shadow-[0_12px_28px_rgba(20,86,244,0.08)] backdrop-blur">
-        WASD move · Hold T to talk · Enter chat · Click ready · Walk to judge and click to submit · Hold Tab for room state
-      </div>
     </section>
   );
 };

@@ -248,7 +248,7 @@ const JoinInviteCard = ({
   isBusy: boolean;
   onJoin: () => void;
 }) => (
-  <div className="mx-auto flex min-h-[calc(100dvh-10rem)] max-w-5xl items-center justify-center px-4 py-12">
+  <div className="mx-auto flex min-h-[calc(100dvh-10rem)] max-w-5xl items-center justify-center px-4 py-6">
     <div className="w-full max-w-md rounded-[32px] border border-[#dbe5ff] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(245,248,255,0.98)_100%)] p-8 shadow-[0_26px_70px_rgba(20,86,244,0.12)]">
       <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#5d73b3]">
         Shared Room Invite
@@ -300,7 +300,7 @@ const RoomHistoryPanel = ({
   onCreate: () => void;
   onOpenRoom: (roomCode: string) => void;
 }) => (
-  <div className="mx-auto flex min-h-[calc(100dvh-9rem)] max-w-[1340px] flex-col gap-8 px-6 py-12">
+  <div className="mx-auto flex min-h-[calc(100dvh-9rem)] max-w-[1340px] flex-col gap-8 px-6 py-5">
     <div className="grid gap-8 xl:grid-cols-[420px_minmax(0,1fr)]">
       <div className="space-y-6 xl:sticky xl:top-28 xl:self-start">
         <RoomCreateCard
@@ -1956,7 +1956,7 @@ export const PlayRoomExperience = () => {
         className={`relative z-10 ${
           isSharedRoomPhase
             ? "h-full w-full overflow-hidden"
-            : "mx-auto w-full max-w-7xl px-0 pb-10 pt-24 sm:pt-28"
+            : "mx-auto w-full max-w-7xl px-0 pb-10 pt-4 sm:pt-6"
         }`}
       >
         {combinedError ? (

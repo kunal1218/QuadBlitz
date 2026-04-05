@@ -148,7 +148,7 @@ export default function MarketplacePage() {
 
   return (
     <div className="min-h-screen bg-white text-[#181d25]">
-      <main className="mx-auto max-w-[1180px] px-5 pb-16 pt-7 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-[1180px] px-5 pb-16 pt-3 sm:px-6 sm:pt-4 lg:px-8">
         <section className="border-b border-[#edf1f6] pb-8">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
             <div className="max-w-[380px]">

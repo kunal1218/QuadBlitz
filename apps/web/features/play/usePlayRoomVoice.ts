@@ -18,6 +18,7 @@ type VoiceStatus = "idle" | "requesting" | "ready" | "unsupported" | "denied";
 export type PlayRoomVoiceMode = "push_to_talk" | "voice_stream";
 
 const ICE_SERVERS: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
+const DISCONNECTED_PEER_CLOSE_DELAY_MS = 1500;
 
 export const usePlayRoomVoice = ({
   roomState,
@@ -40,6 +41,7 @@ export const usePlayRoomVoice = ({
   const localStreamRef = useRef<MediaStream | null>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const audioElementsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
+  const disconnectCleanupTimersRef = useRef<Map<string, number>>(new Map());
 
   const isVoicePhase = Boolean(
     currentUserId &&
@@ -75,26 +77,39 @@ export const usePlayRoomVoice = ({
     audioElementsRef.current.delete(remoteUserId);
   }, []);
 
+  const clearDisconnectCleanupTimer = useCallback((remoteUserId: string) => {
+    const timer = disconnectCleanupTimersRef.current.get(remoteUserId);
+    if (typeof timer === "number") {
+      window.clearTimeout(timer);
+      disconnectCleanupTimersRef.current.delete(remoteUserId);
+    }
+  }, []);
+
   const closePeerConnection = useCallback(
     (remoteUserId: string) => {
+      clearDisconnectCleanupTimer(remoteUserId);
       const connection = peerConnectionsRef.current.get(remoteUserId);
       if (connection) {
         connection.ontrack = null;
         connection.onicecandidate = null;
         connection.onconnectionstatechange = null;
+        connection.oniceconnectionstatechange = null;
         connection.close();
         peerConnectionsRef.current.delete(remoteUserId);
       }
       removeAudioElement(remoteUserId);
     },
-    [removeAudioElement]
+    [clearDisconnectCleanupTimer, removeAudioElement]
   );
 
   const closeAllConnections = useCallback(() => {
+    Array.from(disconnectCleanupTimersRef.current.keys()).forEach((remoteUserId) => {
+      clearDisconnectCleanupTimer(remoteUserId);
+    });
     Array.from(peerConnectionsRef.current.keys()).forEach((remoteUserId) => {
       closePeerConnection(remoteUserId);
     });
-  }, [closePeerConnection]);
+  }, [clearDisconnectCleanupTimer, closePeerConnection]);
 
   const stopLocalStream = useCallback(() => {
     localStreamRef.current?.getTracks().forEach((track) => {
@@ -156,6 +171,18 @@ export const usePlayRoomVoice = ({
       };
 
       connection.onconnectionstatechange = () => {
+        if (connection.connectionState === "connected") {
+          clearDisconnectCleanupTimer(remoteUserId);
+          return;
+        }
+        if (connection.connectionState === "disconnected") {
+          clearDisconnectCleanupTimer(remoteUserId);
+          const timer = window.setTimeout(() => {
+            closePeerConnection(remoteUserId);
+          }, DISCONNECTED_PEER_CLOSE_DELAY_MS);
+          disconnectCleanupTimersRef.current.set(remoteUserId, timer);
+          return;
+        }
         if (
           connection.connectionState === "failed" ||
           connection.connectionState === "closed"
@@ -164,10 +191,31 @@ export const usePlayRoomVoice = ({
         }
       };
 
+      connection.oniceconnectionstatechange = () => {
+        if (connection.iceConnectionState === "connected" || connection.iceConnectionState === "completed") {
+          clearDisconnectCleanupTimer(remoteUserId);
+          return;
+        }
+        if (connection.iceConnectionState === "disconnected") {
+          clearDisconnectCleanupTimer(remoteUserId);
+          const timer = window.setTimeout(() => {
+            closePeerConnection(remoteUserId);
+          }, DISCONNECTED_PEER_CLOSE_DELAY_MS);
+          disconnectCleanupTimersRef.current.set(remoteUserId, timer);
+          return;
+        }
+        if (
+          connection.iceConnectionState === "failed" ||
+          connection.iceConnectionState === "closed"
+        ) {
+          closePeerConnection(remoteUserId);
+        }
+      };
+
       peerConnectionsRef.current.set(remoteUserId, connection);
       return connection;
     },
-    [attachRemoteStream, closePeerConnection, roomCode]
+    [attachRemoteStream, clearDisconnectCleanupTimer, closePeerConnection, roomCode]
   );
 
   const sendOffer = useCallback(
@@ -287,8 +335,19 @@ export const usePlayRoomVoice = ({
     });
 
     remoteUserIds.forEach((remoteUserId) => {
-      if (peerConnectionsRef.current.has(remoteUserId)) {
-        return;
+      const existingConnection = peerConnectionsRef.current.get(remoteUserId);
+      if (existingConnection) {
+        const isStaleConnection =
+          existingConnection.connectionState === "disconnected" ||
+          existingConnection.connectionState === "failed" ||
+          existingConnection.connectionState === "closed" ||
+          existingConnection.iceConnectionState === "disconnected" ||
+          existingConnection.iceConnectionState === "failed" ||
+          existingConnection.iceConnectionState === "closed";
+        if (!isStaleConnection) {
+          return;
+        }
+        closePeerConnection(remoteUserId);
       }
       if (currentUserId < remoteUserId) {
         void sendOffer(remoteUserId).catch(() => {

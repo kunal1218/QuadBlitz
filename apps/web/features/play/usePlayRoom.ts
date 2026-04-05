@@ -287,10 +287,14 @@ export const usePlayRoom = ({
   );
 
   const interactNpc = useCallback(
-    (npcType: "judge" | "arcade") => {
+    (npcType: "judge" | "arcade", position?: { x: number; y: number }) => {
       setError(null);
       emitWhenConnected(() => {
-        socket.emit("playroom:npc:interact", { npcType });
+        socket.emit("playroom:npc:interact", {
+          npcType,
+          positionX: position?.x,
+          positionY: position?.y,
+        });
       });
     },
     [emitWhenConnected]

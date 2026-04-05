@@ -772,13 +772,20 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
       }
     );
 
-    socket.on("playroom:npc:interact", async (payload?: { npcType?: string }) => {
+    socket.on(
+      "playroom:npc:interact",
+      async (payload?: { npcType?: string; positionX?: number; positionY?: number }) => {
       try {
         const npcType = payload?.npcType === "judge" ? "judge" : payload?.npcType === "arcade" ? "arcade" : null;
         if (!npcType) {
           throw new Error("Unknown NPC.");
         }
-        const result = await interactPlayRoomNpc({ userId, npcType });
+        const result = await interactPlayRoomNpc({
+          userId,
+          npcType,
+          positionX: Number(payload?.positionX),
+          positionY: Number(payload?.positionY),
+        });
         await emitPlayRoomStateForRoom(result.roomCode);
       } catch (error) {
         emitPlayRoomError(

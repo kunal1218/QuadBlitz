@@ -1842,6 +1842,8 @@ export const movePlayRoomPlayer = async (params: {
 export const interactPlayRoomNpc = async (params: {
   userId: string;
   npcType: "judge" | "arcade";
+  positionX?: number;
+  positionY?: number;
 }) => {
   const roomCode = getRoomCodesForActiveUser(params.userId);
   if (!roomCode) {
@@ -1861,6 +1863,15 @@ export const interactPlayRoomNpc = async (params: {
     clearPlayerRoomCode(params.userId);
     throw new PlayRoomError("You are not in that room.");
   }
+
+  const nextPositionX =
+    typeof params.positionX === "number" ? params.positionX : player.position.x;
+  const nextPositionY =
+    typeof params.positionY === "number" ? params.positionY : player.position.y;
+  player.position = {
+    x: clamp(nextPositionX, -ROOM_WIDTH / 2 + PLAYER_MARGIN, ROOM_WIDTH / 2 - PLAYER_MARGIN),
+    y: clamp(nextPositionY, PLAYER_MIN_Y, ROOM_HEIGHT / 2 - PLAYER_MARGIN),
+  };
 
   const npc = params.npcType === "judge" ? room.judge : room.arcade;
   if (npc.carriedByUserId === params.userId) {

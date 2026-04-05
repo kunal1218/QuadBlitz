@@ -1231,7 +1231,7 @@ const SharedRoomPanel = ({
   onReady: () => void;
   onSubmitTask: (submission: string) => void;
   onSendChatMessage: (text: string) => void;
-  onInteractNpc: (npcType: "judge" | "arcade") => void;
+  onInteractNpc: (npcType: "judge" | "arcade", position?: { x: number; y: number }) => void;
   onProposePokerArcade: () => void;
   onRespondPokerArcade: (accept: boolean) => void;
   onCopyInvite: () => void;
@@ -1289,6 +1289,12 @@ const SharedRoomPanel = ({
       visualPositionsRef.current[me.userId] ?? renderPositions[me.userId] ?? me.position;
     onMove(currentPosition.x, currentPosition.y);
   }, [me, onMove, renderPositions]);
+  const getCurrentPlayerPosition = useCallback(() => {
+    if (!me) {
+      return null;
+    }
+    return visualPositionsRef.current[me.userId] ?? renderPositions[me.userId] ?? me.position;
+  }, [me, renderPositions]);
   const pedestal = roomState.room.pedestal;
   const judge = roomState.room.judge;
   const arcade = roomState.room.arcade;
@@ -1480,14 +1486,15 @@ const SharedRoomPanel = ({
           !isVoiceSettingsOpen &&
           !pokerOverlayOpen
         ) {
+          const interactionPosition = getCurrentPlayerPosition();
           if (isCarryingJudge) {
-            onInteractNpc("judge");
+            onInteractNpc("judge", interactionPosition ?? undefined);
           } else if (isCarryingArcade) {
-            onInteractNpc("arcade");
+            onInteractNpc("arcade", interactionPosition ?? undefined);
           } else if (judge.visible && !judge.carriedByUserId && isNearJudge) {
-            onInteractNpc("judge");
+            onInteractNpc("judge", interactionPosition ?? undefined);
           } else if (arcade.visible && !arcade.carriedByUserId && isNearArcade) {
-            onInteractNpc("arcade");
+            onInteractNpc("arcade", interactionPosition ?? undefined);
           }
         }
       }
@@ -1579,6 +1586,7 @@ const SharedRoomPanel = ({
     pokerOverlayOpen,
     isCarryingArcade,
     isCarryingJudge,
+    getCurrentPlayerPosition,
     isNearArcade,
     isNearJudge,
     judge,

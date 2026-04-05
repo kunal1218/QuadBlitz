@@ -15,6 +15,7 @@ type VoiceSignal =
     };
 
 type VoiceStatus = "idle" | "requesting" | "ready" | "unsupported" | "denied";
+export type PlayRoomVoiceMode = "push_to_talk" | "voice_stream";
 
 const ICE_SERVERS: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
 
@@ -22,10 +23,14 @@ export const usePlayRoomVoice = ({
   roomState,
   currentUserId,
   pushToTalkActive,
+  voiceMode,
+  micMuted,
 }: {
   roomState: PlayRoomState | null;
   currentUserId: string | null | undefined;
   pushToTalkActive: boolean;
+  voiceMode: PlayRoomVoiceMode;
+  micMuted: boolean;
 }) => {
   const [voiceStatusState, setVoiceStatusState] = useState<Exclude<VoiceStatus, "idle">>(
     "requesting"
@@ -53,6 +58,11 @@ export const usePlayRoomVoice = ({
         : [],
     [currentUserId, isVoicePhase, roomState]
   );
+  const isMicLive =
+    isVoicePhase &&
+    voiceStatusState === "ready" &&
+    !micMuted &&
+    (voiceMode === "voice_stream" || pushToTalkActive);
 
   const removeAudioElement = useCallback((remoteUserId: string) => {
     const audio = audioElementsRef.current.get(remoteUserId);
@@ -260,9 +270,9 @@ export const usePlayRoomVoice = ({
     }
 
     localStream.getAudioTracks().forEach((track) => {
-      track.enabled = pushToTalkActive;
+      track.enabled = isMicLive;
     });
-  }, [isVoicePhase, pushToTalkActive]);
+  }, [isMicLive, isVoicePhase]);
 
   useEffect(() => {
     if (!isVoicePhase || !currentUserId || !roomCode || !localStreamRef.current) {
@@ -374,6 +384,6 @@ export const usePlayRoomVoice = ({
   return {
     voiceStatus,
     voiceError,
-    isPushToTalkLive: voiceStatus === "ready" && pushToTalkActive,
+    isMicLive,
   };
 };

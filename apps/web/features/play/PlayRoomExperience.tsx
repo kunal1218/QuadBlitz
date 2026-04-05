@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { PlayRoomListEntry } from "@lockedin/shared";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/Button";
@@ -25,7 +25,7 @@ import { PlayPokerOverlay } from "./PlayPokerOverlay";
 import { usePlayRoom } from "./usePlayRoom";
 import { usePlayRoomList } from "./usePlayRoomList";
 import { usePlayRoomPoker } from "./usePlayRoomPoker";
-import { usePlayRoomVoice } from "./usePlayRoomVoice";
+import { usePlayRoomVoice, type PlayRoomVoiceMode } from "./usePlayRoomVoice";
 
 const normalizeRoomCode = (value: string | null) =>
   value?.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5) ?? null;
@@ -134,6 +134,78 @@ const PlayPromoCard = ({
     </div>
   </div>
 );
+
+const GearIcon = ({ className = "" }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+    <path
+      d="M12 8.75a3.25 3.25 0 1 0 0 6.5 3.25 3.25 0 0 0 0-6.5Z"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.8"
+    />
+    <path
+      d="m19.4 15.05-.18.31a1.86 1.86 0 0 0 0 1.87l.03.05a2.25 2.25 0 1 1-3.9 2.25l-.06-.1a1.87 1.87 0 0 0-1.61-.93h-.36a1.87 1.87 0 0 0-1.61.93l-.06.1a2.25 2.25 0 1 1-3.9-2.25l.03-.05a1.86 1.86 0 0 0 0-1.87l-.18-.31a1.87 1.87 0 0 0-1.62-.94h-.12a2.25 2.25 0 1 1 0-4.5h.12c.67 0 1.29-.36 1.62-.94l.18-.31a1.86 1.86 0 0 0 0-1.87l-.03-.05a2.25 2.25 0 1 1 3.9-2.25l.06.1c.33.58.94.93 1.61.93h.36c.67 0 1.28-.35 1.61-.93l.06-.1a2.25 2.25 0 1 1 3.9 2.25l-.03.05a1.86 1.86 0 0 0 0 1.87l.18.31c.33.58.95.94 1.62.94h.12a2.25 2.25 0 1 1 0 4.5h-.12c-.67 0-1.29.36-1.62.94Z"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.5"
+    />
+  </svg>
+);
+
+const MicIcon = ({ className = "" }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+    <path
+      d="M12 15.5a3.5 3.5 0 0 0 3.5-3.5V7a3.5 3.5 0 1 0-7 0v5a3.5 3.5 0 0 0 3.5 3.5Z"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.8"
+    />
+    <path
+      d="M6.5 11.75a5.5 5.5 0 1 0 11 0M12 17.25V21M9.5 21h5"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.8"
+    />
+  </svg>
+);
+
+const MicOffIcon = ({ className = "" }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+    <path
+      d="M15.5 9.75V7a3.5 3.5 0 1 0-6.74-1.33M8.5 8.5V12a3.49 3.49 0 0 0 5.63 2.77"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.8"
+    />
+    <path
+      d="M6.5 11.75a5.52 5.52 0 0 0 8.05 4.9M12 17.25V21M9.5 21h5M4 4l16 16"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.8"
+    />
+  </svg>
+);
+
+const formatVoiceStatusLabel = (voiceStatus: "idle" | "requesting" | "ready" | "unsupported" | "denied") => {
+  switch (voiceStatus) {
+    case "requesting":
+      return "Connecting microphone";
+    case "ready":
+      return "Microphone ready";
+    case "unsupported":
+      return "Voice unavailable";
+    case "denied":
+      return "Microphone blocked";
+    default:
+      return "Voice inactive";
+  }
+};
 
 const formatRoomTitle = (hasRooms: boolean) =>
   hasRooms ? "Create Another Room" : "Create Your First Room";
@@ -901,6 +973,138 @@ const JudgeSubmissionModal = ({
   );
 };
 
+const VoiceSettingsModal = ({
+  voiceMode,
+  micMuted,
+  voiceStatus,
+  voiceError,
+  onSelectMode,
+  onToggleMute,
+  onClose,
+}: {
+  voiceMode: PlayRoomVoiceMode;
+  micMuted: boolean;
+  voiceStatus: "idle" | "requesting" | "ready" | "unsupported" | "denied";
+  voiceError: string | null;
+  onSelectMode: (mode: PlayRoomVoiceMode) => void;
+  onToggleMute: () => void;
+  onClose: () => void;
+}) => (
+  <div className="absolute inset-0 z-40">
+    <button
+      type="button"
+      aria-label="Close voice settings"
+      onClick={onClose}
+      className="absolute inset-0 bg-[rgba(240,246,255,0.36)] backdrop-blur-[2px]"
+    />
+    <div className="absolute bottom-24 right-5 z-10 w-[min(92vw,360px)] rounded-[30px] border border-[#dbe5ff] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(246,249,255,0.98)_100%)] p-5 shadow-[0_28px_72px_rgba(20,86,244,0.18)]">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#5d73b3]">
+            Voice Settings
+          </p>
+          <h2 className="mt-2 text-xl font-semibold tracking-[-0.04em] text-[#1f2430]">
+            Choose how you want to talk
+          </h2>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-[#dbe5ff] bg-white text-xl text-[#5d73b3] transition hover:border-[#bfd0ff] hover:bg-[#f8fbff]"
+          aria-label="Close voice settings"
+        >
+          ×
+        </button>
+      </div>
+
+      <div className="mt-5 grid gap-3">
+        {(
+          [
+            {
+              mode: "push_to_talk" as const,
+              title: "Push To Talk",
+              description: "Hold T while you want your mic live.",
+            },
+            {
+              mode: "voice_stream" as const,
+              title: "Voice Stream",
+              description: "Keep your mic live until you mute it.",
+            },
+          ] satisfies Array<{
+            mode: PlayRoomVoiceMode;
+            title: string;
+            description: string;
+          }>
+        ).map((option) => {
+          const isSelected = voiceMode === option.mode;
+          return (
+            <button
+              key={option.mode}
+              type="button"
+              onClick={() => onSelectMode(option.mode)}
+              className={`rounded-[24px] border px-4 py-4 text-left transition ${
+                isSelected
+                  ? "border-[#b9ceff] bg-[#eef4ff] shadow-[0_16px_32px_rgba(20,86,244,0.1)]"
+                  : "border-[#dbe5ff] bg-white/92 hover:border-[#c7d6ff] hover:bg-[#f8fbff]"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-[#1f2430]">{option.title}</div>
+                  <div className="mt-1 text-sm leading-6 text-[#6d7890]">
+                    {option.description}
+                  </div>
+                </div>
+                <span
+                  className={`inline-flex h-6 min-w-6 items-center justify-center rounded-full border px-2 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+                    isSelected
+                      ? "border-[#2b64f6] bg-[#2b64f6] text-white"
+                      : "border-[#dbe5ff] bg-white text-[#8a97b3]"
+                  }`}
+                >
+                  {isSelected ? "On" : "Off"}
+                </span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="mt-5 rounded-[24px] border border-[#dbe5ff] bg-white/88 px-4 py-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#5d73b3]">
+              Microphone
+            </div>
+            <div className="mt-2 text-sm font-medium text-[#1f2430]">
+              {formatVoiceStatusLabel(voiceStatus)}
+            </div>
+          </div>
+          {voiceMode === "voice_stream" ? (
+            <button
+              type="button"
+              onClick={onToggleMute}
+              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition ${
+                micMuted
+                  ? "border border-[#ffd4d4] bg-[#fff3f3] text-[#b45151] hover:bg-[#ffeded]"
+                  : "border border-[#bfe8c6] bg-[#effdf2] text-[#24673a] hover:bg-[#e7f9eb]"
+              }`}
+            >
+              {micMuted ? <MicOffIcon className="h-4 w-4" /> : <MicIcon className="h-4 w-4" />}
+              {micMuted ? "Muted" : "Live"}
+            </button>
+          ) : null}
+        </div>
+        {voiceError ? (
+          <div className="mt-3 rounded-[18px] border border-[#ffd4d4] bg-[#fff3f3] px-3 py-3 text-xs font-medium leading-5 text-[#b45151]">
+            {voiceError}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  </div>
+);
+
 const PokerArcadeVoteCard = ({
   roomState,
   currentUserId,
@@ -1012,6 +1216,9 @@ const SharedRoomPanel = ({
   const [isChatting, setIsChatting] = useState(false);
   const [chatDraft, setChatDraft] = useState("");
   const [isPushToTalkActive, setIsPushToTalkActive] = useState(false);
+  const [voiceMode, setVoiceMode] = useState<PlayRoomVoiceMode>("push_to_talk");
+  const [isMicMuted, setIsMicMuted] = useState(false);
+  const [isVoiceSettingsOpen, setIsVoiceSettingsOpen] = useState(false);
   const [isJudgeWalking, setIsJudgeWalking] = useState(false);
   const [weekdayLabel] = useState(() => getCurrentWeekdayLabel());
   const [renderPositions, setRenderPositions] = useState<Record<string, PlayVector2>>(() =>
@@ -1025,10 +1232,12 @@ const SharedRoomPanel = ({
   const previousPokerOverlayRef = useRef(pokerOverlayOpen);
   const serverPositionsRef = useRef<Record<string, PlayVector2>>(createPositionMap(presentPlayers));
   const visualPositionsRef = useRef<Record<string, PlayVector2>>(createPositionMap(presentPlayers));
-  const { voiceError, voiceStatus, isPushToTalkLive } = usePlayRoomVoice({
+  const { voiceError, voiceStatus, isMicLive } = usePlayRoomVoice({
     roomState,
     currentUserId,
-    pushToTalkActive: isPushToTalkActive,
+    pushToTalkActive: voiceMode === "push_to_talk" ? isPushToTalkActive : false,
+    voiceMode,
+    micMuted: isMicMuted,
   });
   const wallHeight = roomState.room.wall?.height ?? roomState.room.height * 0.22;
   const wallBoundaryY =
@@ -1112,11 +1321,17 @@ const SharedRoomPanel = ({
         setShowRoomState(true);
       }
       if (event.key === "t" || event.key === "T") {
-        if (!isChatting && !isJudgeModalOpen && !pokerOverlayOpen) {
+        if (
+          voiceMode === "push_to_talk" &&
+          !isChatting &&
+          !isJudgeModalOpen &&
+          !isVoiceSettingsOpen &&
+          !pokerOverlayOpen
+        ) {
           setIsPushToTalkActive(true);
         }
       }
-      if (pokerOverlayOpen) {
+      if (pokerOverlayOpen || isVoiceSettingsOpen) {
         return;
       }
       if (event.key === "Enter") {
@@ -1124,6 +1339,7 @@ const SharedRoomPanel = ({
         if (isChatting) {
           const nextMessage = chatDraft.trim();
           if (nextMessage) {
+            syncCurrentPlayerPosition();
             onSendChatMessage(nextMessage);
           }
           setChatDraft("");
@@ -1131,6 +1347,7 @@ const SharedRoomPanel = ({
           return;
         }
         keyStateRef.current = { up: false, down: false, left: false, right: false };
+        syncCurrentPlayerPosition();
         setIsChatting(true);
         return;
       }
@@ -1156,9 +1373,11 @@ const SharedRoomPanel = ({
         setShowRoomState(false);
       }
       if (event.key === "t" || event.key === "T") {
-        setIsPushToTalkActive(false);
+        if (voiceMode === "push_to_talk") {
+          setIsPushToTalkActive(false);
+        }
       }
-      if (isChatting) {
+      if (isChatting || isVoiceSettingsOpen) {
         return;
       }
       if (event.key === "w" || event.key === "W" || event.key === "ArrowUp") {
@@ -1188,7 +1407,18 @@ const SharedRoomPanel = ({
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("blur", handleBlur);
     };
-  }, [chatDraft, isChatting, isJudgeModalOpen, me, onReady, onSendChatMessage, pokerOverlayOpen]);
+  }, [
+    chatDraft,
+    isChatting,
+    isJudgeModalOpen,
+    isVoiceSettingsOpen,
+    me,
+    onReady,
+    onSendChatMessage,
+    pokerOverlayOpen,
+    voiceMode,
+    syncCurrentPlayerPosition,
+  ]);
 
   useEffect(() => {
     let frame = 0;
@@ -1217,11 +1447,8 @@ const SharedRoomPanel = ({
           const currentPosition = nextPositions[player.userId] ?? player.position;
           const serverPosition = serverPositions[player.userId] ?? player.position;
           if (player.userId === me?.userId) {
-            if (isChatting || pokerOverlayOpen) {
-              nextPositions[player.userId] = {
-                x: lerp(currentPosition.x, serverPosition.x, smoothing * 0.72),
-                y: lerp(currentPosition.y, serverPosition.y, smoothing * 0.72),
-              };
+            if (isChatting || isVoiceSettingsOpen || pokerOverlayOpen) {
+              nextPositions[player.userId] = currentPosition;
               nextMoving[player.userId] = false;
               return;
             }
@@ -1284,7 +1511,7 @@ const SharedRoomPanel = ({
     return () => {
       window.cancelAnimationFrame(frame);
     };
-  }, [isChatting, me, onMove, playerMinY, pokerOverlayOpen]);
+  }, [isChatting, isVoiceSettingsOpen, me, onMove, playerMinY, pokerOverlayOpen]);
 
   const pedestal = roomState.room.pedestal;
   const judge = roomState.room.judge;
@@ -1347,6 +1574,20 @@ const SharedRoomPanel = ({
     onProposePokerArcade();
   };
 
+  const handleVoiceModeSelect = (nextMode: PlayRoomVoiceMode) => {
+    setVoiceMode(nextMode);
+    setIsPushToTalkActive(false);
+  };
+
+  const syncCurrentPlayerPosition = useCallback(() => {
+    if (!me) {
+      return;
+    }
+    const currentPosition =
+      visualPositionsRef.current[me.userId] ?? renderPositions[me.userId] ?? me.position;
+    onMove(currentPosition.x, currentPosition.y);
+  }, [me, onMove, renderPositions]);
+
   return (
     <section className="relative h-full min-h-0 w-full overflow-hidden bg-white">
       <style jsx>{`
@@ -1407,6 +1648,18 @@ const SharedRoomPanel = ({
           onDraftChange={setSubmissionDraft}
           onClose={() => setIsJudgeModalOpen(false)}
           onSubmit={handleJudgeSubmit}
+        />
+      ) : null}
+
+      {isVoiceSettingsOpen ? (
+        <VoiceSettingsModal
+          voiceMode={voiceMode}
+          micMuted={isMicMuted}
+          voiceStatus={voiceStatus}
+          voiceError={voiceError}
+          onSelectMode={handleVoiceModeSelect}
+          onToggleMute={() => setIsMicMuted((current) => !current)}
+          onClose={() => setIsVoiceSettingsOpen(false)}
         />
       ) : null}
 
@@ -1488,27 +1741,6 @@ const SharedRoomPanel = ({
           </div>
         </section>
       ) : null}
-
-      <div className="absolute left-5 top-20 z-20 flex flex-col items-start gap-2">
-        <div
-          className={`rounded-full border px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] shadow-[0_12px_28px_rgba(20,86,244,0.08)] backdrop-blur ${
-            isPushToTalkLive
-              ? "border-[#bfe8c6] bg-[#effdf2] text-[#24673a]"
-              : "border-[#dbe5ff] bg-white/90 text-[#5d73b3]"
-          }`}
-        >
-          {isPushToTalkLive
-            ? "Mic Live"
-            : voiceStatus === "requesting"
-              ? "Connecting Mic"
-              : "Hold T To Talk"}
-        </div>
-        {voiceError ? (
-          <div className="max-w-[280px] rounded-[20px] border border-[#ffd4d4] bg-[#fff3f3] px-4 py-3 text-center text-xs font-medium leading-5 text-[#b45151] shadow-[0_12px_28px_rgba(223,76,76,0.08)]">
-            {voiceError}
-          </div>
-        ) : null}
-      </div>
 
       {!pokerOverlayOpen ? (
         <div className="absolute left-1/2 top-1/2 z-0 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#dbe5ff] bg-[radial-gradient(circle_at_top,#ffffff_0%,#f5f8ff_100%)] shadow-[0_20px_48px_rgba(20,86,244,0.12)]">
@@ -1657,6 +1889,44 @@ const SharedRoomPanel = ({
         </span>
         <span className="pr-2">Leave Room</span>
       </button>
+
+      <div className="absolute bottom-5 right-5 z-20 flex flex-col items-end gap-2">
+        {voiceError && !isVoiceSettingsOpen ? (
+          <div className="max-w-[280px] rounded-[20px] border border-[#ffd4d4] bg-[#fff3f3]/96 px-4 py-3 text-right text-xs font-medium leading-5 text-[#b45151] shadow-[0_12px_28px_rgba(223,76,76,0.08)] backdrop-blur">
+            {voiceError}
+          </div>
+        ) : null}
+        <div className="flex items-center gap-2">
+          {voiceMode === "voice_stream" ? (
+            <button
+              type="button"
+              onClick={() => setIsMicMuted((current) => !current)}
+              aria-label={isMicMuted ? "Unmute microphone" : "Mute microphone"}
+              className={`flex h-12 w-12 items-center justify-center rounded-full border shadow-[0_18px_36px_rgba(20,86,244,0.12)] backdrop-blur transition hover:-translate-y-0.5 ${
+                isMicMuted
+                  ? "border-[#ffd4d4] bg-[#fff3f3]/96 text-[#b45151] hover:bg-[#ffeded]"
+                  : isMicLive
+                    ? "border-[#bfe8c6] bg-[#effdf2]/96 text-[#24673a] hover:bg-[#e8f9ec]"
+                    : "border-[#dbe5ff] bg-white/96 text-[#5d73b3] hover:bg-[#f8fbff]"
+              }`}
+            >
+              {isMicMuted ? (
+                <MicOffIcon className="h-5 w-5" />
+              ) : (
+                <MicIcon className="h-5 w-5" />
+              )}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setIsVoiceSettingsOpen(true)}
+            aria-label="Open voice settings"
+            className="flex h-12 w-12 items-center justify-center rounded-full border border-[#dbe5ff] bg-white/96 text-[#5d73b3] shadow-[0_18px_36px_rgba(20,86,244,0.12)] backdrop-blur transition hover:-translate-y-0.5 hover:border-[#c6d6ff] hover:bg-[#f8fbff]"
+          >
+            <GearIcon className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
 
       {isChatting && !pokerOverlayOpen ? (
         <div className="absolute bottom-5 left-1/2 z-20 w-[min(92vw,480px)] -translate-x-1/2">

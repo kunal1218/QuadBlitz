@@ -16,6 +16,7 @@ import {
   rebuyPoker,
 } from "./pokerService";
 import {
+  clearPlayRoomPokerTable,
   createPlayRoom,
   forceRemovePlayRoomUser,
   getPlayRoomPositions,
@@ -100,6 +101,10 @@ const addPokerChatMessage = (tableId: string, message: PokerChatMessage) => {
 const getPokerChatHistory = (tableId: string) =>
   pokerChatHistory.get(tableId) ?? [];
 
+const removePokerChatHistoryForTable = (tableId: string) => {
+  pokerChatHistory.delete(tableId);
+};
+
 const removePokerChatMessagesForUser = (userId: string) => {
   pokerChatHistory.forEach((messages, tableId) => {
     const filtered = messages.filter((message) => message.sender.id !== userId);
@@ -111,6 +116,25 @@ const removePokerChatMessagesForUser = (userId: string) => {
 
 const pokerRoomForTable = (tableId: string) => `poker:table:${tableId}`;
 const playRoomForCode = (roomCode: string) => `playroom:${roomCode}`;
+
+const emitPokerClosedForUsers = (
+  userIds: readonly string[],
+  endedTableIds: readonly string[]
+) => {
+  if (!io || !userIds.length) {
+    return;
+  }
+
+  Array.from(new Set(userIds)).forEach((targetUserId) => {
+    const socketId = userSocketMap.get(targetUserId);
+    if (!socketId) {
+      return;
+    }
+    const socket = io?.sockets.sockets.get(socketId);
+    endedTableIds.forEach((tableId) => socket?.leave(pokerRoomForTable(tableId)));
+    socket?.emit("poker:state", { state: null });
+  });
+};
 
 const emitPokerStatesForTable = async (tableId: string) => {
   if (!io) {
@@ -135,6 +159,25 @@ const emitPlayRoomStateForRoom = async (roomCode: string) => {
     return;
   }
   io.to(playRoomForCode(roomCode)).emit("playroom:state", { state });
+};
+
+const clearEndedPokerTables = async (tableIds: readonly string[]) => {
+  if (!tableIds.length) {
+    return;
+  }
+
+  const updatedRoomCodes = new Set<string>();
+  for (const tableId of Array.from(new Set(tableIds))) {
+    removePokerChatHistoryForTable(tableId);
+    const roomCodes = await clearPlayRoomPokerTable(tableId);
+    roomCodes.forEach((roomCode) => updatedRoomCodes.add(roomCode));
+  }
+
+  if (updatedRoomCodes.size) {
+    await Promise.all(
+      Array.from(updatedRoomCodes).map((roomCode) => emitPlayRoomStateForRoom(roomCode))
+    );
+  }
 };
 
 const emitPlayRoomPositionsForRoom = async (roomCode: string) => {
@@ -189,11 +232,19 @@ const clearPresence = (userId: string, game: "poker" | "convo") => {
 
 const removePokerUser = async (userId: string) => {
   const result = await forceRemovePokerUser(userId);
-  removePokerChatMessagesForUser(userId);
+  const endedTableIds = result.endedTableIds?.length ? result.endedTableIds : [];
+  if (!endedTableIds.length) {
+    removePokerChatMessagesForUser(userId);
+  }
+  emitPokerClosedForUsers(result.removedUserIds ?? [], endedTableIds);
+  await clearEndedPokerTables(endedTableIds);
   const socketId = userSocketMap.get(userId);
   if (socketId && io) {
     const socket = io.sockets.sockets.get(socketId);
-    const tableIds = result.updatedTableIds?.length ? result.updatedTableIds : [];
+    const tableIds = [
+      ...(result.updatedTableIds?.length ? result.updatedTableIds : []),
+      ...endedTableIds,
+    ];
     tableIds.forEach((tableId) => socket?.leave(pokerRoomForTable(tableId)));
     socket?.emit("poker:state", { state: null });
     if (result.queued) {
@@ -251,12 +302,13 @@ const startPresenceSweep = () => {
       if (pruneResult.removedUserIds?.length) {
         pruneResult.removedUserIds.forEach((removedUserId) => {
           removePokerChatMessagesForUser(removedUserId);
-          const socketId = userSocketMap.get(removedUserId);
-          if (socketId) {
-            io?.to(socketId).emit("poker:state", { state: null });
-          }
         });
+        emitPokerClosedForUsers(
+          pruneResult.removedUserIds,
+          pruneResult.endedTableIds ?? []
+        );
       }
+      await clearEndedPokerTables(pruneResult.endedTableIds ?? []);
       if (pruneResult.updatedTableIds?.length) {
         await Promise.all(
           pruneResult.updatedTableIds.map((tableId) => emitPokerStatesForTable(tableId))
@@ -436,6 +488,11 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
         if (result.tableId) {
           socket.join(pokerRoomForTable(result.tableId));
         }
+        emitPokerClosedForUsers(
+          result.removedUserIds ?? [],
+          result.endedTableIds ?? []
+        );
+        await clearEndedPokerTables(result.endedTableIds ?? []);
         if (result.queued) {
           socket.emit("poker:queued", { queuePosition: result.queuePosition });
         }
@@ -471,6 +528,11 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
               ? { action: normalizedAction, amount: Number(payload?.amount ?? 0) }
               : { action: normalizedAction };
           const result = await applyPokerAction({ userId, action });
+          emitPokerClosedForUsers(
+            result.removedUserIds ?? [],
+            result.endedTableIds ?? []
+          );
+          await clearEndedPokerTables(result.endedTableIds ?? []);
           const tableIds = result.updatedTableIds?.length
             ? result.updatedTableIds
             : [result.tableId];
@@ -573,8 +635,14 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
       try {
         clearPresence(userId, "poker");
         const result = await leavePokerTable(userId);
-        removePokerChatMessagesForUser(userId);
+        const endedTableIds = result.endedTableIds ?? [];
+        if (!endedTableIds.length) {
+          removePokerChatMessagesForUser(userId);
+        }
+        endedTableIds.forEach((tableId) => socket.leave(pokerRoomForTable(tableId)));
         socket.emit("poker:state", { state: null });
+        emitPokerClosedForUsers(result.removedUserIds ?? [], endedTableIds);
+        await clearEndedPokerTables(endedTableIds);
         if (result.queued) {
           socket.emit("poker:queued", { queuePosition: result.queuePosition });
         }

@@ -1521,33 +1521,47 @@ const seatPlayerAtTable = async (
   await setPlayerTableId(entry.userId, table.id);
 };
 
-const requeueSoloTable = async (table: PokerTable) => {
+const closeWaitingTableIfTooSmall = async (table: PokerTable) => {
   if (table.status !== "waiting") {
-    return { tableRemoved: false, requeuedUserIds: [] as string[] };
+    return {
+      tableRemoved: false,
+      removedUserIds: [] as string[],
+      endedTableIds: [] as string[],
+    };
   }
+
   const players = getPlayers(table);
-  if (players.length !== 1) {
-    return { tableRemoved: false, requeuedUserIds: [] as string[] };
-  }
-  const player = players[0];
-  table.seats[player.seatIndex] = null;
-  await clearPlayerTableId(player.userId);
-  const carriedAmount = Math.floor(player.chips);
-  if (carriedAmount > 0) {
-    await enqueuePlayer({
-      userId: player.userId,
-      name: player.name,
-      handle: normalizeHandle(player.handle),
-      amount: carriedAmount,
-      enqueuedAt: Date.now(),
-      prepaid: true,
-    });
-    table.log.push(toLog(`${player.name} returned to the queue.`));
+  if (!players.length) {
     await removeTable(table.id);
-    return { tableRemoved: true, requeuedUserIds: [player.userId] };
+    return {
+      tableRemoved: true,
+      removedUserIds: [] as string[],
+      endedTableIds: [table.id],
+    };
   }
+
+  if (getEligiblePlayers(table).length >= MIN_PLAYERS) {
+    return {
+      tableRemoved: false,
+      removedUserIds: [] as string[],
+      endedTableIds: [] as string[],
+    };
+  }
+
+  const removedUserIds: string[] = [];
+  for (const player of players) {
+    await refundPlayerChips(player);
+    await clearPlayerTableId(player.userId);
+    table.seats[player.seatIndex] = null;
+    removedUserIds.push(player.userId);
+  }
+
   await removeTable(table.id);
-  return { tableRemoved: true, requeuedUserIds: [] as string[] };
+  return {
+    tableRemoved: true,
+    removedUserIds,
+    endedTableIds: [table.id],
+  };
 };
 
 const processQueue = async () => {
@@ -1555,12 +1569,15 @@ const processQueue = async () => {
   const updatedTableIds = new Set<string>();
   const failedUserIds: string[] = [];
   const requeuedUserIds: string[] = [];
+  const removedUserIds = new Set<string>();
+  const endedTableIds = new Set<string>();
 
   const activeTables: PokerTable[] = [];
   for (const table of tables) {
-    const soloResult = await requeueSoloTable(table);
-    if (soloResult.tableRemoved) {
-      requeuedUserIds.push(...soloResult.requeuedUserIds);
+    const shortTableResult = await closeWaitingTableIfTooSmall(table);
+    if (shortTableResult.tableRemoved) {
+      shortTableResult.removedUserIds.forEach((userId) => removedUserIds.add(userId));
+      shortTableResult.endedTableIds.forEach((tableId) => endedTableIds.add(tableId));
       continue;
     }
     activeTables.push(table);
@@ -1572,6 +1589,8 @@ const processQueue = async () => {
     return {
       updatedTableIds: [] as string[],
       failedUserIds,
+      removedUserIds: Array.from(removedUserIds),
+      endedTableIds: Array.from(endedTableIds),
       requeuedUserIds,
     };
   }
@@ -1694,6 +1713,8 @@ const processQueue = async () => {
   return {
     updatedTableIds: Array.from(updatedTableIds),
     failedUserIds,
+    removedUserIds: Array.from(removedUserIds),
+    endedTableIds: Array.from(endedTableIds),
     requeuedUserIds,
   };
 };
@@ -1724,16 +1745,17 @@ export const queuePokerPlayer = async (params: {
         }
         table.log.push(toLog(`${player.name} re-bought ${normalizedAmount} chips.`));
       }
-      if (table.status === "waiting" && getPlayers(table).length === 1) {
-        const soloResult = await requeueSoloTable(table);
-        if (soloResult.tableRemoved) {
-          const queuePosition = await getQueuePosition(params.userId);
+      if (table.status === "waiting") {
+        const shortTableResult = await closeWaitingTableIfTooSmall(table);
+        if (shortTableResult.tableRemoved) {
           return {
             tableId: null,
             state: null,
-            queued: queuePosition !== null,
-            queuePosition,
+            queued: false,
+            queuePosition: null,
             updatedTableIds: [],
+            removedUserIds: shortTableResult.removedUserIds,
+            endedTableIds: shortTableResult.endedTableIds,
           };
         }
       }
@@ -2011,15 +2033,14 @@ export const getPokerStateForUser = async (userId: string) => {
       queuePosition,
     } as const;
   }
-  if (table.status === "waiting" && getPlayers(table).length === 1) {
-    const soloResult = await requeueSoloTable(table);
-    if (soloResult.tableRemoved) {
-      const queuePosition = await getQueuePosition(userId);
+  if (table.status === "waiting") {
+    const shortTableResult = await closeWaitingTableIfTooSmall(table);
+    if (shortTableResult.tableRemoved) {
       return {
         tableId: null,
         state: null,
-        queued: queuePosition !== null,
-        queuePosition,
+        queued: false,
+        queuePosition: null,
       } as const;
     }
   }
@@ -2112,24 +2133,40 @@ export const applyPokerAction = async (params: {
     }
   }
 
-  await saveTable(table);
-  let updatedTableIds = [table.id];
+  const shortTableResult = await closeWaitingTableIfTooSmall(table);
+
+  let updatedTableIds = shortTableResult.tableRemoved ? [] : [table.id];
+  if (!shortTableResult.tableRemoved) {
+    await saveTable(table);
+  }
   let failedUserIds: string[] = [];
+  const removedUserIds = new Set<string>(shortTableResult.removedUserIds);
+  const endedTableIds = new Set<string>(shortTableResult.endedTableIds);
   if ((await getQueueLength()) > 0) {
     const queueResult = await processQueue();
     updatedTableIds = Array.from(
       new Set([...updatedTableIds, ...queueResult.updatedTableIds])
     );
     failedUserIds = queueResult.failedUserIds;
+    queueResult.removedUserIds?.forEach((userId) => removedUserIds.add(userId));
+    queueResult.endedTableIds?.forEach((tableId) => endedTableIds.add(tableId));
   }
 
   const refreshedTable =
     updatedTableIds.includes(table.id) ? await loadTable(table.id) : table;
-  const state = refreshedTable
-    ? buildClientState(refreshedTable, params.userId)
-    : buildClientState(table, params.userId);
+  const state =
+    !shortTableResult.tableRemoved && refreshedTable
+      ? buildClientState(refreshedTable, params.userId)
+      : null;
 
-  return { tableId: table.id, state, updatedTableIds, failedUserIds };
+  return {
+    tableId: table.id,
+    state,
+    updatedTableIds,
+    failedUserIds,
+    removedUserIds: Array.from(removedUserIds),
+    endedTableIds: Array.from(endedTableIds),
+  };
 };
 
 export const showPokerCards = async (userId: string) => {
@@ -2253,19 +2290,23 @@ export const leavePokerTable = async (userId: string) => {
   removePlayerFromTable(table, player, `${player.name} left the table.`);
   await clearPlayerTableId(userId);
 
-  const soloResult = await requeueSoloTable(table);
-  if (!soloResult.tableRemoved) {
+  const shortTableResult = await closeWaitingTableIfTooSmall(table);
+  if (!shortTableResult.tableRemoved) {
     await saveTable(table);
   }
 
-  let updatedTableIds = soloResult.tableRemoved ? [] : [table.id];
+  let updatedTableIds = shortTableResult.tableRemoved ? [] : [table.id];
   let failedUserIds: string[] = [];
+  const removedUserIds = new Set<string>(shortTableResult.removedUserIds);
+  const endedTableIds = new Set<string>(shortTableResult.endedTableIds);
   if ((await getQueueLength()) > 0) {
     const queueResult = await processQueue();
     updatedTableIds = Array.from(
       new Set([...updatedTableIds, ...queueResult.updatedTableIds])
     );
     failedUserIds = queueResult.failedUserIds;
+    queueResult.removedUserIds?.forEach((targetUserId) => removedUserIds.add(targetUserId));
+    queueResult.endedTableIds?.forEach((targetTableId) => endedTableIds.add(targetTableId));
   }
 
   return {
@@ -2275,6 +2316,8 @@ export const leavePokerTable = async (userId: string) => {
     queuePosition: null,
     updatedTableIds,
     failedUserIds,
+    removedUserIds: Array.from(removedUserIds),
+    endedTableIds: Array.from(endedTableIds),
   } as const;
 };
 
@@ -2297,19 +2340,23 @@ export const forceRemovePokerUser = async (userId: string, reason?: string) => {
       reason ?? `${player.name} left the table.`
     );
     await clearPlayerTableId(userId);
-    const soloResult = await requeueSoloTable(table);
-    if (!soloResult.tableRemoved) {
+    const shortTableResult = await closeWaitingTableIfTooSmall(table);
+    if (!shortTableResult.tableRemoved) {
       await saveTable(table);
     }
 
-    let updatedTableIds = soloResult.tableRemoved ? [] : [table.id];
+    let updatedTableIds = shortTableResult.tableRemoved ? [] : [table.id];
     let failedUserIds: string[] = [];
+    const removedUserIds = new Set<string>(shortTableResult.removedUserIds);
+    const endedTableIds = new Set<string>(shortTableResult.endedTableIds);
     if ((await getQueueLength()) > 0) {
       const queueResult = await processQueue();
       updatedTableIds = Array.from(
         new Set([...updatedTableIds, ...queueResult.updatedTableIds])
       );
       failedUserIds = queueResult.failedUserIds;
+      queueResult.removedUserIds?.forEach((targetUserId) => removedUserIds.add(targetUserId));
+      queueResult.endedTableIds?.forEach((targetTableId) => endedTableIds.add(targetTableId));
     }
 
     return {
@@ -2319,6 +2366,8 @@ export const forceRemovePokerUser = async (userId: string, reason?: string) => {
       queuePosition: null,
       updatedTableIds,
       failedUserIds,
+      removedUserIds: Array.from(removedUserIds),
+      endedTableIds: Array.from(endedTableIds),
     } as const;
   }
 
@@ -2342,6 +2391,7 @@ export const prunePokerTables = async (params: {
   const tables = await loadActiveTables();
   const updatedTableIds = new Set<string>();
   const removedUserIds: string[] = [];
+  const endedTableIds = new Set<string>();
   const requeuedUserIds: string[] = [];
 
   for (const table of tables) {
@@ -2371,10 +2421,13 @@ export const prunePokerTables = async (params: {
     }
 
     if (!staleTargets.length) {
-      if (table.status === "waiting" && getPlayers(table).length === 1) {
-        const soloResult = await requeueSoloTable(table);
-        if (soloResult.tableRemoved) {
-          requeuedUserIds.push(...soloResult.requeuedUserIds);
+      if (table.status === "waiting") {
+        const shortTableResult = await closeWaitingTableIfTooSmall(table);
+        if (shortTableResult.tableRemoved) {
+          shortTableResult.removedUserIds.forEach((userId) =>
+            removedUserIds.push(userId)
+          );
+          shortTableResult.endedTableIds.forEach((tableId) => endedTableIds.add(tableId));
           continue;
         }
       }
@@ -2401,10 +2454,13 @@ export const prunePokerTables = async (params: {
       changed = true;
     }
 
-    if (table.status === "waiting" && getPlayers(table).length === 1) {
-      const soloResult = await requeueSoloTable(table);
-      if (soloResult.tableRemoved) {
-        requeuedUserIds.push(...soloResult.requeuedUserIds);
+    if (table.status === "waiting") {
+      const shortTableResult = await closeWaitingTableIfTooSmall(table);
+      if (shortTableResult.tableRemoved) {
+        shortTableResult.removedUserIds.forEach((userId) =>
+          removedUserIds.push(userId)
+        );
+        shortTableResult.endedTableIds.forEach((tableId) => endedTableIds.add(tableId));
         continue;
       }
     }
@@ -2424,12 +2480,15 @@ export const prunePokerTables = async (params: {
     const queueResult = await processQueue();
     queueResult.updatedTableIds.forEach((id) => updatedTableIds.add(id));
     failedUserIds = queueResult.failedUserIds;
+    queueResult.removedUserIds?.forEach((userId) => removedUserIds.push(userId));
+    queueResult.endedTableIds?.forEach((tableId) => endedTableIds.add(tableId));
   }
 
   return {
     updatedTableIds: Array.from(updatedTableIds),
     failedUserIds,
     removedUserIds,
+    endedTableIds: Array.from(endedTableIds),
     requeuedUserIds,
   };
 };

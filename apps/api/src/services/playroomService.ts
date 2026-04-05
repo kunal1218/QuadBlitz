@@ -1638,6 +1638,31 @@ export const getPlayRoomPositions = async (roomCode: string) => {
   return room ? serializeRoomPositions(room) : null;
 };
 
+export const clearPlayRoomPokerTable = async (tableId: string) => {
+  await ensurePlayRoomTables();
+  const result = await db.query(
+    `SELECT room_code
+     FROM play_rooms
+     WHERE state_json -> 'pokerArcade' ->> 'activeTableId' = $1`,
+    [tableId]
+  );
+
+  const updatedRoomCodes: string[] = [];
+  for (const row of result.rows as Array<{ room_code: string }>) {
+    const room = await loadRoom(row.room_code);
+    if (!room || room.pokerArcade.activeTableId !== tableId) {
+      continue;
+    }
+    room.pokerArcade = emptyPokerArcadeState();
+    const savedRoom = await saveOrDeleteRoom(room);
+    if (savedRoom) {
+      updatedRoomCodes.push(savedRoom.roomCode);
+    }
+  }
+
+  return updatedRoomCodes;
+};
+
 export const lockPlayRoomCharacter = async (params: {
   userId: string;
   characterId: PlayCharacterId;

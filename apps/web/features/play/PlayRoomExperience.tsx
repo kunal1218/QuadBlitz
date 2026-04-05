@@ -62,6 +62,42 @@ const formatPhaseLabel = (phase: PlayRoomListEntry["phase"]) => {
   }
 };
 
+const ROOM_MEMBER_STACK_COLORS = ["#d8e5ff", "#dff0ff", "#efe7ff"];
+
+const RoomMemberStack = ({ count }: { count: number }) => {
+  const visibleCount = Math.min(3, Math.max(count, 0));
+  const hiddenCount = Math.max(0, count - visibleCount);
+
+  return (
+    <div className="flex items-center">
+      <div className="flex items-center">
+        {Array.from({ length: visibleCount }).map((_, index) => (
+          <span
+            key={`${count}-${index}`}
+            className={`h-7 w-7 rounded-full border-2 border-white ${
+              index === 0 ? "" : "-ml-2.5"
+            }`}
+            style={{ backgroundColor: ROOM_MEMBER_STACK_COLORS[index] }}
+          />
+        ))}
+      </div>
+      {hiddenCount > 0 ? (
+        <span className="-ml-1 inline-flex h-7 min-w-7 items-center justify-center rounded-full border border-[#e6ecfb] bg-[#f7f9ff] px-1.5 text-[10px] font-semibold text-[#7e8dab]">
+          +{hiddenCount}
+        </span>
+      ) : null}
+    </div>
+  );
+};
+
+const formatRoomTitle = (hasRooms: boolean) =>
+  hasRooms ? "Create Another Room" : "Create Your First Room";
+
+const formatRoomDescription = (hasRooms: boolean) =>
+  hasRooms
+    ? "Start a new room for a different friend group while keeping your existing rooms alive."
+    : "Start a persistent room for your group, then keep coming back to the same shared space over time.";
+
 const StatusBanner = ({
   error,
   onDismiss,
@@ -83,9 +119,8 @@ const StatusBanner = ({
 );
 
 const RoomCreateCard = ({
-  title,
-  description,
   statusLabel,
+  hasRooms,
   isAuthenticated,
   isBusy,
   roomName,
@@ -93,9 +128,8 @@ const RoomCreateCard = ({
   onCreate,
   compact = false,
 }: {
-  title: string;
-  description: string;
   statusLabel: string;
+  hasRooms: boolean;
   isAuthenticated: boolean;
   isBusy: boolean;
   roomName: string;
@@ -104,19 +138,21 @@ const RoomCreateCard = ({
   compact?: boolean;
 }) => (
   <div
-    className={`rounded-[32px] border border-[#dbe5ff] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(245,248,255,0.98)_100%)] p-8 shadow-[0_26px_70px_rgba(20,86,244,0.12)] ${
-      compact ? "" : "w-full max-w-md"
+    className={`rounded-[36px] border border-[#e7eefc] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(250,252,255,0.98)_100%)] p-10 shadow-[0_28px_80px_rgba(30,55,120,0.1)] ${
+      compact ? "" : "w-full max-w-[470px]"
     }`}
   >
-    <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#5d73b3]">
+    <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[#2b64f6]">
       Quadblitz Play
     </p>
-    <h1 className="mt-3 font-[family-name:var(--font-display)] text-3xl font-semibold tracking-[-0.04em] text-[#1f2430]">
-      {title}
+    <h1 className="mt-4 font-[family-name:var(--font-display)] text-[clamp(2.5rem,3vw,3.75rem)] font-semibold leading-[0.95] tracking-[-0.06em] text-[#18233a]">
+      {formatRoomTitle(hasRooms)}
     </h1>
-    <p className="mt-3 text-sm leading-6 text-[#687287]">{description}</p>
+    <p className="mt-5 max-w-[28rem] text-[1.03rem] leading-8 text-[#75809a]">
+      {formatRoomDescription(hasRooms)}
+    </p>
     <label className="mt-6 block">
-      <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#5d73b3]">
+      <span className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#8b97ae]">
         Room Name
       </span>
       <input
@@ -125,14 +161,25 @@ const RoomCreateCard = ({
         onChange={(event) => onRoomNameChange(event.target.value.slice(0, 48))}
         placeholder="Weekend Crew"
         maxLength={48}
-        className="mt-3 w-full rounded-[22px] border border-[#dbe5ff] bg-white px-4 py-3 text-sm font-medium text-[#1f2430] outline-none transition placeholder:text-[#92a0bb] focus:border-[#b8cbff] focus:ring-4 focus:ring-[#e6efff]"
+        className="mt-4 w-full rounded-full border border-[#edf1fb] bg-[#f7f9fe] px-7 py-5 text-[1.05rem] font-medium text-[#1f2430] outline-none transition placeholder:text-[#c2c9d8] focus:border-[#c8d7ff] focus:bg-white focus:ring-4 focus:ring-[#eaf0ff]"
       />
     </label>
-    <div className="mt-6 rounded-[22px] border border-[#dbe5ff] bg-[#f5f8ff] px-4 py-3 text-xs uppercase tracking-[0.18em] text-[#5970af]">
-      {statusLabel}
+
+    <div className="mt-7 flex items-center justify-between rounded-full border border-[#eef2fb] bg-[#f8faff] px-7 py-5">
+      <span className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#97a2b8]">
+        {statusLabel}
+      </span>
+      <span
+        className={`h-2.5 w-2.5 rounded-full ${
+          isAuthenticated && statusLabel.toLowerCase().includes("connected")
+            ? "bg-[#86d5a0]"
+            : "bg-[#cfd6e4]"
+        }`}
+      />
     </div>
+
     <Button
-      className="mt-6 w-full justify-center rounded-full bg-[#1756f5] px-5 py-3.5 text-sm font-semibold uppercase tracking-[0.16em] text-white shadow-[0_16px_30px_rgba(23,86,245,0.22)] hover:translate-y-0 hover:bg-[#0f49e2]"
+      className="mt-8 w-full justify-center rounded-full bg-[#ff7b52] px-6 py-5 text-sm font-semibold uppercase tracking-[0.18em] text-white shadow-[0_18px_34px_rgba(255,123,82,0.28)] transition hover:translate-y-[-1px] hover:bg-[#ff6c3c]"
       requiresAuth
       authMode="signup"
       disabled={isBusy}
@@ -140,6 +187,18 @@ const RoomCreateCard = ({
     >
       {isBusy ? "Working..." : isAuthenticated ? "Create Room" : "Sign In To Create"}
     </Button>
+
+    {!hasRooms ? (
+      <div className="mt-8 rounded-[28px] bg-[linear-gradient(145deg,#2058f5_0%,#2e6bff_55%,#4f84ff_100%)] px-7 py-7 text-white shadow-[0_24px_50px_rgba(32,88,245,0.2)]">
+        <div className="text-3xl leading-none">✦</div>
+        <div className="mt-10 text-[1.75rem] font-semibold tracking-[-0.05em]">
+          Persistent Rooms
+        </div>
+        <p className="mt-4 text-sm leading-7 text-white/82">
+          Create one shared room and keep its identity, score, and activity history alive for your group.
+        </p>
+      </div>
+    ) : null}
   </div>
 );
 
@@ -209,121 +268,168 @@ const RoomHistoryPanel = ({
   onOpenRoom: (roomCode: string) => void;
 }) => (
   <div className="mx-auto flex min-h-[calc(100dvh-9rem)] max-w-7xl flex-col gap-8 px-4 py-10">
-    <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
-      <RoomCreateCard
-        title={rooms.length === 0 ? "Start Your First Room" : "Create Another Room"}
-        description={
-          rooms.length === 0
-            ? "Rooms now persist over time. Give your group a name and build a long-running space you can keep coming back to."
-            : "Start a new room for a different friend group while keeping your existing rooms alive."
-        }
-        statusLabel={
-          isAuthenticated
-            ? isConnected
-              ? "Realtime connected"
-              : "Connecting to room service"
-            : "Sign in required"
-        }
-        isAuthenticated={isAuthenticated}
-        isBusy={isBusy}
-        roomName={roomName}
-        onRoomNameChange={onRoomNameChange}
-        onCreate={onCreate}
-        compact
-      />
+    <div className="grid gap-8 xl:grid-cols-[470px_minmax(0,1fr)]">
+      <div className="xl:sticky xl:top-28 xl:self-start">
+        <RoomCreateCard
+          statusLabel={
+            isAuthenticated
+              ? isConnected
+                ? "Realtime Connected"
+                : "Connecting To Room Service"
+              : "Sign In Required"
+          }
+          hasRooms={rooms.length > 0}
+          isAuthenticated={isAuthenticated}
+          isBusy={isBusy}
+          roomName={roomName}
+          onRoomNameChange={onRoomNameChange}
+          onCreate={onCreate}
+          compact
+        />
+      </div>
 
-      <div className="rounded-[34px] border border-[#dbe5ff] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(245,248,255,0.98)_100%)] p-6 shadow-[0_26px_70px_rgba(20,86,244,0.1)] sm:p-7">
+      <div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#5d73b3]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[#2b64f6]">
               Your Long-Term Rooms
             </p>
-            <h2 className="mt-3 font-[family-name:var(--font-display)] text-4xl font-semibold tracking-[-0.05em] text-[#1f2430]">
+            <h2 className="mt-4 font-[family-name:var(--font-display)] text-[clamp(2.6rem,4vw,4.4rem)] font-semibold leading-[0.95] tracking-[-0.07em] text-[#18233a]">
               Pick up where your group left off
             </h2>
           </div>
-          <div className="rounded-full border border-[#dbe5ff] bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#5970af]">
+          <div className="rounded-full border border-[#edf1fb] bg-[#f7f9fe] px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9aa6bc]">
             Sorted by last entered
           </div>
         </div>
 
         {isLoading ? (
-          <div className="mt-6 rounded-[24px] border border-[#dbe5ff] bg-white px-5 py-8 text-sm text-[#687287]">
+          <div className="mt-8 rounded-[38px] border border-[#edf1fb] bg-white/95 px-8 py-10 text-base text-[#75809a] shadow-[0_24px_70px_rgba(30,55,120,0.08)]">
             Loading your rooms...
           </div>
         ) : rooms.length === 0 ? (
-          <div className="mt-6 rounded-[24px] border border-dashed border-[#cfdcff] bg-[#f8fbff] px-5 py-8 text-sm leading-6 text-[#687287]">
-            No saved rooms yet. Create one on the left, then your room history will live here.
+          <div className="mt-8 rounded-[38px] border border-[#edf1fb] bg-white/95 p-8 shadow-[0_24px_70px_rgba(30,55,120,0.08)]">
+            <div className="max-w-2xl">
+              <div className="rounded-full border border-[#eef2fb] bg-[#f7f9fe] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#7f8ba4]">
+                No room history yet
+              </div>
+              <h3 className="mt-6 font-[family-name:var(--font-display)] text-4xl font-semibold tracking-[-0.06em] text-[#18233a]">
+                Create one room and it will live here from now on
+              </h3>
+              <p className="mt-4 max-w-xl text-[1.02rem] leading-8 text-[#75809a]">
+                Returning rooms keep their name, member roster, score, and recent activity so your group can jump back in later.
+              </p>
+            </div>
+            <div className="mt-8 grid gap-4 md:grid-cols-3">
+              <div className="rounded-[28px] border border-[#eff3fb] bg-[#fbfcff] px-6 py-5">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#9aa6bc]">
+                  Last entered
+                </div>
+                <div className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[#d2d8e4]">
+                  --
+                </div>
+              </div>
+              <div className="rounded-[28px] border border-[#eff3fb] bg-[#fbfcff] px-6 py-5">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#9aa6bc]">
+                  Last activity
+                </div>
+                <div className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[#d2d8e4]">
+                  --
+                </div>
+              </div>
+              <div className="rounded-[28px] border border-dashed border-[#d9e4ff] bg-[#f7faff] px-6 py-5">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#2b64f6]">
+                  Re-enter
+                </div>
+                <div className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[#b6c5eb]">
+                  Waiting for your first room
+                </div>
+              </div>
+            </div>
           </div>
         ) : (
-          <div className="mt-6 space-y-4">
+          <div className="mt-8 space-y-5">
             {rooms.map((room) => (
               <button
                 key={room.roomCode}
                 type="button"
                 onClick={() => onOpenRoom(room.roomCode)}
-                className="w-full rounded-[28px] border border-[#dbe5ff] bg-white px-5 py-5 text-left shadow-[0_16px_36px_rgba(20,86,244,0.08)] transition hover:-translate-y-0.5 hover:border-[#b8cbff] hover:bg-[#fbfdff]"
+                className="w-full rounded-[40px] border border-[#edf1fb] bg-white/95 p-8 text-left shadow-[0_24px_70px_rgba(30,55,120,0.08)] transition hover:-translate-y-0.5 hover:border-[#d7e2ff] hover:shadow-[0_30px_82px_rgba(30,55,120,0.12)]"
               >
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full border border-[#dbe5ff] bg-[#eef4ff] px-3 py-[7px] text-[10px] font-semibold uppercase tracking-[0.2em] text-[#5970af]">
-                        {formatPhaseLabel(room.phase)}
-                      </span>
-                      {room.hasNewActivity ? (
-                        <span className="rounded-full border border-[#d7ebd8] bg-[#effcf0] px-3 py-[7px] text-[10px] font-semibold uppercase tracking-[0.2em] text-[#3e8d50]">
-                          {room.newActivityCount} new update{room.newActivityCount === 1 ? "" : "s"}
-                        </span>
-                      ) : null}
-                      {room.isHost ? (
-                        <span className="rounded-full border border-[#e8ecf5] bg-[#f8fafd] px-3 py-[7px] text-[10px] font-semibold uppercase tracking-[0.2em] text-[#7a869e]">
-                          Host
-                        </span>
-                      ) : null}
-                    </div>
-                    <h3 className="mt-4 text-2xl font-semibold tracking-[-0.04em] text-[#1f2430]">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="rounded-full border border-[#e6edff] bg-[#edf3ff] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#2b64f6]">
+                    {formatPhaseLabel(room.phase)}
+                  </span>
+                  {room.hasNewActivity ? (
+                    <span className="rounded-full border border-[#dbeedc] bg-[#edf9ee] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#2c9a4a]">
+                      {room.newActivityCount} new update{room.newActivityCount === 1 ? "" : "s"}
+                    </span>
+                  ) : null}
+                  {room.isHost ? (
+                    <span className="rounded-full border border-[#ebeff8] bg-[#f7f9fe] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#7f8ba4]">
+                      Host
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="mt-7 flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-[clamp(2.3rem,4vw,4.1rem)] font-[family-name:var(--font-display)] font-semibold leading-[0.95] tracking-[-0.07em] text-[#18233a]">
                       {room.roomName}
                     </h3>
-                    <p className="mt-2 text-sm text-[#6f7990]">
-                      Room {room.roomCode} • {room.memberCount} member{room.memberCount === 1 ? "" : "s"} • {room.presentCount} active now
-                    </p>
-                  </div>
-                  <div className="shrink-0 rounded-[24px] border border-[#dbe5ff] bg-[#f8fbff] px-4 py-4 text-sm text-[#4d5a71]">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#7d8fb4]">
-                      Total Score
+                    <div className="mt-4 flex flex-wrap items-center gap-3 text-[1.05rem] text-[#6f7990]">
+                      <span>Room {room.roomCode}</span>
+                      <span className="text-[#d1d8e6]">•</span>
+                      <RoomMemberStack count={room.memberCount} />
+                      <span>
+                        {room.memberCount} member{room.memberCount === 1 ? "" : "s"}
+                      </span>
+                      <span className="text-[#d1d8e6]">•</span>
+                      <span className="font-semibold text-[#88d39f]">
+                        {room.presentCount} active now
+                      </span>
                     </div>
-                    <div className="mt-2 font-[family-name:var(--font-display)] text-3xl font-semibold tracking-[-0.04em] text-[#1456f4]">
+                  </div>
+
+                  <div className="shrink-0 rounded-[32px] border border-[#eef2fb] bg-[#f7f9fe] px-8 py-7 text-center">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#9aa6bc]">
+                      Total score
+                    </div>
+                    <div className="mt-3 font-[family-name:var(--font-display)] text-[3.5rem] font-semibold leading-none tracking-[-0.08em] text-[#2b64f6]">
                       {room.totalScore.toFixed(2)}
                     </div>
-                    <div className="mt-2 text-xs text-[#7c869a]">
+                    <div className="mt-3 text-sm text-[#8a95ab]">
                       Week {room.weeksAlive} alive
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  <div className="rounded-[20px] border border-[#edf2fb] bg-[#fbfcff] px-4 py-3">
-                    <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8a98b0]">
-                      Last Entered
+                <div className="mt-8 grid gap-4 lg:grid-cols-[1fr_1fr_280px]">
+                  <div className="rounded-[28px] border border-[#eff3fb] bg-[#fbfcff] px-6 py-5">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#9aa6bc]">
+                      Last entered
                     </div>
-                    <div className="mt-2 text-sm font-semibold text-[#1f2430]">
+                    <div className="mt-3 text-[1.9rem] font-semibold tracking-[-0.05em] text-[#18233a]">
                       {room.lastEnteredAt ? formatRelativeTime(room.lastEnteredAt) : "Never"}
                     </div>
                   </div>
-                  <div className="rounded-[20px] border border-[#edf2fb] bg-[#fbfcff] px-4 py-3">
-                    <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8a98b0]">
-                      Last Activity
+                  <div className="rounded-[28px] border border-[#eff3fb] bg-[#fbfcff] px-6 py-5">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#9aa6bc]">
+                      Last activity
                     </div>
-                    <div className="mt-2 text-sm font-semibold text-[#1f2430]">
+                    <div className="mt-3 text-[1.9rem] font-semibold tracking-[-0.05em] text-[#18233a]">
                       {formatRelativeTime(room.lastActivityAt)}
                     </div>
                   </div>
-                  <div className="rounded-[20px] border border-[#edf2fb] bg-[#fbfcff] px-4 py-3">
-                    <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8a98b0]">
+                  <div className="rounded-[28px] border border-[#dbe5ff] bg-[#f5f8ff] px-6 py-5 transition hover:border-[#cbd9ff] hover:bg-[#f8faff]">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#2b64f6]">
                       Re-enter
                     </div>
-                    <div className="mt-2 text-sm font-semibold text-[#1456f4]">
-                      Open room
+                    <div className="mt-3 flex items-center justify-between gap-4">
+                      <span className="text-[1.9rem] font-semibold tracking-[-0.05em] text-[#2b64f6]">
+                        Open room
+                      </span>
+                      <span className="text-3xl leading-none text-[#2b64f6]">+</span>
                     </div>
                   </div>
                 </div>
@@ -1361,14 +1467,9 @@ const SharedRoomPanel = ({
               className={canSubmitToJudge ? "drop-shadow-[0_10px_18px_rgba(20,86,244,0.14)]" : "opacity-90"}
             />
           </button>
-          <div className="mt-2 rounded-full border border-[#dbe5ff] bg-white/94 px-3 py-1 text-[11px] font-semibold text-[#1f2430] shadow-[0_10px_24px_rgba(20,86,244,0.08)]">
+          <div className="mt-2 inline-flex w-fit self-center rounded-full border border-[#dbe5ff] bg-white/94 px-3 py-1 text-[11px] font-semibold text-[#1f2430] shadow-[0_10px_24px_rgba(20,86,244,0.08)]">
             Judge
           </div>
-          {roomState.phase === "task_reveal" ? (
-            <div className="mt-2 rounded-full border border-[#dbe5ff] bg-white/88 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#5d73b3] shadow-[0_10px_24px_rgba(20,86,244,0.08)]">
-              {canSubmitToJudge ? "Click judge to submit" : "Walk up to submit"}
-            </div>
-          ) : null}
         </div>
       </div>
 
@@ -1671,7 +1772,7 @@ export const PlayRoomExperience = () => {
       isBusy={busyAction === "create" || busyAction === "join"}
       onJoin={handleJoinInviteRoom}
     />
-  ) : rooms.length > 0 || isRoomListLoading ? (
+  ) : (
     <RoomHistoryPanel
       rooms={rooms}
       isLoading={isRoomListLoading}
@@ -1683,25 +1784,6 @@ export const PlayRoomExperience = () => {
       onCreate={handleCreateRoom}
       onOpenRoom={handleOpenRoom}
     />
-  ) : (
-    <div className="mx-auto flex min-h-[calc(100dvh-10rem)] max-w-5xl items-center justify-center px-4 py-12">
-      <RoomCreateCard
-        title="Create Your Room"
-        description="Give your room a name and turn it into a long-running space your group can keep returning to."
-        statusLabel={
-          isAuthenticated
-            ? isConnected
-              ? "Realtime connected"
-              : "Connecting to room service"
-            : "Sign in required"
-        }
-        isAuthenticated={isAuthenticated}
-        isBusy={busyAction === "create" || busyAction === "join"}
-        roomName={roomNameDraft}
-        onRoomNameChange={setRoomNameDraft}
-        onCreate={handleCreateRoom}
-      />
-    </div>
   );
 
   if (roomState?.phase === "lobby") {

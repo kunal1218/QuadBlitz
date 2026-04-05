@@ -79,12 +79,12 @@ const RoomMemberStack = ({ count }: { count: number }) => {
             className={`h-7 w-7 rounded-full border-2 border-white ${
               index === 0 ? "" : "-ml-2.5"
             }`}
-            style={{ backgroundColor: ROOM_MEMBER_STACK_COLORS[index] }}
+            style={{ backgroundColor: ROOM_MEMBER_STACK_COLORS[index], opacity: 0.88 }}
           />
         ))}
       </div>
       {hiddenCount > 0 ? (
-        <span className="-ml-1 inline-flex h-7 min-w-7 items-center justify-center rounded-full border border-[#e6ecfb] bg-[#f7f9ff] px-1.5 text-[10px] font-semibold text-[#7e8dab]">
+        <span className="-ml-1 inline-flex h-7 min-w-7 items-center justify-center rounded-full border border-[#edf1fb] bg-white/84 px-1.5 text-[10px] font-semibold text-[#98a5bf]">
           +{hiddenCount}
         </span>
       ) : null}
@@ -443,7 +443,7 @@ const RoomHistoryPanel = ({
               Pick up where your group left off
             </h2>
           </div>
-          <div className="rounded-full border border-[#edf1fb] bg-[#f7f9fe] px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9aa6bc]">
+          <div className="rounded-full border border-[#f0f4fc] bg-white/72 px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#adb7c9]">
             Sorted by last entered
           </div>
         </div>
@@ -497,7 +497,7 @@ const RoomHistoryPanel = ({
             {rooms.map((room) => (
               <div
                 key={room.roomCode}
-                className="w-full rounded-[40px] border border-[#edf1fb] bg-white/95 p-8 text-left shadow-[0_24px_70px_rgba(30,55,120,0.08)] transition hover:-translate-y-0.5 hover:border-[#d7e2ff] hover:shadow-[0_30px_82px_rgba(30,55,120,0.12)]"
+                className="w-full rounded-[40px] border border-[#edf2fb] bg-white/95 p-8 text-left shadow-[0_24px_64px_rgba(30,55,120,0.07)] transition hover:-translate-y-0.5 hover:border-[#dde7fb] hover:shadow-[0_28px_74px_rgba(30,55,120,0.1)]"
               >
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="rounded-full border border-[#e6edff] bg-[#edf3ff] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#2b64f6]">
@@ -520,80 +520,76 @@ const RoomHistoryPanel = ({
                     <h3 className="text-[clamp(2.3rem,4vw,4.1rem)] font-[family-name:var(--font-display)] font-semibold leading-[0.95] tracking-[-0.07em] text-[#18233a]">
                       {room.roomName}
                     </h3>
-                    <div className="mt-4 flex flex-wrap items-center gap-3 text-[1.05rem] text-[#6f7990]">
-                      <span>Room {room.roomCode}</span>
-                      <span className="text-[#d1d8e6]">•</span>
+                    <div className="mt-4 flex flex-wrap items-center gap-3 text-[0.98rem] text-[#8590a6]">
+                      <span className="font-medium text-[#79859b]">Room {room.roomCode}</span>
+                      <span className="text-[#dde3ef]">•</span>
                       <RoomMemberStack count={room.memberCount} />
-                      <span>
+                      <span className="text-[#7f8aa0]">
                         {room.memberCount} member{room.memberCount === 1 ? "" : "s"}
                       </span>
-                      <span className="text-[#d1d8e6]">•</span>
-                      <span className="font-semibold text-[#88d39f]">
+                      <span className="text-[#dde3ef]">•</span>
+                      <span className="font-medium text-[#7fd193]">
                         {room.presentCount} active now
                       </span>
                     </div>
                   </div>
 
-                  <div className="shrink-0 rounded-[32px] border border-[#eef2fb] bg-[#f7f9fe] px-8 py-7 text-center">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#9aa6bc]">
+                  <div className="shrink-0 rounded-[32px] border border-[#f1f4fb] bg-[#f8faff] px-8 py-7 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#a7b2c5]">
                       Total score
                     </div>
-                    <div className="mt-3 font-[family-name:var(--font-display)] text-[3.5rem] font-semibold leading-none tracking-[-0.08em] text-[#2b64f6]">
+                    <div className="mt-3 font-[family-name:var(--font-display)] text-[3.25rem] font-semibold leading-none tracking-[-0.08em] text-[#2b64f6]">
                       {room.totalScore.toFixed(2)}
                     </div>
-                    <div className="mt-3 text-sm text-[#8a95ab]">
+                    <div className="mt-3 text-sm text-[#99a4b8]">
                       Week {room.weeksAlive} alive
                     </div>
                   </div>
                 </div>
 
                 <div className="mt-8 grid gap-4 lg:grid-cols-[1fr_1fr_260px_260px]">
-                  <div className="rounded-[28px] border border-[#eff3fb] bg-[#fbfcff] px-6 py-5">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#9aa6bc]">
+                  <div className="rounded-[28px] border border-[#f3f5fb] bg-white/72 px-6 py-5">
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#aab4c6]">
                       Last entered
                     </div>
-                    <div className="mt-3 text-[1.9rem] font-semibold tracking-[-0.05em] text-[#18233a]">
+                    <div className="mt-2 text-[1.55rem] font-semibold tracking-[-0.05em] text-[#243047]">
                       {room.lastEnteredAt ? formatRelativeTime(room.lastEnteredAt) : "Never"}
                     </div>
                   </div>
-                  <div className="rounded-[28px] border border-[#eff3fb] bg-[#fbfcff] px-6 py-5">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#9aa6bc]">
+                  <div className="rounded-[28px] border border-[#f3f5fb] bg-white/72 px-6 py-5">
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#aab4c6]">
                       Last activity
                     </div>
-                    <div className="mt-3 text-[1.9rem] font-semibold tracking-[-0.05em] text-[#18233a]">
+                    <div className="mt-2 text-[1.55rem] font-semibold tracking-[-0.05em] text-[#243047]">
                       {formatRelativeTime(room.lastActivityAt)}
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => onCopyRoomLink(room.roomCode)}
-                    className="rounded-[28px] border border-[#dbe5ff] bg-[#f7f9ff] px-6 py-5 text-left transition hover:border-[#cbd9ff] hover:bg-[#f8faff]"
+                    className="cursor-pointer rounded-[28px] border border-[#edf2fb] bg-white/78 px-6 py-5 text-left transition hover:border-[#d9e2f5] hover:bg-white"
                   >
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#2b64f6]">
-                      Share link
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#a6b1c5]">
+                      Link
                     </div>
-                    <div className="mt-3 flex items-center justify-between gap-4">
-                      <span className="text-[1.6rem] font-semibold tracking-[-0.05em] text-[#2b64f6]">
-                        {copiedRoomCode === room.roomCode ? "Link copied" : "Copy join link"}
-                      </span>
-                      <span className="text-2xl leading-none text-[#2b64f6]">
-                        {copiedRoomCode === room.roomCode ? "OK" : "->"}
+                    <div className="mt-2">
+                      <span className="text-[1.25rem] font-semibold tracking-[-0.04em] text-[#4d6398]">
+                        {copiedRoomCode === room.roomCode ? "Link copied" : "Copy link"}
                       </span>
                     </div>
                   </button>
                   <button
                     type="button"
                     onClick={() => onOpenRoom(room.roomCode)}
-                    className="rounded-[28px] border border-[#dbe5ff] bg-[#f5f8ff] px-6 py-5 text-left transition hover:border-[#cbd9ff] hover:bg-[#f8faff]"
+                    className="cursor-pointer rounded-[28px] border border-[#18233a] bg-[#18233a] px-6 py-5 text-left shadow-[0_16px_36px_rgba(24,35,58,0.16)] transition hover:-translate-y-0.5 hover:bg-[#111a2e] hover:shadow-[0_20px_40px_rgba(24,35,58,0.2)]"
                   >
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#2b64f6]">
-                      Re-enter
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/62">
+                      Room
                     </div>
-                    <div className="mt-3 flex items-center justify-between gap-4">
-                      <span className="text-[1.9rem] font-semibold tracking-[-0.05em] text-[#2b64f6]">
+                    <div className="mt-2 flex items-center justify-between gap-4">
+                      <span className="text-[2.05rem] font-semibold tracking-[-0.06em] text-white">
                         Open room
                       </span>
-                      <span className="text-3xl leading-none text-[#2b64f6]">+</span>
                     </div>
                   </button>
                 </div>

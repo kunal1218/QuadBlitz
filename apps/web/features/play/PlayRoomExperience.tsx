@@ -825,6 +825,7 @@ const SharedRoomPanel = ({
   const [isChatting, setIsChatting] = useState(false);
   const [chatDraft, setChatDraft] = useState("");
   const [isPushToTalkActive, setIsPushToTalkActive] = useState(false);
+  const [isJudgeWalking, setIsJudgeWalking] = useState(false);
   const [weekdayLabel] = useState(() => getCurrentWeekdayLabel());
   const [renderPositions, setRenderPositions] = useState<Record<string, PlayVector2>>(() =>
     createPositionMap(presentPlayers)
@@ -833,6 +834,8 @@ const SharedRoomPanel = ({
   const chatInputRef = useRef<HTMLInputElement | null>(null);
   const keyStateRef = useRef({ up: false, down: false, left: false, right: false });
   const roomRef = useRef(roomState);
+  const judgeWalkTimerRef = useRef<number | null>(null);
+  const previousPokerOverlayRef = useRef(pokerOverlayOpen);
   const serverPositionsRef = useRef<Record<string, PlayVector2>>(createPositionMap(presentPlayers));
   const visualPositionsRef = useRef<Record<string, PlayVector2>>(createPositionMap(presentPlayers));
   const { voiceError, voiceStatus, isPushToTalkLive } = usePlayRoomVoice({
@@ -874,6 +877,37 @@ const SharedRoomPanel = ({
 
     chatInputRef.current?.focus();
   }, [isChatting]);
+
+  useEffect(() => {
+    if (previousPokerOverlayRef.current === pokerOverlayOpen) {
+      return;
+    }
+
+    previousPokerOverlayRef.current = pokerOverlayOpen;
+    if (judgeWalkTimerRef.current) {
+      window.clearTimeout(judgeWalkTimerRef.current);
+    }
+
+    const animationFrame = window.requestAnimationFrame(() => {
+      setIsJudgeWalking(true);
+      judgeWalkTimerRef.current = window.setTimeout(() => {
+        setIsJudgeWalking(false);
+        judgeWalkTimerRef.current = null;
+      }, 950);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+    };
+  }, [pokerOverlayOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (judgeWalkTimerRef.current) {
+        window.clearTimeout(judgeWalkTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1089,6 +1123,7 @@ const SharedRoomPanel = ({
   const judgeTop = ((judge.y + roomState.room.height / 2) / roomState.room.height) * 100;
   const arcadeLeft = ((arcade.x + roomState.room.width / 2) / roomState.room.width) * 100;
   const arcadeTop = ((arcade.y + roomState.room.height / 2) / roomState.room.height) * 100;
+  const judgeDisplayLeft = pokerOverlayOpen ? "-12%" : `${judgeLeft}%`;
   const canSubmitToJudge =
     roomState.phase === "task_reveal" &&
     !pokerOverlayOpen &&
@@ -1294,31 +1329,46 @@ const SharedRoomPanel = ({
 
       <div
         className="absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
-        style={{ left: `${judgeLeft}%`, top: `${judgeTop}%` }}
+        style={{
+          left: judgeDisplayLeft,
+          top: `${judgeTop}%`,
+          transition: "left 920ms cubic-bezier(0.22, 1, 0.36, 1)",
+        }}
       >
-        <button
-          type="button"
-          onClick={handleJudgeClick}
-          disabled={!canSubmitToJudge}
-          className={`group transition ${
-            canSubmitToJudge
-              ? "hover:-translate-y-0.5"
-              : "opacity-92"
-          }`}
+        <div
+          style={
+            isJudgeWalking
+              ? {
+                  animation: "play-room-rock 0.46s ease-in-out infinite",
+                  transformOrigin: "50% 88%",
+                }
+              : undefined
+          }
         >
-          <JudgeAvatar
-            size={124}
-            className={canSubmitToJudge ? "drop-shadow-[0_10px_18px_rgba(20,86,244,0.14)]" : "opacity-90"}
-          />
-        </button>
-        <div className="mt-2 rounded-full border border-[#dbe5ff] bg-white/94 px-3 py-1 text-[11px] font-semibold text-[#1f2430] shadow-[0_10px_24px_rgba(20,86,244,0.08)]">
-          Judge
-        </div>
-        {roomState.phase === "task_reveal" ? (
-          <div className="mt-2 rounded-full border border-[#dbe5ff] bg-white/88 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#5d73b3] shadow-[0_10px_24px_rgba(20,86,244,0.08)]">
-            {canSubmitToJudge ? "Click judge to submit" : "Walk up to submit"}
+          <button
+            type="button"
+            onClick={handleJudgeClick}
+            disabled={!canSubmitToJudge}
+            className={`group transition ${
+              canSubmitToJudge
+                ? "hover:-translate-y-0.5"
+                : "opacity-92"
+            }`}
+          >
+            <JudgeAvatar
+              size={124}
+              className={canSubmitToJudge ? "drop-shadow-[0_10px_18px_rgba(20,86,244,0.14)]" : "opacity-90"}
+            />
+          </button>
+          <div className="mt-2 rounded-full border border-[#dbe5ff] bg-white/94 px-3 py-1 text-[11px] font-semibold text-[#1f2430] shadow-[0_10px_24px_rgba(20,86,244,0.08)]">
+            Judge
           </div>
-        ) : null}
+          {roomState.phase === "task_reveal" ? (
+            <div className="mt-2 rounded-full border border-[#dbe5ff] bg-white/88 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#5d73b3] shadow-[0_10px_24px_rgba(20,86,244,0.08)]">
+              {canSubmitToJudge ? "Click judge to submit" : "Walk up to submit"}
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <div

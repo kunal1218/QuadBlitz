@@ -174,7 +174,7 @@ export const PlayPokerOverlay = ({
         <div className={overlayPillClass}>{pokerState.street}</div>
       </div>
 
-      <div className="absolute bottom-24 left-4 right-4 top-24 lg:right-[320px]">
+      <div className="absolute bottom-24 left-1/2 top-24 w-[min(calc(100vw-2rem),980px)] -translate-x-1/2 lg:w-[min(calc(100vw-22rem),980px)] 2xl:w-[min(calc(100vw-22rem),1120px)]">
         <div
           className={`pointer-events-auto mx-auto w-full max-w-5xl px-5 py-4 text-sm font-normal leading-6 text-[#536178] ${glassPanelClass}`}
         >
@@ -370,7 +370,7 @@ export const PlayPokerOverlay = ({
         ) : null}
       </aside>
 
-      <div className="pointer-events-auto absolute bottom-5 left-1/2 flex w-[min(96vw,1200px)] -translate-x-1/2 flex-wrap items-center justify-between gap-3 px-4 lg:pr-[304px]">
+      <div className="pointer-events-auto absolute bottom-5 left-1/2 flex w-[min(calc(100vw-2rem),980px)] -translate-x-1/2 flex-wrap items-center justify-between gap-3 px-4 lg:w-[min(calc(100vw-22rem),980px)] 2xl:w-[min(calc(100vw-22rem),1120px)]">
         <div className="flex flex-wrap gap-2">
           {youSeat ? (
             <button

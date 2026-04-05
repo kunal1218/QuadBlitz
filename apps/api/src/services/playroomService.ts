@@ -81,6 +81,11 @@ export type PlayRoomClientState = {
   room: {
     width: number;
     height: number;
+    wall: {
+      height: number;
+      boundaryY: number;
+      playerMinY: number;
+    };
     pedestal: {
       x: number;
       y: number;
@@ -121,6 +126,9 @@ export type PlayRoomPositionsState = {
 const ROOM_WIDTH = 920;
 const ROOM_HEIGHT = 560;
 const PLAYER_MARGIN = 56;
+const WALL_HEIGHT = Math.round(ROOM_HEIGHT * 0.22);
+const WALL_BOUNDARY_Y = -ROOM_HEIGHT / 2 + WALL_HEIGHT;
+const PLAYER_MIN_Y = -88;
 const MIN_PLAYERS_TO_START = 2;
 const MAX_PLAYERS = 5;
 const ROOM_CODE_LENGTH = 5;
@@ -134,12 +142,12 @@ const PEDESTAL = {
 };
 const JUDGE = {
   x: 0,
-  y: -208,
+  y: PLAYER_MIN_Y,
   interactionRadius: 104,
 };
 const SPAWN_POINTS: Vector2[] = [
-  { x: -280, y: -150 },
-  { x: 280, y: -150 },
+  { x: -280, y: -88 },
+  { x: 280, y: -88 },
   { x: -280, y: 150 },
   { x: 280, y: 150 },
   { x: 0, y: 190 },
@@ -262,7 +270,7 @@ const normalizeRoom = (room: PlayRoom): PlayRoom => {
         x: clamp(player.position?.x ?? 0, -ROOM_WIDTH / 2 + PLAYER_MARGIN, ROOM_WIDTH / 2 - PLAYER_MARGIN),
         y: clamp(
           player.position?.y ?? 0,
-          -ROOM_HEIGHT / 2 + PLAYER_MARGIN,
+          PLAYER_MIN_Y,
           ROOM_HEIGHT / 2 - PLAYER_MARGIN
         ),
       },
@@ -305,6 +313,11 @@ const serializeRoomState = (room: PlayRoom): PlayRoomClientState => ({
   room: {
     width: ROOM_WIDTH,
     height: ROOM_HEIGHT,
+    wall: {
+      height: WALL_HEIGHT,
+      boundaryY: WALL_BOUNDARY_Y,
+      playerMinY: PLAYER_MIN_Y,
+    },
     pedestal: {
       ...PEDESTAL,
     },
@@ -774,7 +787,7 @@ export const movePlayRoomPlayer = async (params: {
     ),
     y: clamp(
       Number.isFinite(params.positionY) ? params.positionY : player.position.y,
-      -ROOM_HEIGHT / 2 + PLAYER_MARGIN,
+      PLAYER_MIN_Y,
       ROOM_HEIGHT / 2 - PLAYER_MARGIN
     ),
   };

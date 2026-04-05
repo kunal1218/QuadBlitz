@@ -63,6 +63,11 @@ export type PlayRoomState = {
   room: {
     width: number;
     height: number;
+    wall: {
+      height: number;
+      boundaryY: number;
+      playerMinY: number;
+    };
     pedestal: {
       x: number;
       y: number;

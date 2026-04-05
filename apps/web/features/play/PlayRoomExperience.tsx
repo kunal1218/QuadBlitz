@@ -32,6 +32,9 @@ const createPositionMap = (players: PlayRoomState["players"]) =>
 
 const lerp = (from: number, to: number, amount: number) => from + (to - from) * amount;
 
+const getCurrentWeekdayLabel = () =>
+  new Intl.DateTimeFormat(undefined, { weekday: "long" }).format(new Date());
+
 const StatusBanner = ({
   error,
   onDismiss,
@@ -502,6 +505,7 @@ const SharedRoomPanel = ({
   const [isChatting, setIsChatting] = useState(false);
   const [chatDraft, setChatDraft] = useState("");
   const [isPushToTalkActive, setIsPushToTalkActive] = useState(false);
+  const [weekdayLabel] = useState(() => getCurrentWeekdayLabel());
   const [renderPositions, setRenderPositions] = useState<Record<string, PlayVector2>>(() =>
     createPositionMap(roomState.players)
   );
@@ -516,6 +520,14 @@ const SharedRoomPanel = ({
     currentUserId,
     pushToTalkActive: isPushToTalkActive,
   });
+  const wallHeight = roomState.room.wall?.height ?? roomState.room.height * 0.22;
+  const wallBoundaryY =
+    roomState.room.wall?.boundaryY ?? -roomState.room.height / 2 + wallHeight;
+  const playerMinY = roomState.room.wall?.playerMinY ?? wallBoundaryY + 48;
+  const wallHeightPercent = (wallHeight / roomState.room.height) * 100;
+  const wallBoundaryPercent =
+    ((wallBoundaryY + roomState.room.height / 2) / roomState.room.height) * 100;
+  const boardTopPercent = Math.max(5.5, wallHeightPercent * 0.4);
 
   useEffect(() => {
     roomRef.current = roomState;
@@ -682,7 +694,7 @@ const SharedRoomPanel = ({
               ),
               y: clamp(
                 currentPosition.y + ((inputY / magnitude) * speed * elapsed) / 1000,
-                -heightHalf + 56,
+                playerMinY,
                 heightHalf - 56
               ),
             };
@@ -722,7 +734,7 @@ const SharedRoomPanel = ({
     return () => {
       window.cancelAnimationFrame(frame);
     };
-  }, [isChatting, me, onMove]);
+  }, [isChatting, me, onMove, playerMinY]);
 
   const pedestal = roomState.room.pedestal;
   const judge = roomState.room.judge;
@@ -778,9 +790,25 @@ const SharedRoomPanel = ({
             transform: rotate(-25deg);
           }
         }
+
+        .chalk-text {
+          color: #7b93bd;
+          letter-spacing: 0.12em;
+          text-shadow:
+            0 1px 0 rgba(255, 255, 255, 0.7),
+            0 0 8px rgba(123, 147, 189, 0.28),
+            0 0 1px rgba(83, 100, 134, 0.45);
+        }
       `}</style>
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.98),_rgba(239,245,255,0.98)_34%,_rgba(232,239,250,1)_100%)]" />
-      <div className="absolute inset-x-0 top-0 h-[22%] bg-[radial-gradient(circle_at_20%_0%,rgba(20,86,244,0.11),transparent_58%),radial-gradient(circle_at_85%_8%,rgba(20,86,244,0.08),transparent_48%)]" />
+      <div
+        className="absolute inset-x-0 top-0 bg-[radial-gradient(circle_at_20%_0%,rgba(20,86,244,0.11),transparent_58%),radial-gradient(circle_at_85%_8%,rgba(20,86,244,0.08),transparent_48%),linear-gradient(180deg,rgba(228,236,249,0.92)_0%,rgba(218,228,244,0.9)_100%)]"
+        style={{ height: `${wallHeightPercent}%` }}
+      />
+      <div
+        className="absolute inset-x-0 z-[1] h-px bg-[linear-gradient(90deg,rgba(146,170,224,0),rgba(146,170,224,0.95),rgba(146,170,224,0))] shadow-[0_1px_0_rgba(255,255,255,0.75)]"
+        style={{ top: `${wallBoundaryPercent}%` }}
+      />
       <div
         className="absolute inset-0 opacity-50"
         style={{
@@ -809,6 +837,20 @@ const SharedRoomPanel = ({
 
       <div className="absolute left-5 top-5 z-20 rounded-full border border-[#dbe5ff] bg-white/94 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#5d73b3] shadow-[0_12px_30px_rgba(20,86,244,0.1)] backdrop-blur">
         Room {roomState.roomCode}
+      </div>
+
+      <div
+        className="absolute left-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+        style={{ top: `${boardTopPercent}%` }}
+      >
+        <div className="rounded-[28px] border border-[#dce5f7] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,251,255,0.98)_100%)] px-8 py-4 shadow-[0_18px_36px_rgba(36,69,124,0.12)]">
+          <div className="text-center text-[10px] font-semibold uppercase tracking-[0.34em] text-[#93a5cc]">
+            Today
+          </div>
+          <div className="chalk-text mt-2 text-center font-[family-name:var(--font-display)] text-2xl font-semibold uppercase tracking-[0.18em]">
+            {weekdayLabel}
+          </div>
+        </div>
       </div>
 
       {showRoomState ? (
@@ -847,7 +889,7 @@ const SharedRoomPanel = ({
         </section>
       ) : null}
 
-      <div className="absolute left-1/2 top-5 z-20 flex -translate-x-1/2 flex-col items-center gap-2">
+      <div className="absolute left-5 top-20 z-20 flex flex-col items-start gap-2">
         <div
           className={`rounded-full border px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] shadow-[0_12px_28px_rgba(20,86,244,0.08)] backdrop-blur ${
             isPushToTalkLive
@@ -868,33 +910,15 @@ const SharedRoomPanel = ({
         ) : null}
       </div>
 
-      <div className="absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 translate-y-20 flex-col items-center gap-2">
+      <div className="absolute left-1/2 top-1/2 z-0 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#dbe5ff] bg-[radial-gradient(circle_at_top,#ffffff_0%,#f5f8ff_100%)] shadow-[0_20px_48px_rgba(20,86,244,0.12)]">
         <button
           type="button"
+          aria-label={hasReadied ? "Ready button pressed" : "Ready button"}
           disabled={!isNearPedestal || hasReadied}
           onClick={onReady}
-          className={`rounded-full border px-6 py-3 text-[11px] font-semibold uppercase tracking-[0.24em] shadow-[0_16px_32px_rgba(20,86,244,0.14)] transition ${
-            hasReadied
-              ? "border-[#1d3b14] bg-[#39D353] text-[#10240d]"
-              : isNearPedestal
-                ? "border-[#7a1e1e] bg-[#f04c4c] text-white"
-                : "border-[#f4cccc] bg-[#ffd9d9] text-[#a86666]"
-          }`}
-        >
-          {hasReadied ? "Ready Locked" : "Press Ready"}
-        </button>
-        <div className="rounded-full border border-[#dbe5ff] bg-white/90 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#5d73b3] shadow-[0_10px_24px_rgba(20,86,244,0.08)] backdrop-blur">
-          Walk in and click
-        </div>
-      </div>
-
-      <div
-        className="absolute left-1/2 top-1/2 z-0 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#dbe5ff] bg-[radial-gradient(circle_at_top,#ffffff_0%,#f5f8ff_100%)] shadow-[0_20px_48px_rgba(20,86,244,0.12)]"
-      >
-        <div
           className={`absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 transition-colors ${
-            hasReadied ? "bg-[#39D353]" : "bg-[#F04C4C]"
-          } ${hasReadied ? "border-[#1d3b14]" : "border-[#7a1e1e]"}`}
+            hasReadied ? "bg-[#39D353] border-[#1d3b14]" : "bg-[#F04C4C] border-[#7a1e1e]"
+          } ${isNearPedestal && !hasReadied ? "cursor-pointer shadow-[0_0_0_8px_rgba(255,255,255,0.28)]" : "cursor-default"} disabled:cursor-default`}
         />
       </div>
 
@@ -906,10 +930,10 @@ const SharedRoomPanel = ({
           type="button"
           onClick={handleJudgeClick}
           disabled={!canSubmitToJudge}
-          className={`group rounded-[28px] border px-4 py-3 shadow-[0_16px_34px_rgba(20,86,244,0.12)] transition ${
+          className={`group transition ${
             canSubmitToJudge
-              ? "border-[#bcd0ff] bg-white/95 hover:-translate-y-0.5 hover:border-[#98b5ff]"
-              : "border-[#dbe5ff] bg-white/88"
+              ? "hover:-translate-y-0.5"
+              : "opacity-92"
           }`}
         >
           <JudgeAvatar

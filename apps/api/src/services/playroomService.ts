@@ -1,5 +1,9 @@
 import { randomUUID } from "crypto";
 import { getRedis } from "../db/redis";
+import {
+  judgePlayTaskSubmission,
+  type PlayJudgeVerdict,
+} from "./geminiJudgeService";
 
 export class PlayRoomError extends Error {
   status: number;
@@ -22,6 +26,8 @@ export type PlayRoomPhase =
   | "character_select"
   | "shared_room"
   | "task_reveal";
+
+export type { PlayJudgeDecision, PlayJudgeVerdict } from "./geminiJudgeService";
 
 export type PlayTaskCategory = "weekly" | "daily";
 
@@ -48,6 +54,9 @@ type PlayRoomPlayer = {
   selectedAt: string | null;
   position: Vector2;
   isReadyAtPedestal: boolean;
+  taskSubmissionText: string | null;
+  taskSubmittedAt: string | null;
+  taskJudgeVerdict: PlayJudgeVerdict | null;
 };
 
 type PlayRoom = {
@@ -76,6 +85,11 @@ export type PlayRoomClientState = {
       y: number;
       interactionRadius: number;
     };
+    judge: {
+      x: number;
+      y: number;
+      interactionRadius: number;
+    };
   };
   players: Array<{
     userId: string;
@@ -87,6 +101,10 @@ export type PlayRoomClientState = {
     selectedAt: string | null;
     position: Vector2;
     isReadyAtPedestal: boolean;
+    taskSubmission: {
+      submittedAt: string | null;
+      verdict: PlayJudgeVerdict | null;
+    };
   }>;
   selectedTask: PlayTaskPayload | null;
 };
@@ -111,6 +129,11 @@ const ROOM_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const PEDESTAL = {
   x: 0,
   y: 0,
+  interactionRadius: 104,
+};
+const JUDGE = {
+  x: 0,
+  y: -208,
   interactionRadius: 104,
 };
 const SPAWN_POINTS: Vector2[] = [
@@ -204,12 +227,21 @@ const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
 const cloneTask = (task: PlayTaskPayload) => ({ ...task });
+const cloneJudgeVerdict = (verdict: PlayJudgeVerdict) => ({ ...verdict });
+const emptyTaskSubmission = () => ({
+  taskSubmissionText: null,
+  taskSubmittedAt: null,
+  taskJudgeVerdict: null as PlayJudgeVerdict | null,
+});
 
 const cloneRoom = (room: PlayRoom): PlayRoom => ({
   ...room,
   players: room.players.map((player) => ({
     ...player,
     position: { ...player.position },
+    taskJudgeVerdict: player.taskJudgeVerdict
+      ? cloneJudgeVerdict(player.taskJudgeVerdict)
+      : null,
   })),
   selectedTask: room.selectedTask ? cloneTask(room.selectedTask) : null,
 });
@@ -234,6 +266,14 @@ const normalizeRoom = (room: PlayRoom): PlayRoom => {
         ),
       },
       isReadyAtPedestal: Boolean(player.isReadyAtPedestal),
+      taskSubmissionText:
+        typeof player.taskSubmissionText === "string" ? player.taskSubmissionText : null,
+      taskSubmittedAt:
+        typeof player.taskSubmittedAt === "string" ? player.taskSubmittedAt : null,
+      taskJudgeVerdict:
+        player.taskJudgeVerdict && typeof player.taskJudgeVerdict === "object"
+          ? cloneJudgeVerdict(player.taskJudgeVerdict)
+          : null,
     }));
   const hostUserId =
     normalizedPlayers.find((player) => player.userId === room.hostUserId)?.userId ??
@@ -267,6 +307,9 @@ const serializeRoomState = (room: PlayRoom): PlayRoomClientState => ({
     pedestal: {
       ...PEDESTAL,
     },
+    judge: {
+      ...JUDGE,
+    },
   },
   players: room.players.map((player) => ({
     userId: player.userId,
@@ -278,6 +321,10 @@ const serializeRoomState = (room: PlayRoom): PlayRoomClientState => ({
     selectedAt: player.selectedAt,
     position: { ...player.position },
     isReadyAtPedestal: player.isReadyAtPedestal,
+    taskSubmission: {
+      submittedAt: player.taskSubmittedAt,
+      verdict: player.taskJudgeVerdict ? cloneJudgeVerdict(player.taskJudgeVerdict) : null,
+    },
   })),
   selectedTask: room.selectedTask ? cloneTask(room.selectedTask) : null,
 });
@@ -396,6 +443,7 @@ const applySharedRoomSpawnPoints = (room: PlayRoom) => {
     ...player,
     position: { ...(SPAWN_POINTS[index] ?? SPAWN_POINTS[SPAWN_POINTS.length - 1] ?? { x: 0, y: 0 }) },
     isReadyAtPedestal: false,
+    ...emptyTaskSubmission(),
   }));
 };
 
@@ -421,6 +469,7 @@ const synchronizeRoomPhase = (room: PlayRoom) => {
       selectedCharacter: null,
       selectedAt: null,
       isReadyAtPedestal: false,
+      ...emptyTaskSubmission(),
     }));
     return room;
   }
@@ -433,6 +482,7 @@ const synchronizeRoomPhase = (room: PlayRoom) => {
       selectedCharacter: null,
       selectedAt: null,
       isReadyAtPedestal: false,
+      ...emptyTaskSubmission(),
     }));
     return room;
   }
@@ -524,6 +574,7 @@ const createPlayer = (params: {
   selectedAt: null,
   position: { x: 0, y: 0 },
   isReadyAtPedestal: false,
+  ...emptyTaskSubmission(),
 });
 
 export const createPlayRoom = async (params: {
@@ -763,5 +814,69 @@ export const readyPlayRoomPlayer = async (userId: string) => {
   if (!savedRoom) {
     throw new PlayRoomError("Unable to mark ready.");
   }
+  return { roomCode: savedRoom.roomCode };
+};
+
+export const submitPlayRoomTask = async (params: {
+  userId: string;
+  submission: string;
+}) => {
+  const roomCode = await getPlayerRoomCode(params.userId);
+  if (!roomCode) {
+    throw new PlayRoomError("Join a room first.");
+  }
+
+  const submission = params.submission.trim().slice(0, 1500);
+  if (!submission) {
+    throw new PlayRoomError("Write a short submission for the judge.");
+  }
+
+  const room = await loadRoom(roomCode);
+  if (!room) {
+    await clearPlayerRoomCode(params.userId);
+    throw new PlayRoomError("Room not found.", 404);
+  }
+  if (room.phase !== "task_reveal" || !room.selectedTask) {
+    throw new PlayRoomError("The judge only accepts submissions after the task is revealed.");
+  }
+
+  const player = getPlayer(room, params.userId);
+  if (!player) {
+    await clearPlayerRoomCode(params.userId);
+    throw new PlayRoomError("You are not in that room.");
+  }
+
+  const distance = Math.hypot(player.position.x - JUDGE.x, player.position.y - JUDGE.y);
+  if (distance > JUDGE.interactionRadius) {
+    throw new PlayRoomError("Walk up to the judge before submitting.");
+  }
+
+  const verdict = await judgePlayTaskSubmission({
+    taskCategory: room.selectedTask.category,
+    taskText: room.selectedTask.text,
+    playerName: player.name,
+    characterLabel: player.selectedCharacter ?? "unselected",
+    submission,
+  });
+
+  const freshRoom = (await loadRoom(roomCode)) ?? room;
+  const freshPlayer = getPlayer(freshRoom, params.userId);
+  if (!freshPlayer) {
+    await clearPlayerRoomCode(params.userId);
+    throw new PlayRoomError("You are no longer in that room.");
+  }
+  if (freshRoom.phase !== "task_reveal" || !freshRoom.selectedTask) {
+    throw new PlayRoomError("The task phase changed before the judge responded.");
+  }
+
+  freshPlayer.taskSubmissionText = submission;
+  freshPlayer.taskSubmittedAt = verdict.judgedAt;
+  freshPlayer.taskJudgeVerdict = verdict;
+
+  const savedRoom = await saveOrDeleteRoom(freshRoom);
+  if (!savedRoom) {
+    throw new PlayRoomError("Unable to save the judge verdict.");
+  }
+
   return { roomCode: savedRoom.roomCode };
 };

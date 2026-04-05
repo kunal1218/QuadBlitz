@@ -2,9 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { connectSocket, disconnectSocket, socket } from "@/lib/socket";
-import type { PlayCharacterId, PlayRoomPositionsState, PlayRoomState } from "./types";
+import type {
+  PlayCharacterId,
+  PlayRoomChatMessage,
+  PlayRoomPositionsState,
+  PlayRoomState,
+} from "./types";
 
-type BusyAction = "create" | "join" | "leave" | "select" | "ready" | null;
+type BusyAction = "create" | "join" | "leave" | "select" | "ready" | "submit" | null;
 
 type UsePlayRoomParams = {
   inviteRoomCode: string | null;
@@ -18,6 +23,7 @@ export const usePlayRoom = ({
   token,
 }: UsePlayRoomParams) => {
   const [roomState, setRoomState] = useState<PlayRoomState | null>(null);
+  const [chatMessages, setChatMessages] = useState<PlayRoomChatMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<BusyAction>(null);
   const [isConnected, setIsConnected] = useState(socket.connected);
@@ -51,9 +57,21 @@ export const usePlayRoom = ({
       setIsConnected(false);
     };
     const handleState = (payload?: { state?: PlayRoomState | null }) => {
+      const nextState = payload?.state ?? null;
       setBusyAction(null);
       setError(null);
-      setRoomState(payload?.state ?? null);
+      setRoomState(nextState);
+      setChatMessages((current) => {
+        if (!nextState?.roomCode) {
+          return [];
+        }
+        const now = Date.now();
+        return current.filter(
+          (message) =>
+            message.roomCode === nextState.roomCode &&
+            new Date(message.expiresAt).getTime() > now
+        );
+      });
     };
     const handlePositions = (payload?: { positions?: PlayRoomPositionsState | null }) => {
       const positions = payload?.positions;
@@ -83,6 +101,18 @@ export const usePlayRoom = ({
       setBusyAction(null);
       setError(payload?.error ?? "Unable to sync the play room.");
     };
+    const handleChat = (payload?: { message?: PlayRoomChatMessage | null }) => {
+      const message = payload?.message;
+      if (!message) {
+        return;
+      }
+      setChatMessages((current) => {
+        const next = current
+          .filter((entry) => entry.id !== message.id)
+          .concat(message);
+        return next.filter((entry) => new Date(entry.expiresAt).getTime() > Date.now());
+      });
+    };
     const handleConnectError = () => {
       setIsConnected(false);
       setBusyAction(null);
@@ -94,6 +124,7 @@ export const usePlayRoom = ({
     socket.on("connect_error", handleConnectError);
     socket.on("playroom:state", handleState);
     socket.on("playroom:positions", handlePositions);
+    socket.on("playroom:chat", handleChat);
     socket.on("playroom:error", handleError);
 
     if (socket.connected) {
@@ -106,10 +137,26 @@ export const usePlayRoom = ({
       socket.off("connect_error", handleConnectError);
       socket.off("playroom:state", handleState);
       socket.off("playroom:positions", handlePositions);
+      socket.off("playroom:chat", handleChat);
       socket.off("playroom:error", handleError);
       disconnectSocket();
     };
   }, [isAuthenticated, token]);
+
+  useEffect(() => {
+    const pruneExpiredMessages = () => {
+      const now = Date.now();
+      setChatMessages((current) =>
+        current.filter((message) => new Date(message.expiresAt).getTime() > now)
+      );
+    };
+
+    pruneExpiredMessages();
+    const interval = window.setInterval(pruneExpiredMessages, 1000);
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, []);
 
   const emitWhenConnected = useCallback(
     (emit: () => void) => {
@@ -185,8 +232,33 @@ export const usePlayRoom = ({
     });
   }, [emitWhenConnected]);
 
+  const submitTask = useCallback(
+    (submission: string) => {
+      setError(null);
+      setBusyAction("submit");
+      emitWhenConnected(() => {
+        socket.emit("playroom:submit-task", { submission });
+      });
+    },
+    [emitWhenConnected]
+  );
+
+  const sendChatMessage = useCallback(
+    (text: string) => {
+      const nextText = text.trim().slice(0, 200);
+      if (!nextText) {
+        return;
+      }
+      emitWhenConnected(() => {
+        socket.emit("playroom:chat", { text: nextText });
+      });
+    },
+    [emitWhenConnected]
+  );
+
   return {
     roomState: isAuthenticated ? roomState : null,
+    chatMessages: isAuthenticated ? chatMessages : [],
     error: isAuthenticated ? error : null,
     busyAction: isAuthenticated ? busyAction : null,
     isConnected: isAuthenticated ? isConnected : false,
@@ -196,6 +268,8 @@ export const usePlayRoom = ({
     lockCharacter,
     movePlayer,
     readyUp,
+    submitTask,
+    sendChatMessage,
     clearError: () => setError(null),
   };
 };

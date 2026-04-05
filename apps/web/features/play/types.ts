@@ -21,6 +21,17 @@ export type PlayTaskPayload = {
   placeholderLabel?: string;
 };
 
+export type PlayJudgeDecision = "approved" | "retry";
+
+export type PlayJudgeVerdict = {
+  decision: PlayJudgeDecision;
+  score: number;
+  summary: string;
+  feedback: string;
+  judgedAt: string;
+  model: string;
+};
+
 export type PlayVector2 = {
   x: number;
   y: number;
@@ -36,6 +47,10 @@ export type PlayRoomPlayerState = {
   selectedAt: string | null;
   position: PlayVector2;
   isReadyAtPedestal: boolean;
+  taskSubmission: {
+    submittedAt: string | null;
+    verdict: PlayJudgeVerdict | null;
+  };
 };
 
 export type PlayRoomState = {
@@ -54,6 +69,11 @@ export type PlayRoomState = {
       y: number;
       interactionRadius: number;
     };
+    judge: {
+      x: number;
+      y: number;
+      interactionRadius: number;
+    };
   };
   players: PlayRoomPlayerState[];
   selectedTask: PlayTaskPayload | null;
@@ -65,4 +85,13 @@ export type PlayRoomPositionsState = {
     userId: string;
     position: PlayVector2;
   }>;
+};
+
+export type PlayRoomChatMessage = {
+  id: string;
+  roomCode: string;
+  userId: string;
+  text: string;
+  createdAt: string;
+  expiresAt: string;
 };

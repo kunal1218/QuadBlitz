@@ -26,6 +26,7 @@ import {
   lockPlayRoomCharacter,
   movePlayRoomPlayer,
   readyPlayRoomPlayer,
+  submitPlayRoomTask,
   type PlayCharacterId,
 } from "./playroomService";
 import { leaveRankedGame } from "./rankedService";
@@ -62,6 +63,15 @@ type PokerChatMessage = {
   message: string;
   createdAt: string;
   sender: { id: string; name: string; handle?: string | null };
+};
+
+type PlayRoomChatMessage = {
+  id: string;
+  roomCode: string;
+  userId: string;
+  text: string;
+  createdAt: string;
+  expiresAt: string;
 };
 
 const MAX_POKER_CHAT_MESSAGES = 50;
@@ -696,6 +706,55 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
       } catch (error) {
         emitPlayRoomError(
           error instanceof Error ? error.message : "Unable to mark ready."
+        );
+      }
+    });
+
+    socket.on("playroom:submit-task", async (payload?: { submission?: string }) => {
+      try {
+        const result = await submitPlayRoomTask({
+          userId,
+          submission: payload?.submission ?? "",
+        });
+        await emitPlayRoomStateForRoom(result.roomCode);
+      } catch (error) {
+        emitPlayRoomError(
+          error instanceof Error ? error.message : "Unable to submit to the judge."
+        );
+      }
+    });
+
+    socket.on("playroom:chat", async (payload?: { text?: string }) => {
+      try {
+        const result = await getPlayRoomStateForUser(userId);
+        if (!result.roomCode || !result.state) {
+          throw new Error("Join a room first.");
+        }
+        if (
+          result.state.phase !== "shared_room" &&
+          result.state.phase !== "task_reveal"
+        ) {
+          throw new Error("Room chat is only available in the shared room.");
+        }
+
+        const text = payload?.text?.replace(/\s+/g, " ").trim().slice(0, 200) ?? "";
+        if (!text) {
+          throw new Error("Message cannot be empty.");
+        }
+
+        const message: PlayRoomChatMessage = {
+          id: randomUUID(),
+          roomCode: result.roomCode,
+          userId,
+          text,
+          createdAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 10_000).toISOString(),
+        };
+
+        io?.to(playRoomForCode(result.roomCode)).emit("playroom:chat", { message });
+      } catch (error) {
+        emitPlayRoomError(
+          error instanceof Error ? error.message : "Unable to send room chat."
         );
       }
     });

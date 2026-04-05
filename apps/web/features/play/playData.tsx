@@ -23,6 +23,11 @@ type CharacterAvatarProps = {
   className?: string;
 };
 
+type JudgeAvatarProps = {
+  size?: number;
+  className?: string;
+};
+
 const BODY_FILL = "#FFFFFF";
 const SHADE_FILL = "#E9EEF5";
 const OUTLINE = "#121212";
@@ -248,6 +253,51 @@ const MugCharacter = () => (
   </>
 );
 
+const JudgeCharacter = () => (
+  <>
+    <ellipse cx="60" cy="110" rx="32" ry="8" fill={SHADOW} />
+    <path
+      d="M36 44c0-13 10.3-23 24-23 13.3 0 24 10 24 23v36c0 13.3-10.7 24-24 24s-24-10.7-24-24V44Z"
+      fill={BODY_FILL}
+      stroke={OUTLINE}
+      strokeWidth="4"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M40 50h40l-4 18c-1.9 8.4-9.4 14.4-18 14.4s-16.1-6-18-14.4L40 50Z"
+      fill={SHADE_FILL}
+      opacity="0.72"
+    />
+    <path
+      d="M42 34c0-12 8.3-21 18-21 9.6 0 18 9 18 21v10H42V34Z"
+      fill={BODY_FILL}
+      stroke={OUTLINE}
+      strokeWidth="4"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M38 37c0-3.5 2.9-6.4 6.4-6.4 1.6 0 3.1.6 4.3 1.7M82 37c0-3.5-2.9-6.4-6.4-6.4-1.6 0-3.1.6-4.3 1.7"
+      fill="none"
+      stroke={OUTLINE}
+      strokeWidth="4"
+      strokeLinecap="round"
+    />
+    <Face cx={60} cy={41} rx={16} ry={11} />
+    <path
+      d="M48 55h24l-3 12c-1.1 4.3-5 7.3-9 7.3s-7.9-3-9-7.3l-3-12Z"
+      fill={BODY_FILL}
+      stroke={OUTLINE}
+      strokeWidth="3.2"
+      strokeLinejoin="round"
+    />
+    <path d="M56 58h8l-4 11Z" fill="#5B7CFA" stroke={OUTLINE} strokeWidth="3" strokeLinejoin="round" />
+    <path d="M87 63l11 8-11 8v-16Z" fill={ACCENT} stroke={OUTLINE} strokeWidth="4" strokeLinejoin="round" />
+    <path d="M91 60h5v22h-5Z" fill={ACCENT_DARK} stroke={OUTLINE} strokeWidth="3.2" strokeLinejoin="round" />
+    <path d="M47 96h12v11H47Z" fill={BODY_FILL} stroke={OUTLINE} strokeWidth="4" strokeLinejoin="round" />
+    <path d="M61 96h12v11H61Z" fill={BODY_FILL} stroke={OUTLINE} strokeWidth="4" strokeLinejoin="round" />
+  </>
+);
+
 export const CharacterAvatar = ({
   characterId,
   size = 100,
@@ -283,3 +333,16 @@ export const CharacterAvatar = ({
     </svg>
   );
 };
+
+export const JudgeAvatar = ({ size = 118, className }: JudgeAvatarProps) => (
+  <svg
+    viewBox="0 0 120 120"
+    width={size}
+    height={size}
+    aria-hidden="true"
+    className={className}
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <JudgeCharacter />
+  </svg>
+);

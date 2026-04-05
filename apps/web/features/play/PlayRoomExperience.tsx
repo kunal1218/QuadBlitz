@@ -4,8 +4,15 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/Button";
 import { useAuth } from "@/features/auth";
-import { CharacterAvatar, PLAY_CHARACTERS, getCharacterLabel } from "./playData";
-import type { PlayCharacterId, PlayRoomState, PlayVector2 } from "./types";
+import { CharacterAvatar, JudgeAvatar, PLAY_CHARACTERS, getCharacterLabel } from "./playData";
+import type {
+  PlayCharacterId,
+  PlayRoomChatMessage,
+  PlayJudgeVerdict,
+  PlayRoomState,
+  PlayTaskPayload,
+  PlayVector2,
+} from "./types";
 import { usePlayRoom } from "./usePlayRoom";
 
 const normalizeRoomCode = (value: string | null) =>
@@ -353,25 +360,151 @@ const TaskEnvelope = ({ task }: { task: PlayRoomState["selectedTask"] }) => {
   );
 };
 
+const JudgeSubmissionModal = ({
+  task,
+  draft,
+  verdict,
+  isSubmitting,
+  onDraftChange,
+  onClose,
+  onSubmit,
+}: {
+  task: PlayTaskPayload | null;
+  draft: string;
+  verdict: PlayJudgeVerdict | null;
+  isSubmitting: boolean;
+  onDraftChange: (value: string) => void;
+  onClose: () => void;
+  onSubmit: () => void;
+}) => {
+  if (!task) {
+    return null;
+  }
+
+  const verdictTone =
+    verdict?.decision === "approved"
+      ? {
+          border: "border-[#bfe8c6]",
+          background: "bg-[#effdf2]",
+          accent: "text-[#24673a]",
+        }
+      : {
+          border: "border-[#ffd4d4]",
+          background: "bg-[#fff3f3]",
+          accent: "text-[#b45151]",
+        };
+
+  return (
+    <div className="absolute inset-0 z-40 flex items-center justify-center bg-[rgba(240,246,255,0.72)] px-4 backdrop-blur-sm">
+      <div className="w-full max-w-lg rounded-[32px] border border-[#dbe5ff] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(245,248,255,0.98)_100%)] p-6 shadow-[0_28px_90px_rgba(20,86,244,0.18)]">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#5d73b3]">
+              Judge Submission
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#1f2430]">
+              Submit to the judge
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-[#dbe5ff] bg-white text-xl text-[#5d73b3] transition hover:border-[#bfd0ff] hover:bg-[#f8fbff]"
+            aria-label="Close judge submission"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="mt-5 rounded-[24px] border border-[#dbe5ff] bg-[#eef4ff] px-4 py-4">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#5d73b3]">
+            Current task
+          </div>
+          <p className="mt-2 text-sm leading-6 text-[#1f2430]">{task.text}</p>
+        </div>
+
+        <label className="mt-5 block">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#5d73b3]">
+            What did you do?
+          </span>
+          <textarea
+            value={draft}
+            onChange={(event) => onDraftChange(event.target.value)}
+            placeholder="Describe what you made, said, recorded, built, or link what you submitted."
+            className="mt-2 min-h-[150px] w-full rounded-[24px] border border-[#dbe5ff] bg-white px-4 py-4 text-sm leading-6 text-[#1f2430] outline-none transition placeholder:text-[#95a0b7] focus:border-[#9fbbff] focus:ring-4 focus:ring-[#dfe8ff]"
+            maxLength={1500}
+          />
+        </label>
+
+        <div className="mt-3 text-right text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7c869a]">
+          {draft.trim().length}/1500
+        </div>
+
+        {verdict ? (
+          <div className={`mt-5 rounded-[24px] border px-4 py-4 ${verdictTone.border} ${verdictTone.background}`}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className={`text-[11px] font-semibold uppercase tracking-[0.24em] ${verdictTone.accent}`}>
+                  Judge verdict
+                </div>
+                <div className="mt-1 text-lg font-semibold tracking-[-0.03em] text-[#1f2430]">
+                  {verdict.summary}
+                </div>
+              </div>
+              <div className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${verdictTone.accent} ${verdictTone.background}`}>
+                {verdict.decision === "approved" ? "Approved" : "Retry"} · {verdict.score}/10
+              </div>
+            </div>
+            <p className="mt-3 text-sm leading-6 text-[#445066]">{verdict.feedback}</p>
+          </div>
+        ) : null}
+
+        <div className="mt-6 flex justify-end">
+          <Button
+            className="rounded-full bg-[#1756f5] px-6 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-white shadow-[0_14px_28px_rgba(23,86,245,0.22)] hover:translate-y-0 hover:bg-[#0f49e2]"
+            disabled={!draft.trim() || isSubmitting}
+            onClick={onSubmit}
+          >
+            {isSubmitting ? "Judge Reviewing..." : "Submit to Judge"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const SharedRoomPanel = ({
   roomState,
+  chatMessages,
   currentUserId,
   onMove,
   onReady,
+  onSubmitTask,
+  onSendChatMessage,
+  isSubmittingTask,
   onLeave,
 }: {
   roomState: PlayRoomState;
+  chatMessages: PlayRoomChatMessage[];
   currentUserId: string | null | undefined;
   onMove: (positionX: number, positionY: number) => void;
   onReady: () => void;
+  onSubmitTask: (submission: string) => void;
+  onSendChatMessage: (text: string) => void;
+  isSubmittingTask: boolean;
   onLeave: () => void;
 }) => {
   const me = getPlayerById(roomState, currentUserId);
   const [showRoomState, setShowRoomState] = useState(false);
+  const [isJudgeModalOpen, setIsJudgeModalOpen] = useState(false);
+  const [submissionDraft, setSubmissionDraft] = useState("");
+  const [isChatting, setIsChatting] = useState(false);
+  const [chatDraft, setChatDraft] = useState("");
   const [renderPositions, setRenderPositions] = useState<Record<string, PlayVector2>>(() =>
     createPositionMap(roomState.players)
   );
   const [movingPlayerIds, setMovingPlayerIds] = useState<Record<string, boolean>>({});
+  const chatInputRef = useRef<HTMLInputElement | null>(null);
   const keyStateRef = useRef({ up: false, down: false, left: false, right: false });
   const roomRef = useRef(roomState);
   const serverPositionsRef = useRef<Record<string, PlayVector2>>(createPositionMap(roomState.players));
@@ -396,10 +529,45 @@ const SharedRoomPanel = ({
   }, [roomState]);
 
   useEffect(() => {
+    if (!isChatting) {
+      return;
+    }
+
+    chatInputRef.current?.focus();
+  }, [isChatting]);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLButtonElement
+      ) {
+        return;
+      }
+
       if (event.key === "Tab") {
         event.preventDefault();
         setShowRoomState(true);
+      }
+      if (event.key === "Enter") {
+        event.preventDefault();
+        if (isChatting) {
+          const nextMessage = chatDraft.trim();
+          if (nextMessage) {
+            onSendChatMessage(nextMessage);
+          }
+          setChatDraft("");
+          setIsChatting(false);
+          return;
+        }
+        keyStateRef.current = { up: false, down: false, left: false, right: false };
+        setIsChatting(true);
+        return;
+      }
+      if (isChatting) {
+        return;
       }
       if (event.key === "w" || event.key === "W" || event.key === "ArrowUp") {
         keyStateRef.current.up = true;
@@ -413,23 +581,14 @@ const SharedRoomPanel = ({
       if (event.key === "d" || event.key === "D" || event.key === "ArrowRight") {
         keyStateRef.current.right = true;
       }
-      if ((event.key === "e" || event.key === "E") && me && !me.isReadyAtPedestal) {
-        const pedestal = roomRef.current.room.pedestal;
-        const myVisualPosition =
-          visualPositionsRef.current[me.userId] ?? serverPositionsRef.current[me.userId] ?? me.position;
-        const distance = Math.hypot(
-          myVisualPosition.x - pedestal.x,
-          myVisualPosition.y - pedestal.y
-        );
-        if (distance <= pedestal.interactionRadius) {
-          onReady();
-        }
-      }
     };
     const handleKeyUp = (event: KeyboardEvent) => {
       if (event.key === "Tab") {
         event.preventDefault();
         setShowRoomState(false);
+      }
+      if (isChatting) {
+        return;
       }
       if (event.key === "w" || event.key === "W" || event.key === "ArrowUp") {
         keyStateRef.current.up = false;
@@ -457,7 +616,7 @@ const SharedRoomPanel = ({
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("blur", handleBlur);
     };
-  }, [me, onReady]);
+  }, [chatDraft, isChatting, me, onReady, onSendChatMessage]);
 
   useEffect(() => {
     let frame = 0;
@@ -482,6 +641,14 @@ const SharedRoomPanel = ({
         const currentPosition = nextPositions[player.userId] ?? player.position;
         const serverPosition = serverPositions[player.userId] ?? player.position;
         if (player.userId === me?.userId) {
+          if (isChatting) {
+            nextPositions[player.userId] = {
+              x: lerp(currentPosition.x, serverPosition.x, smoothing * 0.72),
+              y: lerp(currentPosition.y, serverPosition.y, smoothing * 0.72),
+            };
+            nextMoving[player.userId] = false;
+            return;
+          }
           const inputX =
             (keyStateRef.current.right ? 1 : 0) - (keyStateRef.current.left ? 1 : 0);
           const inputY =
@@ -539,17 +706,47 @@ const SharedRoomPanel = ({
     return () => {
       window.cancelAnimationFrame(frame);
     };
-  }, [me, onMove]);
+  }, [isChatting, me, onMove]);
 
   const pedestal = roomState.room.pedestal;
+  const judge = roomState.room.judge;
   const readyCount = roomState.players.filter((player) => player.isReadyAtPedestal).length;
   const myVisualPosition =
     me ? renderPositions[me.userId] ?? me.position : null;
   const hasReadied = Boolean(me?.isReadyAtPedestal);
+  const myVerdict = me?.taskSubmission.verdict ?? null;
   const isNearPedestal =
     myVisualPosition &&
     Math.hypot(myVisualPosition.x - pedestal.x, myVisualPosition.y - pedestal.y) <=
       pedestal.interactionRadius;
+  const isNearJudge =
+    myVisualPosition &&
+    Math.hypot(myVisualPosition.x - judge.x, myVisualPosition.y - judge.y) <=
+      judge.interactionRadius;
+  const judgeLeft = ((judge.x + roomState.room.width / 2) / roomState.room.width) * 100;
+  const judgeTop = ((judge.y + roomState.room.height / 2) / roomState.room.height) * 100;
+  const canSubmitToJudge =
+    roomState.phase === "task_reveal" &&
+    Boolean(roomState.selectedTask) &&
+    Boolean(isNearJudge);
+  const isJudgeModalVisible =
+    isJudgeModalOpen &&
+    roomState.phase === "task_reveal" &&
+    Boolean(roomState.selectedTask);
+
+  const handleJudgeClick = () => {
+    if (!canSubmitToJudge) {
+      return;
+    }
+    setIsJudgeModalOpen(true);
+  };
+
+  const handleJudgeSubmit = () => {
+    if (!submissionDraft.trim()) {
+      return;
+    }
+    onSubmitTask(submissionDraft);
+  };
 
   return (
     <section className="relative h-full min-h-0 w-full overflow-hidden bg-white">
@@ -581,6 +778,18 @@ const SharedRoomPanel = ({
         key={roomState.selectedTask?.id ?? "closed"}
         task={roomState.phase === "task_reveal" ? roomState.selectedTask : null}
       />
+
+      {isJudgeModalVisible ? (
+        <JudgeSubmissionModal
+          task={roomState.selectedTask}
+          draft={submissionDraft}
+          verdict={myVerdict}
+          isSubmitting={isSubmittingTask}
+          onDraftChange={setSubmissionDraft}
+          onClose={() => setIsJudgeModalOpen(false)}
+          onSubmit={handleJudgeSubmit}
+        />
+      ) : null}
 
       <div className="absolute left-5 top-5 z-20 rounded-full border border-[#dbe5ff] bg-white/94 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#5d73b3] shadow-[0_12px_30px_rgba(20,86,244,0.1)] backdrop-blur">
         Room {roomState.roomCode}
@@ -638,7 +847,7 @@ const SharedRoomPanel = ({
           {hasReadied ? "Ready Locked" : "Press Ready"}
         </button>
         <div className="rounded-full border border-[#dbe5ff] bg-white/90 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#5d73b3] shadow-[0_10px_24px_rgba(20,86,244,0.08)] backdrop-blur">
-          Walk in and press E or click
+          Walk in and click
         </div>
       </div>
 
@@ -652,34 +861,76 @@ const SharedRoomPanel = ({
         />
       </div>
 
+      <div
+        className="absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+        style={{ left: `${judgeLeft}%`, top: `${judgeTop}%` }}
+      >
+        <button
+          type="button"
+          onClick={handleJudgeClick}
+          disabled={!canSubmitToJudge}
+          className={`group rounded-[28px] border px-4 py-3 shadow-[0_16px_34px_rgba(20,86,244,0.12)] transition ${
+            canSubmitToJudge
+              ? "border-[#bcd0ff] bg-white/95 hover:-translate-y-0.5 hover:border-[#98b5ff]"
+              : "border-[#dbe5ff] bg-white/88"
+          }`}
+        >
+          <JudgeAvatar
+            size={124}
+            className={canSubmitToJudge ? "drop-shadow-[0_10px_18px_rgba(20,86,244,0.14)]" : "opacity-90"}
+          />
+        </button>
+        <div className="mt-2 rounded-full border border-[#dbe5ff] bg-white/94 px-3 py-1 text-[11px] font-semibold text-[#1f2430] shadow-[0_10px_24px_rgba(20,86,244,0.08)]">
+          Judge
+        </div>
+        <div className="mt-2 rounded-full border border-[#dbe5ff] bg-white/88 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#5d73b3] shadow-[0_10px_24px_rgba(20,86,244,0.08)]">
+          {roomState.phase !== "task_reveal"
+            ? "Judge opens after task reveal"
+            : canSubmitToJudge
+              ? "Click judge to submit"
+              : "Walk up to submit"}
+        </div>
+      </div>
+
       {roomState.players.map((player) => {
         const displayPosition = renderPositions[player.userId] ?? player.position;
         const left = ((displayPosition.x + roomState.room.width / 2) / roomState.room.width) * 100;
         const top = ((displayPosition.y + roomState.room.height / 2) / roomState.room.height) * 100;
+        const activeChatMessage = chatMessages.find((message) => message.userId === player.userId);
         return (
           <div
             key={player.userId}
             className="absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
             style={{ left: `${left}%`, top: `${top}%` }}
           >
-            {player.selectedCharacter ? (
-              <div
-                style={
-                  movingPlayerIds[player.userId]
-                    ? {
-                        animation: "play-room-rock 0.46s ease-in-out infinite",
-                        transformOrigin: "50% 88%",
-                      }
-                    : undefined
-                }
-              >
-                <CharacterAvatar
-                  characterId={player.selectedCharacter}
-                  size={96}
-                  className={player.userId === currentUserId ? "scale-105" : ""}
-                />
-              </div>
-            ) : null}
+            <div className="relative">
+              {activeChatMessage ? (
+                <div className="absolute left-[calc(100%+12px)] top-1 z-20 max-w-[220px]">
+                  <div className="relative rounded-[22px] border border-[#cfe0ff] bg-white/98 px-3 py-2 text-xs font-medium leading-5 text-[#1f2430] shadow-[0_14px_30px_rgba(20,86,244,0.12)]">
+                    {activeChatMessage.text}
+                    <div className="absolute left-[-8px] top-4 h-4 w-4 rotate-45 border-b border-l border-[#cfe0ff] bg-white/98" />
+                  </div>
+                </div>
+              ) : null}
+              {player.selectedCharacter ? (
+                <div
+                  style={
+                    movingPlayerIds[player.userId]
+                      ? {
+                          animation: "play-room-rock 0.46s ease-in-out infinite",
+                          transformOrigin: "50% 88%",
+                        }
+                      : undefined
+                  }
+                >
+                  <CharacterAvatar
+                    characterId={player.selectedCharacter}
+                    size={96}
+                    className={player.userId === currentUserId ? "scale-105" : ""}
+                  />
+                </div>
+              ) : null}
+            </div>
             <div className="mt-1 rounded-full border border-[#dbe5ff] bg-white/94 px-3 py-1 text-[11px] font-semibold text-[#1f2430] shadow-[0_10px_24px_rgba(20,86,244,0.08)]">
               {player.name}
               {player.isReadyAtPedestal ? " • Ready" : ""}
@@ -699,8 +950,41 @@ const SharedRoomPanel = ({
         <span className="pr-2">Leave Room</span>
       </button>
 
+      {isChatting ? (
+        <div className="absolute bottom-5 left-1/2 z-20 w-[min(92vw,480px)] -translate-x-1/2">
+          <div className="rounded-full border border-[#bfd0ff] bg-white/96 px-3 py-3 shadow-[0_18px_38px_rgba(20,86,244,0.14)] backdrop-blur">
+            <input
+              ref={chatInputRef}
+              type="text"
+              value={chatDraft}
+              onChange={(event) => setChatDraft(event.target.value.slice(0, 200))}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  const nextMessage = chatDraft.trim();
+                  if (nextMessage) {
+                    onSendChatMessage(nextMessage);
+                  }
+                  setChatDraft("");
+                  setIsChatting(false);
+                  return;
+                }
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  setChatDraft("");
+                  setIsChatting(false);
+                }
+              }}
+              placeholder="Say something to the room..."
+              maxLength={200}
+              className="w-full bg-transparent px-3 text-sm font-medium text-[#1f2430] outline-none placeholder:text-[#92a0bb]"
+            />
+          </div>
+        </div>
+      ) : null}
+
       <div className="absolute bottom-5 right-5 z-20 rounded-full border border-[#dbe5ff] bg-white/88 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#5d73b3] shadow-[0_12px_28px_rgba(20,86,244,0.08)] backdrop-blur">
-        WASD move · E ready · Hold Tab for room state
+        WASD move · Enter chat · Click ready · Walk to judge and click to submit · Hold Tab for room state
       </div>
     </section>
   );
@@ -716,6 +1000,7 @@ export const PlayRoomExperience = () => {
   const { isAuthenticated, token, user } = useAuth();
   const {
     roomState,
+    chatMessages,
     error,
     busyAction,
     isConnected,
@@ -725,6 +1010,8 @@ export const PlayRoomExperience = () => {
     lockCharacter,
     movePlayer,
     readyUp,
+    submitTask,
+    sendChatMessage,
     clearError,
   } = usePlayRoom({
     inviteRoomCode,
@@ -852,9 +1139,13 @@ export const PlayRoomExperience = () => {
     content = (
       <SharedRoomPanel
         roomState={roomState}
+        chatMessages={chatMessages}
         currentUserId={user?.id}
         onMove={movePlayer}
         onReady={readyUp}
+        onSubmitTask={submitTask}
+        onSendChatMessage={sendChatMessage}
+        isSubmittingTask={busyAction === "submit"}
         onLeave={handleLeaveRoom}
       />
     );

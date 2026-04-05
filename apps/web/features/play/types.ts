@@ -97,11 +97,15 @@ export type PlayRoomState = {
       x: number;
       y: number;
       interactionRadius: number;
+      visible: boolean;
+      carriedByUserId: string | null;
     };
     arcade: {
       x: number;
       y: number;
       interactionRadius: number;
+      visible: boolean;
+      carriedByUserId: string | null;
     };
   };
   players: PlayRoomPlayerState[];

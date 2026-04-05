@@ -22,6 +22,7 @@ import {
   getPlayRoomPositions,
   getPlayRoomState,
   getPlayRoomStateForUser,
+  interactPlayRoomNpc,
   joinPlayRoom,
   leavePlayRoom,
   lockPlayRoomCharacter,
@@ -770,6 +771,21 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
         }
       }
     );
+
+    socket.on("playroom:npc:interact", async (payload?: { npcType?: string }) => {
+      try {
+        const npcType = payload?.npcType === "judge" ? "judge" : payload?.npcType === "arcade" ? "arcade" : null;
+        if (!npcType) {
+          throw new Error("Unknown NPC.");
+        }
+        const result = await interactPlayRoomNpc({ userId, npcType });
+        await emitPlayRoomStateForRoom(result.roomCode);
+      } catch (error) {
+        emitPlayRoomError(
+          error instanceof Error ? error.message : "Unable to move that NPC."
+        );
+      }
+    });
 
     socket.on("playroom:ready", async () => {
       try {

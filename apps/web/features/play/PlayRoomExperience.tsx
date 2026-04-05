@@ -1214,6 +1214,7 @@ const SharedRoomPanel = ({
   onReady,
   onSubmitTask,
   onSendChatMessage,
+  onInteractNpc,
   onProposePokerArcade,
   onRespondPokerArcade,
   onCopyInvite,
@@ -1230,6 +1231,7 @@ const SharedRoomPanel = ({
   onReady: () => void;
   onSubmitTask: (submission: string) => void;
   onSendChatMessage: (text: string) => void;
+  onInteractNpc: (npcType: "judge" | "arcade") => void;
   onProposePokerArcade: () => void;
   onRespondPokerArcade: (accept: boolean) => void;
   onCopyInvite: () => void;
@@ -1260,7 +1262,7 @@ const SharedRoomPanel = ({
   const roomRef = useRef(roomState);
   const judgeWalkTimerRef = useRef<number | null>(null);
   const hasLoadedVoiceSettingsRef = useRef(false);
-  const previousPokerOverlayRef = useRef(pokerOverlayOpen);
+  const previousNpcExitRef = useRef(pokerOverlayOpen);
   const serverPositionsRef = useRef<Record<string, PlayVector2>>(createPositionMap(presentPlayers));
   const visualPositionsRef = useRef<Record<string, PlayVector2>>(createPositionMap(presentPlayers));
   const { voiceError, voiceStatus, isMicLive } = usePlayRoomVoice({
@@ -1278,6 +1280,7 @@ const SharedRoomPanel = ({
   const wallBoundaryPercent =
     ((wallBoundaryY + roomState.room.height / 2) / roomState.room.height) * 100;
   const boardTopPercent = Math.max(5.5, wallHeightPercent * 0.4);
+  const npcEventExitActive = pokerOverlayOpen || roomState.pokerArcade.status === "voting";
   const syncCurrentPlayerPosition = useCallback(() => {
     if (!me) {
       return;
@@ -1286,6 +1289,75 @@ const SharedRoomPanel = ({
       visualPositionsRef.current[me.userId] ?? renderPositions[me.userId] ?? me.position;
     onMove(currentPosition.x, currentPosition.y);
   }, [me, onMove, renderPositions]);
+  const pedestal = roomState.room.pedestal;
+  const judge = roomState.room.judge;
+  const arcade = roomState.room.arcade;
+  const judgeCarrier = judge.carriedByUserId
+    ? getPlayerById(roomState, judge.carriedByUserId)
+    : null;
+  const arcadeCarrier = arcade.carriedByUserId
+    ? getPlayerById(roomState, arcade.carriedByUserId)
+    : null;
+  const readyCount = presentPlayers.filter((player) => player.isReadyAtPedestal).length;
+  const myVisualPosition = me ? renderPositions[me.userId] ?? me.position : null;
+  const hasReadied = Boolean(me?.isReadyAtPedestal);
+  const myVerdict = me?.taskSubmission?.verdict ?? null;
+  const isNearPedestal =
+    myVisualPosition &&
+    Math.hypot(myVisualPosition.x - pedestal.x, myVisualPosition.y - pedestal.y) <=
+      pedestal.interactionRadius;
+  const isNearJudge =
+    myVisualPosition &&
+    Math.hypot(myVisualPosition.x - judge.x, myVisualPosition.y - judge.y) <=
+      judge.interactionRadius;
+  const isNearArcade =
+    myVisualPosition &&
+    Math.hypot(myVisualPosition.x - arcade.x, myVisualPosition.y - arcade.y) <=
+      arcade.interactionRadius;
+  const isCarryingJudge = judge.carriedByUserId === currentUserId;
+  const isCarryingArcade = arcade.carriedByUserId === currentUserId;
+  const judgeLeft = ((judge.x + roomState.room.width / 2) / roomState.room.width) * 100;
+  const judgeTop = ((judge.y + roomState.room.height / 2) / roomState.room.height) * 100;
+  const arcadeLeft = ((arcade.x + roomState.room.width / 2) / roomState.room.width) * 100;
+  const arcadeTop = ((arcade.y + roomState.room.height / 2) / roomState.room.height) * 100;
+  const judgeCarrierPosition =
+    judgeCarrier ? renderPositions[judgeCarrier.userId] ?? judgeCarrier.position : null;
+  const arcadeCarrierPosition =
+    arcadeCarrier ? renderPositions[arcadeCarrier.userId] ?? arcadeCarrier.position : null;
+  const judgeRenderLeft = judgeCarrierPosition
+    ? `${((judgeCarrierPosition.x + roomState.room.width / 2) / roomState.room.width) * 100}%`
+    : npcEventExitActive
+      ? "-12%"
+      : `${judgeLeft}%`;
+  const judgeRenderTop = judgeCarrierPosition
+    ? `${((judgeCarrierPosition.y + roomState.room.height / 2) / roomState.room.height) * 100}%`
+    : `${judgeTop}%`;
+  const arcadeRenderLeft = arcadeCarrierPosition
+    ? `${((arcadeCarrierPosition.x + roomState.room.width / 2) / roomState.room.width) * 100}%`
+    : npcEventExitActive
+      ? "-12%"
+      : `${arcadeLeft}%`;
+  const arcadeRenderTop = arcadeCarrierPosition
+    ? `${((arcadeCarrierPosition.y + roomState.room.height / 2) / roomState.room.height) * 100}%`
+    : `${arcadeTop}%`;
+  const canSubmitToJudge =
+    roomState.phase === "task_reveal" &&
+    !pokerOverlayOpen &&
+    judge.visible &&
+    !judge.carriedByUserId &&
+    Boolean(roomState.selectedTask) &&
+    Boolean(isNearJudge);
+  const canUseArcade =
+    !pokerOverlayOpen &&
+    arcade.visible &&
+    !arcade.carriedByUserId &&
+    roomState.pokerArcade.status === "idle" &&
+    Boolean(isNearArcade);
+  const hasActivePokerTable = Boolean(roomState.pokerArcade.activeTableId);
+  const isJudgeModalVisible =
+    isJudgeModalOpen &&
+    roomState.phase === "task_reveal" &&
+    Boolean(roomState.selectedTask);
 
   useEffect(() => {
     roomRef.current = roomState;
@@ -1344,11 +1416,11 @@ const SharedRoomPanel = ({
   }, [isMicMuted, voiceMode]);
 
   useEffect(() => {
-    if (previousPokerOverlayRef.current === pokerOverlayOpen) {
+    if (previousNpcExitRef.current === npcEventExitActive) {
       return;
     }
 
-    previousPokerOverlayRef.current = pokerOverlayOpen;
+    previousNpcExitRef.current = npcEventExitActive;
     if (judgeWalkTimerRef.current) {
       window.clearTimeout(judgeWalkTimerRef.current);
     }
@@ -1364,7 +1436,7 @@ const SharedRoomPanel = ({
     return () => {
       window.cancelAnimationFrame(animationFrame);
     };
-  }, [pokerOverlayOpen]);
+  }, [npcEventExitActive]);
 
   useEffect(() => {
     return () => {
@@ -1398,6 +1470,25 @@ const SharedRoomPanel = ({
           !pokerOverlayOpen
         ) {
           setIsPushToTalkActive(true);
+        }
+      }
+      if (event.key === "e" || event.key === "E") {
+        if (
+          !event.repeat &&
+          !isChatting &&
+          !isJudgeModalOpen &&
+          !isVoiceSettingsOpen &&
+          !pokerOverlayOpen
+        ) {
+          if (isCarryingJudge) {
+            onInteractNpc("judge");
+          } else if (isCarryingArcade) {
+            onInteractNpc("arcade");
+          } else if (judge.visible && !judge.carriedByUserId && isNearJudge) {
+            onInteractNpc("judge");
+          } else if (arcade.visible && !arcade.carriedByUserId && isNearArcade) {
+            onInteractNpc("arcade");
+          }
         }
       }
       if (pokerOverlayOpen || isVoiceSettingsOpen) {
@@ -1484,7 +1575,14 @@ const SharedRoomPanel = ({
     me,
     onReady,
     onSendChatMessage,
+    onInteractNpc,
     pokerOverlayOpen,
+    isCarryingArcade,
+    isCarryingJudge,
+    isNearArcade,
+    isNearJudge,
+    judge,
+    arcade,
     voiceMode,
     syncCurrentPlayerPosition,
   ]);
@@ -1581,46 +1679,6 @@ const SharedRoomPanel = ({
       window.cancelAnimationFrame(frame);
     };
   }, [isChatting, isVoiceSettingsOpen, me, onMove, playerMinY, pokerOverlayOpen]);
-
-  const pedestal = roomState.room.pedestal;
-  const judge = roomState.room.judge;
-  const arcade = roomState.room.arcade;
-  const readyCount = presentPlayers.filter((player) => player.isReadyAtPedestal).length;
-  const myVisualPosition =
-    me ? renderPositions[me.userId] ?? me.position : null;
-  const hasReadied = Boolean(me?.isReadyAtPedestal);
-  const myVerdict = me?.taskSubmission?.verdict ?? null;
-  const isNearPedestal =
-    myVisualPosition &&
-    Math.hypot(myVisualPosition.x - pedestal.x, myVisualPosition.y - pedestal.y) <=
-      pedestal.interactionRadius;
-  const isNearJudge =
-    myVisualPosition &&
-    Math.hypot(myVisualPosition.x - judge.x, myVisualPosition.y - judge.y) <=
-      judge.interactionRadius;
-  const isNearArcade =
-    myVisualPosition &&
-    Math.hypot(myVisualPosition.x - arcade.x, myVisualPosition.y - arcade.y) <=
-      arcade.interactionRadius;
-  const judgeLeft = ((judge.x + roomState.room.width / 2) / roomState.room.width) * 100;
-  const judgeTop = ((judge.y + roomState.room.height / 2) / roomState.room.height) * 100;
-  const arcadeLeft = ((arcade.x + roomState.room.width / 2) / roomState.room.width) * 100;
-  const arcadeTop = ((arcade.y + roomState.room.height / 2) / roomState.room.height) * 100;
-  const judgeDisplayLeft = pokerOverlayOpen ? "-12%" : `${judgeLeft}%`;
-  const canSubmitToJudge =
-    roomState.phase === "task_reveal" &&
-    !pokerOverlayOpen &&
-    Boolean(roomState.selectedTask) &&
-    Boolean(isNearJudge);
-  const canUseArcade =
-    !pokerOverlayOpen &&
-    roomState.pokerArcade.status === "idle" &&
-    Boolean(isNearArcade);
-  const hasActivePokerTable = Boolean(roomState.pokerArcade.activeTableId);
-  const isJudgeModalVisible =
-    isJudgeModalOpen &&
-    roomState.phase === "task_reveal" &&
-    Boolean(roomState.selectedTask);
 
   const handleJudgeClick = () => {
     if (!canSubmitToJudge) {
@@ -1816,75 +1874,108 @@ const SharedRoomPanel = ({
         </div>
       ) : null}
 
-      <div
-        className="absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
-        style={{
-          left: judgeDisplayLeft,
-          top: `${judgeTop}%`,
-          transition: "left 920ms cubic-bezier(0.22, 1, 0.36, 1)",
-        }}
-      >
+      {judge.visible || judgeCarrierPosition ? (
         <div
-          style={
-            isJudgeWalking
-              ? {
-                  animation: "play-room-rock 0.46s ease-in-out infinite",
-                  transformOrigin: "50% 88%",
-                }
-              : undefined
-          }
+          className="absolute z-10 flex flex-col items-center"
+          style={{
+            left: judgeRenderLeft,
+            top: judgeRenderTop,
+            transform: judgeCarrierPosition
+              ? "translate(-50%, calc(-100% - 28px)) rotate(180deg)"
+              : "translate(-50%, -50%)",
+            transition:
+              "left 920ms cubic-bezier(0.22, 1, 0.36, 1), top 180ms ease-out, opacity 220ms ease-out",
+            opacity: npcEventExitActive && !judgeCarrierPosition ? 0 : 1,
+          }}
         >
-          <button
-            type="button"
-            onClick={handleJudgeClick}
-            disabled={!canSubmitToJudge}
-            className={`group transition ${
-              canSubmitToJudge
-                ? "hover:-translate-y-0.5"
-                : "opacity-92"
-            }`}
+          <div
+            style={
+              isJudgeWalking
+                ? {
+                    animation: "play-room-rock 0.46s ease-in-out infinite",
+                    transformOrigin: "50% 88%",
+                  }
+                : undefined
+            }
           >
-            <JudgeAvatar
-              size={124}
-              className={canSubmitToJudge ? "drop-shadow-[0_10px_18px_rgba(20,86,244,0.14)]" : "opacity-90"}
-            />
-          </button>
-          <div className="mt-2 inline-flex w-fit self-center rounded-full border border-[#dbe5ff] bg-white/94 px-3 py-1 text-[11px] font-semibold text-[#1f2430] shadow-[0_10px_24px_rgba(20,86,244,0.08)]">
-            Judge
+            <button
+              type="button"
+              onClick={handleJudgeClick}
+              disabled={!canSubmitToJudge}
+              className={`group transition ${
+                canSubmitToJudge ? "hover:-translate-y-0.5" : "opacity-92"
+              }`}
+            >
+              <JudgeAvatar
+                size={124}
+                className={canSubmitToJudge ? "drop-shadow-[0_10px_18px_rgba(20,86,244,0.14)]" : "opacity-90"}
+              />
+            </button>
           </div>
+          {!judgeCarrierPosition ? (
+            <div className="mt-2 inline-flex w-fit self-center rounded-full border border-[#dbe5ff] bg-white/94 px-3 py-1 text-[11px] font-semibold text-[#1f2430] shadow-[0_10px_24px_rgba(20,86,244,0.08)]">
+              Judge
+            </div>
+          ) : null}
         </div>
-      </div>
+      ) : null}
 
-      <div
-        className="absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
-        style={{ left: `${arcadeLeft}%`, top: `${arcadeTop}%` }}
-      >
-        <button
-          type="button"
-          onClick={handleArcadeClick}
-          disabled={!canUseArcade || isPokerVoting}
-          className={`group transition ${canUseArcade ? "hover:-translate-y-0.5" : "opacity-92"} disabled:opacity-70`}
+      {arcade.visible || arcadeCarrierPosition ? (
+        <div
+          className="absolute z-10 flex flex-col items-center"
+          style={{
+            left: arcadeRenderLeft,
+            top: arcadeRenderTop,
+            transform: arcadeCarrierPosition
+              ? "translate(-50%, calc(-100% - 26px)) rotate(180deg)"
+              : "translate(-50%, -50%)",
+            transition:
+              "left 920ms cubic-bezier(0.22, 1, 0.36, 1), top 180ms ease-out, opacity 220ms ease-out",
+            opacity: npcEventExitActive && !arcadeCarrierPosition ? 0 : 1,
+          }}
         >
-          <ArcadeMachineAvatar
-            size={126}
-            className={canUseArcade ? "drop-shadow-[0_10px_18px_rgba(20,86,244,0.14)]" : "opacity-92"}
-          />
-        </button>
-        <div className="mt-2 rounded-full border border-[#dbe5ff] bg-white/94 px-3 py-1 text-[11px] font-semibold text-[#1f2430] shadow-[0_10px_24px_rgba(20,86,244,0.08)]">
-          Poker Arcade
-        </div>
-        {roomState.pokerArcade.status === "idle" ? (
-          <div className="mt-2 rounded-full border border-[#dbe5ff] bg-white/88 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#5d73b3] shadow-[0_10px_24px_rgba(20,86,244,0.08)]">
-            {hasActivePokerTable
-              ? canUseArcade
-                ? "Click to join poker"
-                : "Walk up to join poker"
-              : canUseArcade
-                ? "Click to start poker"
-                : "Walk up to play poker"}
+          <div
+            style={
+              isJudgeWalking
+                ? {
+                    animation: "play-room-rock 0.46s ease-in-out infinite",
+                    transformOrigin: "50% 88%",
+                  }
+                : undefined
+            }
+          >
+            <button
+              type="button"
+              onClick={handleArcadeClick}
+              disabled={!canUseArcade || isPokerVoting}
+              className={`group transition ${canUseArcade ? "hover:-translate-y-0.5" : "opacity-92"} disabled:opacity-70`}
+            >
+              <ArcadeMachineAvatar
+                size={126}
+                className={canUseArcade ? "drop-shadow-[0_10px_18px_rgba(20,86,244,0.14)]" : "opacity-92"}
+              />
+            </button>
           </div>
-        ) : null}
-      </div>
+          {!arcadeCarrierPosition ? (
+            <>
+              <div className="mt-2 rounded-full border border-[#dbe5ff] bg-white/94 px-3 py-1 text-[11px] font-semibold text-[#1f2430] shadow-[0_10px_24px_rgba(20,86,244,0.08)]">
+                Poker Arcade
+              </div>
+              {roomState.pokerArcade.status === "idle" ? (
+                <div className="mt-2 rounded-full border border-[#dbe5ff] bg-white/88 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#5d73b3] shadow-[0_10px_24px_rgba(20,86,244,0.08)]">
+                  {hasActivePokerTable
+                    ? canUseArcade
+                      ? "Click to join poker"
+                      : "Walk up to join poker"
+                    : canUseArcade
+                      ? "Click to start poker"
+                      : "Walk up to play poker"}
+                </div>
+              ) : null}
+            </>
+          ) : null}
+        </div>
+      ) : null}
 
       {!pokerOverlayOpen
         ? presentPlayers.map((player) => {
@@ -2047,6 +2138,7 @@ export const PlayRoomExperience = () => {
     readyUp,
     submitTask,
     sendChatMessage,
+    interactNpc,
     proposePokerArcade,
     respondPokerArcade,
     clearError,
@@ -2255,6 +2347,7 @@ export const PlayRoomExperience = () => {
           onReady={readyUp}
           onSubmitTask={submitTask}
           onSendChatMessage={sendChatMessage}
+          onInteractNpc={interactNpc}
           onProposePokerArcade={proposePokerArcade}
           onRespondPokerArcade={respondPokerArcade}
           onCopyInvite={() => handleCopyInvite(roomState.roomCode)}

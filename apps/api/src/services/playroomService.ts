@@ -58,6 +58,12 @@ type Vector2 = {
   y: number;
 };
 
+type PlayRoomNpc = Vector2 & {
+  interactionRadius: number;
+  visible: boolean;
+  carriedByUserId: string | null;
+};
+
 type PlayRoomPlayer = {
   userId: string;
   name: string;
@@ -88,6 +94,8 @@ type PlayRoom = {
   lastActivityAt: string;
   totalScore: number;
   players: PlayRoomPlayer[];
+  judge: PlayRoomNpc;
+  arcade: PlayRoomNpc;
   selectedTask: PlayTaskPayload | null;
   pokerArcade: PlayRoomPokerArcadeState;
 };
@@ -163,11 +171,15 @@ export type PlayRoomClientState = {
       x: number;
       y: number;
       interactionRadius: number;
+      visible: boolean;
+      carriedByUserId: string | null;
     };
     arcade: {
       x: number;
       y: number;
       interactionRadius: number;
+      visible: boolean;
+      carriedByUserId: string | null;
     };
   };
   players: Array<{
@@ -409,6 +421,14 @@ const getFallbackCharacter = (index: number): PlayCharacterId =>
 const getPresentPlayers = (room: PlayRoom) =>
   room.players.filter((player) => player.isPresent);
 
+const cloneNpc = (npc: PlayRoomNpc): PlayRoomNpc => ({
+  x: npc.x,
+  y: npc.y,
+  interactionRadius: npc.interactionRadius,
+  visible: npc.visible,
+  carriedByUserId: npc.carriedByUserId,
+});
+
 const cloneRoom = (room: PlayRoom): PlayRoom => ({
   ...room,
   players: room.players.map((player) => ({
@@ -418,6 +438,8 @@ const cloneRoom = (room: PlayRoom): PlayRoom => ({
       ? cloneJudgeVerdict(player.taskJudgeVerdict)
       : null,
   })),
+  judge: cloneNpc(room.judge),
+  arcade: cloneNpc(room.arcade),
   selectedTask: room.selectedTask ? cloneTask(room.selectedTask) : null,
   pokerArcade: clonePokerArcadeState(room.pokerArcade),
 });
@@ -468,6 +490,9 @@ const normalizeRoom = (
     normalizedPlayers[0]?.userId ??
     room.hostUserId;
   const normalizedPlayerIds = new Set(normalizedPlayers.map((player) => player.userId));
+  const normalizedPresentPlayerIds = new Set(
+    normalizedPlayers.filter((player) => player.isPresent).map((player) => player.userId)
+  );
   const rawPokerArcade = clonePokerArcadeState(room.pokerArcade);
   const pokerArcade =
     rawPokerArcade.status === "voting" &&
@@ -494,6 +519,25 @@ const normalizeRoom = (
           ...emptyPokerArcadeState(),
           activeTableId: rawPokerArcade.activeTableId,
         };
+  const normalizeNpc = (candidate: Partial<PlayRoomNpc> | null | undefined, fallback: PlayRoomNpc) => {
+    const candidateX = typeof candidate?.x === "number" ? candidate.x : fallback.x;
+    const candidateY = typeof candidate?.y === "number" ? candidate.y : fallback.y;
+
+    return {
+      x: clamp(candidateX, -ROOM_WIDTH / 2 + PLAYER_MARGIN, ROOM_WIDTH / 2 - PLAYER_MARGIN),
+      y: clamp(candidateY, PLAYER_MIN_Y, ROOM_HEIGHT / 2 - PLAYER_MARGIN),
+    interactionRadius:
+      typeof candidate?.interactionRadius === "number" && candidate.interactionRadius > 0
+        ? candidate.interactionRadius
+        : fallback.interactionRadius,
+    visible: candidate?.visible ?? true,
+    carriedByUserId:
+      typeof candidate?.carriedByUserId === "string" &&
+      normalizedPresentPlayerIds.has(candidate.carriedByUserId)
+        ? candidate.carriedByUserId
+        : null,
+    };
+  };
 
   return {
     roomId: room.roomId,
@@ -510,6 +554,16 @@ const normalizeRoom = (
       ...player,
       isHost: player.userId === hostUserId,
     })),
+    judge: normalizeNpc((room as PlayRoom & { judge?: PlayRoomNpc }).judge, {
+      ...JUDGE,
+      visible: true,
+      carriedByUserId: null,
+    }),
+    arcade: normalizeNpc((room as PlayRoom & { arcade?: PlayRoomNpc }).arcade, {
+      ...ARCADE,
+      visible: true,
+      carriedByUserId: null,
+    }),
     selectedTask: room.selectedTask ? cloneTask(room.selectedTask) : null,
     pokerArcade,
   };
@@ -543,10 +597,10 @@ const serializeRoomState = (room: PlayRoom): PlayRoomClientState => ({
       ...PEDESTAL,
     },
     judge: {
-      ...JUDGE,
+      ...cloneNpc(room.judge),
     },
     arcade: {
-      ...ARCADE,
+      ...cloneNpc(room.arcade),
     },
   },
   players: room.players.map((player) => ({
@@ -1170,6 +1224,23 @@ const createPlayer = (params: {
   };
 };
 
+const createNpc = (fallback: typeof JUDGE | typeof ARCADE): PlayRoomNpc => ({
+  ...fallback,
+  visible: true,
+  carriedByUserId: null,
+});
+
+const dropNpcCarriedByUser = (room: PlayRoom, userId: string, position: Vector2) => {
+  [room.judge, room.arcade].forEach((npc) => {
+    if (npc.carriedByUserId === userId) {
+      npc.carriedByUserId = null;
+      npc.visible = true;
+      npc.x = position.x;
+      npc.y = position.y;
+    }
+  });
+};
+
 const leaveExistingRoomIfNeeded = async (userId: string) => {
   const previousRoomCode = getRoomCodesForActiveUser(userId);
   if (!previousRoomCode) {
@@ -1190,6 +1261,7 @@ const leaveExistingRoomIfNeeded = async (userId: string) => {
 
   const player = getPlayer(previousRoom, userId);
   if (player) {
+    dropNpcCarriedByUser(previousRoom, userId, player.position);
     player.isPresent = false;
     player.lastLeftAt = new Date().toISOString();
     player.isReadyAtPedestal = false;
@@ -1492,6 +1564,8 @@ export const createPlayRoom = async (params: {
       lastActivityAt: now,
       totalScore: 0,
       players: [createPlayer({ ...params, isHost: true, isPresent: true })],
+      judge: createNpc(JUDGE),
+      arcade: createNpc(ARCADE),
       selectedTask: null,
       pokerArcade: emptyPokerArcadeState(),
     },
@@ -1603,6 +1677,7 @@ export const leavePlayRoom = async (userId: string) => {
 
   const player = getPlayer(room, userId);
   if (player) {
+    dropNpcCarriedByUser(room, userId, player.position);
     player.isPresent = false;
     player.lastLeftAt = new Date().toISOString();
     player.isReadyAtPedestal = false;
@@ -1764,6 +1839,67 @@ export const movePlayRoomPlayer = async (params: {
   };
 };
 
+export const interactPlayRoomNpc = async (params: {
+  userId: string;
+  npcType: "judge" | "arcade";
+}) => {
+  const roomCode = getRoomCodesForActiveUser(params.userId);
+  if (!roomCode) {
+    throw new PlayRoomError("Join a room first.");
+  }
+  const room = await loadRoom(roomCode);
+  if (!room) {
+    clearPlayerRoomCode(params.userId);
+    throw new PlayRoomError("Room not found.", 404);
+  }
+  if (room.phase !== "shared_room" && room.phase !== "task_reveal") {
+    throw new PlayRoomError("NPCs can only be moved in the shared room.");
+  }
+
+  const player = getPlayer(room, params.userId);
+  if (!player || !player.isPresent) {
+    clearPlayerRoomCode(params.userId);
+    throw new PlayRoomError("You are not in that room.");
+  }
+
+  const npc = params.npcType === "judge" ? room.judge : room.arcade;
+  if (npc.carriedByUserId === params.userId) {
+    npc.carriedByUserId = null;
+    npc.visible = true;
+    npc.x = player.position.x;
+    npc.y = player.position.y;
+  } else {
+    if (!npc.visible) {
+      throw new PlayRoomError("That NPC is not available right now.");
+    }
+    if (npc.carriedByUserId) {
+      throw new PlayRoomError("Someone else is already carrying that NPC.");
+    }
+    const distance = Math.hypot(player.position.x - npc.x, player.position.y - npc.y);
+    if (distance > npc.interactionRadius) {
+      throw new PlayRoomError("Walk closer before picking that up.");
+    }
+    npc.carriedByUserId = params.userId;
+  }
+
+  const savedRoom = await saveOrDeleteRoom(room, {
+    activity: {
+      type: npc.carriedByUserId === params.userId ? "npc_picked_up" : "npc_dropped",
+      summary:
+        npc.carriedByUserId === params.userId
+          ? `${player.name} picked up the ${params.npcType}.`
+          : `${player.name} dropped the ${params.npcType}.`,
+      userId: params.userId,
+      metadata: { npcType: params.npcType },
+    },
+  });
+  if (!savedRoom) {
+    throw new PlayRoomError("Unable to move that NPC.");
+  }
+
+  return { roomCode: savedRoom.roomCode };
+};
+
 export const readyPlayRoomPlayer = async (userId: string) => {
   const roomCode = getRoomCodesForActiveUser(userId);
   if (!roomCode) {
@@ -1825,8 +1961,11 @@ export const proposePlayRoomPoker = async (userId: string) => {
     clearPlayerRoomCode(userId);
     throw new PlayRoomError("You are not in that room.");
   }
-  const distance = Math.hypot(player.position.x - ARCADE.x, player.position.y - ARCADE.y);
-  if (distance > ARCADE.interactionRadius) {
+  const distance = Math.hypot(
+    player.position.x - room.arcade.x,
+    player.position.y - room.arcade.y
+  );
+  if (!room.arcade.visible || room.arcade.carriedByUserId || distance > room.arcade.interactionRadius) {
     throw new PlayRoomError("Walk up to the arcade machine to start poker.");
   }
 
@@ -1869,6 +2008,8 @@ export const proposePlayRoomPoker = async (userId: string) => {
     throw new PlayRoomError("A poker request is already waiting for votes.");
   }
 
+  room.judge.carriedByUserId = null;
+  room.arcade.carriedByUserId = null;
   room.pokerArcade = {
     status: "voting",
     requestedByUserId: userId,
@@ -2051,8 +2192,15 @@ export const submitPlayRoomTask = async (params: {
     throw new PlayRoomError("You are not in that room.");
   }
 
-  const distance = Math.hypot(player.position.x - JUDGE.x, player.position.y - JUDGE.y);
-  if (distance > JUDGE.interactionRadius) {
+  const distance = Math.hypot(
+    player.position.x - room.judge.x,
+    player.position.y - room.judge.y
+  );
+  if (
+    !room.judge.visible ||
+    room.judge.carriedByUserId ||
+    distance > room.judge.interactionRadius
+  ) {
     throw new PlayRoomError("Walk up to the judge before submitting.");
   }
 

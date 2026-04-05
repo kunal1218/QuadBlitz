@@ -286,6 +286,16 @@ export const usePlayRoom = ({
     [emitWhenConnected]
   );
 
+  const interactNpc = useCallback(
+    (npcType: "judge" | "arcade") => {
+      setError(null);
+      emitWhenConnected(() => {
+        socket.emit("playroom:npc:interact", { npcType });
+      });
+    },
+    [emitWhenConnected]
+  );
+
   return {
     roomState: isAuthenticated ? roomState : null,
     chatMessages: isAuthenticated ? chatMessages : [],
@@ -300,6 +310,7 @@ export const usePlayRoom = ({
     readyUp,
     submitTask,
     sendChatMessage,
+    interactNpc,
     proposePokerArcade,
     respondPokerArcade,
     clearError: () => setError(null),

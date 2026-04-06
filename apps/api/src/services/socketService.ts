@@ -15,25 +15,6 @@ import {
   queuePokerPlayer,
   rebuyPoker,
 } from "./pokerService";
-import {
-  clearPlayRoomPokerTable,
-  createPlayRoom,
-  forceRemovePlayRoomUser,
-  getPlayRoomPositions,
-  getPlayRoomState,
-  getPlayRoomStateForUser,
-  interactPlayRoomNpc,
-  joinPlayRoom,
-  leavePlayRoom,
-  lockPlayRoomCharacter,
-  movePlayRoomPlayer,
-  proposePlayRoomPoker,
-  readyPlayRoomPlayer,
-  recordPlayRoomChatActivity,
-  respondPlayRoomPoker,
-  submitPlayRoomTask,
-  type PlayCharacterId,
-} from "./playroomService";
 import { leaveRankedGame } from "./rankedService";
 
 let io: Server | null = null;
@@ -68,15 +49,6 @@ type PokerChatMessage = {
   message: string;
   createdAt: string;
   sender: { id: string; name: string; handle?: string | null };
-};
-
-type PlayRoomChatMessage = {
-  id: string;
-  roomCode: string;
-  userId: string;
-  text: string;
-  createdAt: string;
-  expiresAt: string;
 };
 
 const MAX_POKER_CHAT_MESSAGES = 50;
@@ -116,7 +88,6 @@ const removePokerChatMessagesForUser = (userId: string) => {
 };
 
 const pokerRoomForTable = (tableId: string) => `poker:table:${tableId}`;
-const playRoomForCode = (roomCode: string) => `playroom:${roomCode}`;
 
 const emitPokerClosedForUsers = (
   userIds: readonly string[],
@@ -150,46 +121,14 @@ const emitPokerStatesForTable = async (tableId: string) => {
   });
 };
 
-const emitPlayRoomStateForRoom = async (roomCode: string) => {
-  if (!io) {
-    return;
-  }
-  const state = await getPlayRoomState(roomCode);
-  if (!state) {
-    io.to(playRoomForCode(roomCode)).emit("playroom:state", { state: null });
-    return;
-  }
-  io.to(playRoomForCode(roomCode)).emit("playroom:state", { state });
-};
-
 const clearEndedPokerTables = async (tableIds: readonly string[]) => {
   if (!tableIds.length) {
     return;
   }
 
-  const updatedRoomCodes = new Set<string>();
   for (const tableId of Array.from(new Set(tableIds))) {
     removePokerChatHistoryForTable(tableId);
-    const roomCodes = await clearPlayRoomPokerTable(tableId);
-    roomCodes.forEach((roomCode) => updatedRoomCodes.add(roomCode));
   }
-
-  if (updatedRoomCodes.size) {
-    await Promise.all(
-      Array.from(updatedRoomCodes).map((roomCode) => emitPlayRoomStateForRoom(roomCode))
-    );
-  }
-};
-
-const emitPlayRoomPositionsForRoom = async (roomCode: string) => {
-  if (!io) {
-    return;
-  }
-  const positions = await getPlayRoomPositions(roomCode);
-  if (!positions) {
-    return;
-  }
-  io.to(playRoomForCode(roomCode)).emit("playroom:positions", { positions });
 };
 
 const emitPokerErrorsForUsers = (userIds: readonly string[], message: string) => {
@@ -273,10 +212,10 @@ const startPresenceSweep = () => {
     const now = Date.now();
     const users = Array.from(presenceTimers.entries());
     for (const [userId, presence] of users) {
-    if (presence.pokerAt && now - presence.pokerAt > DISCONNECT_GRACE_MS) {
-      clearPresence(userId, "poker");
-      try {
-        await removePokerUser(userId);
+      if (presence.pokerAt && now - presence.pokerAt > DISCONNECT_GRACE_MS) {
+        clearPresence(userId, "poker");
+        try {
+          await removePokerUser(userId);
         } catch (error) {
           console.warn("[socket] failed to remove poker player (presence)", error);
         }
@@ -429,18 +368,6 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
     const emitPokerError = (message: string) => {
       socket.emit("poker:error", { error: message });
     };
-    const emitPlayRoomError = (message: string) => {
-      socket.emit("playroom:error", { error: message });
-    };
-
-    const leaveJoinedPlayRoomRooms = () => {
-      Array.from(socket.rooms).forEach((roomName) => {
-        if (roomName.startsWith("playroom:")) {
-          socket.leave(roomName);
-        }
-      });
-    };
-
     const joinPokerTableRoom = async () => {
       const result = await getPokerStateForUser(userId);
       if (result.tableId) {
@@ -450,15 +377,6 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
       if (result.queued) {
         socket.emit("poker:queued", { queuePosition: result.queuePosition });
       }
-    };
-
-    const joinPlayRoomSocketRoom = async () => {
-      leaveJoinedPlayRoomRooms();
-      const result = await getPlayRoomStateForUser(userId);
-      if (result.roomCode) {
-        socket.join(playRoomForCode(result.roomCode));
-      }
-      socket.emit("playroom:state", { state: result.state });
     };
 
     socket.on("poker:state", async () => {
@@ -664,271 +582,6 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
       }
     });
 
-    socket.on("playroom:state", async () => {
-      try {
-        await joinPlayRoomSocketRoom();
-      } catch (error) {
-        emitPlayRoomError(
-          error instanceof Error ? error.message : "Unable to load room."
-        );
-      }
-    });
-
-    socket.on("playroom:create", async (payload?: { roomName?: string }) => {
-      try {
-        if (!userProfile) {
-          throw new Error("Missing user profile");
-        }
-        const result = await createPlayRoom({
-          userId,
-          name: userProfile.name,
-          handle: userProfile.handle,
-          roomName: payload?.roomName ?? null,
-        });
-        await joinPlayRoomSocketRoom();
-        await Promise.all(
-          result.updatedRoomCodes.map((roomCode) => emitPlayRoomStateForRoom(roomCode))
-        );
-      } catch (error) {
-        emitPlayRoomError(
-          error instanceof Error ? error.message : "Unable to create room."
-        );
-      }
-    });
-
-    socket.on("playroom:join", async (payload?: { roomCode?: string }) => {
-      try {
-        if (!userProfile) {
-          throw new Error("Missing user profile");
-        }
-        const result = await joinPlayRoom({
-          userId,
-          name: userProfile.name,
-          handle: userProfile.handle,
-          roomCode: payload?.roomCode ?? "",
-        });
-        await joinPlayRoomSocketRoom();
-        await Promise.all(
-          result.updatedRoomCodes.map((roomCode) => emitPlayRoomStateForRoom(roomCode))
-        );
-      } catch (error) {
-        emitPlayRoomError(
-          error instanceof Error ? error.message : "Unable to join room."
-        );
-      }
-    });
-
-    socket.on("playroom:leave", async () => {
-      try {
-        const result = await leavePlayRoom(userId);
-        leaveJoinedPlayRoomRooms();
-        socket.emit("playroom:state", { state: null });
-        await Promise.all(
-          result.updatedRoomCodes.map((roomCode) => emitPlayRoomStateForRoom(roomCode))
-        );
-      } catch (error) {
-        emitPlayRoomError(
-          error instanceof Error ? error.message : "Unable to leave room."
-        );
-      }
-    });
-
-    socket.on("playroom:select-character", async (payload?: { characterId?: string }) => {
-      try {
-        const characterId = payload?.characterId as PlayCharacterId | undefined;
-        if (
-          characterId !== "rook" &&
-          characterId !== "penguin" &&
-          characterId !== "businessman" &&
-          characterId !== "dog" &&
-          characterId !== "mug"
-        ) {
-          throw new Error("Invalid character selection.");
-        }
-        const result = await lockPlayRoomCharacter({ userId, characterId });
-        await emitPlayRoomStateForRoom(result.roomCode);
-      } catch (error) {
-        emitPlayRoomError(
-          error instanceof Error ? error.message : "Unable to lock character."
-        );
-      }
-    });
-
-    socket.on(
-      "playroom:move",
-      async (payload?: { positionX?: number; positionY?: number }) => {
-        try {
-          const result = await movePlayRoomPlayer({
-            userId,
-            positionX: Number(payload?.positionX ?? 0),
-            positionY: Number(payload?.positionY ?? 0),
-          });
-          io?.to(playRoomForCode(result.roomCode)).emit("playroom:positions", {
-            positions: result.positions,
-          });
-        } catch {
-          // Movement is high-frequency; invalid updates can be ignored silently.
-        }
-      }
-    );
-
-    socket.on(
-      "playroom:npc:interact",
-      async (payload?: { npcType?: string; positionX?: number; positionY?: number }) => {
-      try {
-        const npcType = payload?.npcType === "judge" ? "judge" : payload?.npcType === "arcade" ? "arcade" : null;
-        if (!npcType) {
-          throw new Error("Unknown NPC.");
-        }
-        const result = await interactPlayRoomNpc({
-          userId,
-          npcType,
-          positionX: Number(payload?.positionX),
-          positionY: Number(payload?.positionY),
-        });
-        await emitPlayRoomStateForRoom(result.roomCode);
-      } catch (error) {
-        emitPlayRoomError(
-          error instanceof Error ? error.message : "Unable to move that NPC."
-        );
-      }
-    });
-
-    socket.on("playroom:ready", async () => {
-      try {
-        const result = await readyPlayRoomPlayer(userId);
-        await emitPlayRoomStateForRoom(result.roomCode);
-      } catch (error) {
-        emitPlayRoomError(
-          error instanceof Error ? error.message : "Unable to mark ready."
-        );
-      }
-    });
-
-    socket.on("playroom:submit-task", async (payload?: { submission?: string }) => {
-      try {
-        const result = await submitPlayRoomTask({
-          userId,
-          submission: payload?.submission ?? "",
-        });
-        await emitPlayRoomStateForRoom(result.roomCode);
-      } catch (error) {
-        emitPlayRoomError(
-          error instanceof Error ? error.message : "Unable to submit to the judge."
-        );
-      }
-    });
-
-    socket.on("playroom:poker:propose", async () => {
-      try {
-        const result = await proposePlayRoomPoker(userId);
-        await emitPlayRoomStateForRoom(result.roomCode);
-        if (result.pokerTableId) {
-          socket.join(pokerRoomForTable(result.pokerTableId));
-          await emitPokerStatesForTable(result.pokerTableId);
-        }
-      } catch (error) {
-        emitPlayRoomError(
-          error instanceof Error ? error.message : "Unable to start poker voting."
-        );
-      }
-    });
-
-    socket.on("playroom:poker:respond", async (payload?: { accept?: boolean }) => {
-      try {
-        const result = await respondPlayRoomPoker({
-          userId,
-          accept: Boolean(payload?.accept),
-        });
-        await emitPlayRoomStateForRoom(result.roomCode);
-        if (result.pokerTableId) {
-          await emitPokerStatesForTable(result.pokerTableId);
-        }
-      } catch (error) {
-        emitPlayRoomError(
-          error instanceof Error ? error.message : "Unable to answer the poker request."
-        );
-      }
-    });
-
-    socket.on("playroom:chat", async (payload?: { text?: string }) => {
-      try {
-        const result = await getPlayRoomStateForUser(userId);
-        if (!result.roomCode || !result.state) {
-          throw new Error("Join a room first.");
-        }
-        if (
-          result.state.phase !== "shared_room" &&
-          result.state.phase !== "task_reveal"
-        ) {
-          throw new Error("Room chat is only available in the shared room.");
-        }
-
-        const text = payload?.text?.replace(/\s+/g, " ").trim().slice(0, 200) ?? "";
-        if (!text) {
-          throw new Error("Message cannot be empty.");
-        }
-
-        const message: PlayRoomChatMessage = {
-          id: randomUUID(),
-          roomCode: result.roomCode,
-          userId,
-          text,
-          createdAt: new Date().toISOString(),
-          expiresAt: new Date(Date.now() + 5_000).toISOString(),
-        };
-
-        await recordPlayRoomChatActivity({ userId, text });
-        io?.to(playRoomForCode(result.roomCode)).emit("playroom:chat", { message });
-      } catch (error) {
-        emitPlayRoomError(
-          error instanceof Error ? error.message : "Unable to send room chat."
-        );
-      }
-    });
-
-    socket.on(
-      "playroom:voice:signal",
-      async (payload?: { targetUserId?: string; signal?: unknown }) => {
-        try {
-          const result = await getPlayRoomStateForUser(userId);
-          if (!result.roomCode || !result.state) {
-            return;
-          }
-          if (
-            result.state.phase !== "shared_room" &&
-            result.state.phase !== "task_reveal"
-          ) {
-            return;
-          }
-
-          const targetUserId = payload?.targetUserId?.trim();
-          if (!targetUserId || targetUserId === userId) {
-            return;
-          }
-          const targetIsInRoom = result.state.players.some(
-            (player) => player.userId === targetUserId
-          );
-          if (!targetIsInRoom) {
-            return;
-          }
-
-          const targetSocketId = userSocketMap.get(targetUserId);
-          if (!targetSocketId) {
-            return;
-          }
-
-          io?.to(targetSocketId).emit("playroom:voice:signal", {
-            roomCode: result.roomCode,
-            fromUserId: userId,
-            signal: payload?.signal ?? null,
-          });
-        } catch {
-          // Voice signaling is ephemeral; failures can be ignored.
-        }
-      }
-    );
-
     socket.on("game:heartbeat", (payload?: { game?: string }) => {
       const game = payload?.game;
       if (game === "poker" || game === "convo") {
@@ -1034,17 +687,6 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
           await removePokerUser(userId);
         } catch (error) {
           console.warn("[socket] failed to remove poker player", error);
-        }
-        try {
-          const result = await forceRemovePlayRoomUser(userId);
-          await Promise.all(
-            result.updatedRoomCodes.flatMap((roomCode) => [
-              emitPlayRoomStateForRoom(roomCode),
-              emitPlayRoomPositionsForRoom(roomCode),
-            ])
-          );
-        } catch (error) {
-          console.warn("[socket] failed to remove play room user", error);
         }
         try {
           await leaveRankedGame(userId);

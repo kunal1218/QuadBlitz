@@ -326,7 +326,7 @@ const RoomCreateCard = ({
     </div>
 
     <Button
-      className="mt-8 w-full justify-center rounded-full bg-[#ff7b52] px-6 py-4.5 text-sm font-semibold uppercase tracking-[0.18em] text-white shadow-[0_18px_34px_rgba(255,123,82,0.24)] transition hover:translate-y-[-1px] hover:bg-[#ff6c3c]"
+      className="mt-8 w-full justify-center rounded-full bg-[#1756f5] px-6 py-4.5 text-sm font-semibold uppercase tracking-[0.18em] text-white shadow-[0_18px_34px_rgba(23,86,245,0.24)] transition hover:translate-y-[-1px] hover:bg-[#0f49e2]"
       requiresAuth
       authMode="signup"
       disabled={isBusy}
@@ -434,20 +434,6 @@ const RoomHistoryPanel = ({
       </div>
 
       <div className="space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[#2b64f6]">
-              Your Long-Term Rooms
-            </p>
-            <h2 className="mt-4 max-w-[12ch] font-[family-name:var(--font-display)] text-[clamp(2.75rem,3.9vw,4.2rem)] font-semibold leading-[0.94] tracking-[-0.07em] text-[#18233a]">
-              Pick up where your group left off
-            </h2>
-          </div>
-          <div className="rounded-full border border-[#f0f4fc] bg-white/72 px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#adb7c9]">
-            Sorted by last entered
-          </div>
-        </div>
-
         {isLoading ? (
           <div className="rounded-[38px] border border-[#edf1fb] bg-white/95 px-8 py-10 text-base text-[#75809a] shadow-[0_24px_70px_rgba(30,55,120,0.08)]">
             Loading your rooms...
@@ -520,10 +506,9 @@ const RoomHistoryPanel = ({
                     <h3 className="text-[clamp(2.3rem,4vw,4.1rem)] font-[family-name:var(--font-display)] font-semibold leading-[0.95] tracking-[-0.07em] text-[#18233a]">
                       {room.roomName}
                     </h3>
-                    <div className="mt-4 flex flex-wrap items-center gap-3 text-[0.98rem] text-[#8590a6]">
+                    <div className="mt-4 flex flex-wrap items-center gap-2 text-[0.96rem] text-[#8590a6]">
                       <span className="font-medium text-[#79859b]">Room {room.roomCode}</span>
                       <span className="text-[#dde3ef]">•</span>
-                      <RoomMemberStack count={room.memberCount} />
                       <span className="text-[#7f8aa0]">
                         {room.memberCount} member{room.memberCount === 1 ? "" : "s"}
                       </span>
@@ -532,9 +517,12 @@ const RoomHistoryPanel = ({
                         {room.presentCount} active now
                       </span>
                     </div>
+                    <div className="mt-4 flex items-center">
+                      <RoomMemberStack count={room.memberCount} />
+                    </div>
                   </div>
 
-                  <div className="shrink-0 rounded-[32px] border border-[#f1f4fb] bg-[#f8faff] px-8 py-7 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+                  <div className="shrink-0 rounded-[32px] border border-[#f1f4fb] bg-[#f8faff] px-10 py-7 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] xl:min-w-[240px]">
                     <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#a7b2c5]">
                       Total score
                     </div>
@@ -552,7 +540,7 @@ const RoomHistoryPanel = ({
                     <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#aab4c6]">
                       Last entered
                     </div>
-                    <div className="mt-2 text-[1.55rem] font-semibold tracking-[-0.05em] text-[#243047]">
+                    <div className="mt-2 whitespace-nowrap text-[1rem] font-semibold tracking-[-0.03em] text-[#243047]">
                       {room.lastEnteredAt ? formatRelativeTime(room.lastEnteredAt) : "Never"}
                     </div>
                   </div>
@@ -560,7 +548,7 @@ const RoomHistoryPanel = ({
                     <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#aab4c6]">
                       Last activity
                     </div>
-                    <div className="mt-2 text-[1.55rem] font-semibold tracking-[-0.05em] text-[#243047]">
+                    <div className="mt-2 whitespace-nowrap text-[1rem] font-semibold tracking-[-0.03em] text-[#243047]">
                       {formatRelativeTime(room.lastActivityAt)}
                     </div>
                   </div>
@@ -581,7 +569,7 @@ const RoomHistoryPanel = ({
                   <button
                     type="button"
                     onClick={() => onOpenRoom(room.roomCode)}
-                    className="cursor-pointer rounded-[28px] border border-[#18233a] bg-[#18233a] px-6 py-5 text-left shadow-[0_16px_36px_rgba(24,35,58,0.16)] transition hover:-translate-y-0.5 hover:bg-[#111a2e] hover:shadow-[0_20px_40px_rgba(24,35,58,0.2)]"
+                    className="cursor-pointer rounded-[28px] border border-[#1756f5] bg-[#1756f5] px-6 py-5 text-left shadow-[0_16px_36px_rgba(23,86,245,0.2)] transition hover:-translate-y-0.5 hover:bg-[#0f49e2] hover:shadow-[0_20px_40px_rgba(23,86,245,0.24)]"
                   >
                     <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/62">
                       Room

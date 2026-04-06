@@ -516,6 +516,28 @@ const RoomHistoryPanel = ({
                       <span className="font-medium text-[#7fd193]">
                         {room.presentCount} active now
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => onCopyRoomLink(room.roomCode)}
+                        aria-label={copiedRoomCode === room.roomCode ? "Room link copied" : "Copy room link"}
+                        title={copiedRoomCode === room.roomCode ? "Room link copied" : "Copy room link"}
+                        className="inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-[#a8b4c9] transition hover:text-[#5f76ab]"
+                      >
+                        <svg
+                          viewBox="0 0 20 20"
+                          fill="none"
+                          aria-hidden="true"
+                          className="h-4 w-4"
+                        >
+                          <path
+                            d="M8.25 11.75L11.75 8.25M6.25 13.75L5.417 14.583a2.357 2.357 0 0 1-3.334-3.334L4.917 8.417a2.357 2.357 0 0 1 3.333 0m3.5-2.834l.833-.833a2.357 2.357 0 0 1 3.334 3.334l-2.834 2.833a2.357 2.357 0 0 1-3.333 0"
+                            stroke="currentColor"
+                            strokeWidth="1.75"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
                     </div>
                     <div className="mt-4 flex items-center">
                       <RoomMemberStack count={room.memberCount} />
@@ -535,7 +557,7 @@ const RoomHistoryPanel = ({
                   </div>
                 </div>
 
-                <div className="mt-8 grid gap-3 lg:grid-cols-[0.85fr_0.85fr_1.4fr_1.2fr]">
+                <div className="mt-8 grid gap-3 lg:grid-cols-[0.85fr_0.85fr_1.2fr]">
                   <div className="rounded-[28px] border border-[#f3f5fb] bg-white/72 px-5 py-4">
                     <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#aab4c6]">
                       Last entered
@@ -552,20 +574,6 @@ const RoomHistoryPanel = ({
                       {formatRelativeTime(room.lastActivityAt)}
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => onCopyRoomLink(room.roomCode)}
-                    className="cursor-pointer rounded-[28px] border border-[#edf2fb] bg-white/78 px-5 py-4 text-left transition hover:border-[#d9e2f5] hover:bg-white"
-                  >
-                    <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#a6b1c5]">
-                      Link
-                    </div>
-                    <div className="mt-2">
-                      <span className="whitespace-nowrap text-[0.95rem] font-semibold tracking-[-0.02em] text-[#4d6398]">
-                        {copiedRoomCode === room.roomCode ? "Link copied" : "Copy link"}
-                      </span>
-                    </div>
-                  </button>
                   <button
                     type="button"
                     onClick={() => onOpenRoom(room.roomCode)}

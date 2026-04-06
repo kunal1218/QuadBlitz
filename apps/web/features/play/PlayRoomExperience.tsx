@@ -535,33 +535,33 @@ const RoomHistoryPanel = ({
                   </div>
                 </div>
 
-                <div className="mt-8 grid gap-4 lg:grid-cols-[1fr_1fr_260px_260px]">
-                  <div className="rounded-[28px] border border-[#f3f5fb] bg-white/72 px-6 py-5">
+                <div className="mt-8 grid gap-3 lg:grid-cols-[0.85fr_0.85fr_1.4fr_1.2fr]">
+                  <div className="rounded-[28px] border border-[#f3f5fb] bg-white/72 px-5 py-4">
                     <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#aab4c6]">
                       Last entered
                     </div>
-                    <div className="mt-2 whitespace-nowrap text-[1rem] font-semibold tracking-[-0.03em] text-[#243047]">
+                    <div className="mt-2 whitespace-nowrap text-[0.82rem] font-semibold tracking-[-0.01em] text-[#243047]">
                       {room.lastEnteredAt ? formatRelativeTime(room.lastEnteredAt) : "Never"}
                     </div>
                   </div>
-                  <div className="rounded-[28px] border border-[#f3f5fb] bg-white/72 px-6 py-5">
+                  <div className="rounded-[28px] border border-[#f3f5fb] bg-white/72 px-5 py-4">
                     <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#aab4c6]">
                       Last activity
                     </div>
-                    <div className="mt-2 whitespace-nowrap text-[1rem] font-semibold tracking-[-0.03em] text-[#243047]">
+                    <div className="mt-2 whitespace-nowrap text-[0.82rem] font-semibold tracking-[-0.01em] text-[#243047]">
                       {formatRelativeTime(room.lastActivityAt)}
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => onCopyRoomLink(room.roomCode)}
-                    className="cursor-pointer rounded-[28px] border border-[#edf2fb] bg-white/78 px-6 py-5 text-left transition hover:border-[#d9e2f5] hover:bg-white"
+                    className="cursor-pointer rounded-[28px] border border-[#edf2fb] bg-white/78 px-5 py-4 text-left transition hover:border-[#d9e2f5] hover:bg-white"
                   >
                     <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#a6b1c5]">
                       Link
                     </div>
                     <div className="mt-2">
-                      <span className="text-[1.25rem] font-semibold tracking-[-0.04em] text-[#4d6398]">
+                      <span className="whitespace-nowrap text-[0.95rem] font-semibold tracking-[-0.02em] text-[#4d6398]">
                         {copiedRoomCode === room.roomCode ? "Link copied" : "Copy link"}
                       </span>
                     </div>
@@ -569,13 +569,13 @@ const RoomHistoryPanel = ({
                   <button
                     type="button"
                     onClick={() => onOpenRoom(room.roomCode)}
-                    className="cursor-pointer rounded-[28px] border border-[#1756f5] bg-[#1756f5] px-6 py-5 text-left shadow-[0_16px_36px_rgba(23,86,245,0.2)] transition hover:-translate-y-0.5 hover:bg-[#0f49e2] hover:shadow-[0_20px_40px_rgba(23,86,245,0.24)]"
+                    className="cursor-pointer rounded-[28px] border border-[#1756f5] bg-[#1756f5] px-5 py-4 text-left shadow-[0_16px_36px_rgba(23,86,245,0.2)] transition hover:-translate-y-0.5 hover:bg-[#0f49e2] hover:shadow-[0_20px_40px_rgba(23,86,245,0.24)]"
                   >
                     <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/62">
                       Room
                     </div>
                     <div className="mt-2 flex items-center justify-between gap-4">
-                      <span className="text-[2.05rem] font-semibold tracking-[-0.06em] text-white">
+                      <span className="whitespace-nowrap text-[1.05rem] font-semibold tracking-[-0.03em] text-white">
                         Open room
                       </span>
                     </div>

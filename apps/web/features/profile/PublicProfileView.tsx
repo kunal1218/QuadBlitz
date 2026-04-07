@@ -475,7 +475,7 @@ const UniversityIdCard = ({
                   Global Rank
                 </p>
                 <p className="mt-1 font-medium text-white">
-                  {leaderboardRank ? `#${leaderboardRank}` : "Unranked"}
+                  {leaderboardRank ? `#${leaderboardRank}` : "No rank"}
                 </p>
               </div>
             </div>
@@ -589,7 +589,6 @@ export const PublicProfileView = ({ handle }: { handle: string }) => {
       const attempts: Array<{ path: string; token?: string }> = token
         ? [
             { path: "/leaderboard", token },
-            { path: "/ranked/leaderboard", token },
             { path: "/leaderboard/public" },
           ]
         : [{ path: "/leaderboard/public" }, { path: "/leaderboard" }];
@@ -871,7 +870,7 @@ export const PublicProfileView = ({ handle }: { handle: string }) => {
     new Set([
       `${collegeAcronym} Member`,
       ...fallbackProfile.badges,
-      ...(leaderboardRank ? [`Ranked #${leaderboardRank}`] : []),
+      ...(leaderboardRank ? [`Leaderboard #${leaderboardRank}`] : []),
     ])
   ).slice(0, 4);
   const madlibChips = [

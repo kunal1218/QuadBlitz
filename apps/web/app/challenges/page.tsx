@@ -196,20 +196,19 @@ const getDisplayLeaderboardEntries = (
   entries: LeaderboardEntry[],
   currentUserId?: string | null
 ) => {
-  const ranked = entries.map((entry, index) => ({
+  const leaderboardEntries = entries.map((entry, index) => ({
     entry,
     rank: index + 1,
     highlighted: entry.id === currentUserId,
   }));
 
-  return ranked.slice(0, 5);
+  return leaderboardEntries.slice(0, 5);
 };
 
 const loadLeaderboardEntries = async (token: string | null) => {
   const attempts: Array<{ path: string; token?: string }> = token
     ? [
         { path: "/leaderboard?limit=250", token },
-        { path: "/ranked/leaderboard?limit=250", token },
         { path: "/leaderboard/public?limit=250" },
       ]
     : [

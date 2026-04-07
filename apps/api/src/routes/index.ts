@@ -11,9 +11,7 @@ import messageRoutes from "./messageRoutes";
 import mapRoutes from "./mapRoutes";
 import notificationRoutes from "./notificationRoutes";
 import profileRoutes from "./profileRoutes";
-import rankedRoutes from "./rankedRoutes";
 import requestsRoutes from "./requestsRoutes";
-import pokerRoutes from "./pokerRoutes";
 import clubsRoutes from "./clubsRoutes";
 import marketplaceRoutes from "./marketplaceRoutes";
 
@@ -41,7 +39,5 @@ export const registerRoutes = (app: Express) => {
   app.use("/notifications", notificationRoutes);
   app.use("/requests", requestsRoutes);
   app.use("/profile", profileRoutes);
-  app.use("/ranked", rankedRoutes);
-  app.use("/poker", pokerRoutes);
   app.use("/clubs", clubsRoutes);
 };

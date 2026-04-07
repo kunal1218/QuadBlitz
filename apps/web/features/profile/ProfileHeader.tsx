@@ -69,7 +69,6 @@ export const ProfileHeader = ({
       const attempts: Array<{ path: string; token?: string }> = token
         ? [
             { path: "/leaderboard", token },
-            { path: "/ranked/leaderboard", token },
             { path: "/leaderboard/public" },
           ]
         : [{ path: "/leaderboard/public" }, { path: "/leaderboard" }];

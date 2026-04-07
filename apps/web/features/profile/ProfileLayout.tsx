@@ -271,7 +271,6 @@ const loadLeaderboardRank = async (token: string | null, userId: string) => {
   const attempts: Array<{ path: string; token?: string }> = token
     ? [
         { path: "/leaderboard?limit=250", token },
-        { path: "/ranked/leaderboard?limit=250", token },
         { path: "/leaderboard/public?limit=250" },
       ]
     : [
@@ -924,7 +923,7 @@ const UniversityIdCard = ({
                   Global Rank
                 </p>
                 <p className="mt-1 font-medium text-white">
-                  {leaderboardRank ? `#${leaderboardRank}` : "Unranked"}
+                  {leaderboardRank ? `#${leaderboardRank}` : "No rank"}
                 </p>
               </div>
             </div>
@@ -1405,7 +1404,7 @@ const ProfileLayoutInner = () => {
     const values = [...fallbackProfile.badges];
     values.unshift(`${collegeAcronym} Member`);
     if (leaderboardRank) {
-      values.push(`Ranked #${leaderboardRank}`);
+      values.push(`Leaderboard #${leaderboardRank}`);
     }
     return Array.from(new Set(values)).slice(0, 4);
   }, [collegeAcronym, leaderboardRank]);

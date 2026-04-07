@@ -15,7 +15,6 @@ type UserRow = {
   college_name?: string | null;
   college_domain?: string | null;
   coins?: number | null;
-  last_ranked_win_reward_at?: string | Date | null;
   banned_until?: string | Date | null;
   banned_indefinitely?: boolean | null;
 };
@@ -86,7 +85,6 @@ export const ensureUsersTable = async () => {
       monthly_coins_seeded boolean NOT NULL DEFAULT false,
       banned_until timestamptz,
       banned_indefinitely boolean NOT NULL DEFAULT false,
-      last_ranked_win_reward_at timestamptz,
       created_at timestamptz NOT NULL DEFAULT now()
     );
   `);
@@ -102,8 +100,7 @@ export const ensureUsersTable = async () => {
     ADD COLUMN IF NOT EXISTS monthly_coins_month date NOT NULL DEFAULT (date_trunc('month', now())::date),
     ADD COLUMN IF NOT EXISTS monthly_coins_seeded boolean NOT NULL DEFAULT false,
     ADD COLUMN IF NOT EXISTS banned_until timestamptz,
-    ADD COLUMN IF NOT EXISTS banned_indefinitely boolean NOT NULL DEFAULT false,
-    ADD COLUMN IF NOT EXISTS last_ranked_win_reward_at timestamptz;
+    ADD COLUMN IF NOT EXISTS banned_indefinitely boolean NOT NULL DEFAULT false;
   `);
 
   await db.query(`

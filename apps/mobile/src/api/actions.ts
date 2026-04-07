@@ -143,13 +143,6 @@ export type MarketplaceConversation = {
   updatedAt: string;
 };
 
-export type RankedMessage = {
-  id: string;
-  body: string;
-  createdAt: string;
-  authorId?: string;
-};
-
 export type UploadableImage = {
   uri: string;
   name?: string;
@@ -815,143 +808,11 @@ export const submitChallengeAttempt = async (
   await apiPost("/challenge/attempts", { imageData }, token);
 };
 
-export const rankedPlay = async (token: string): Promise<unknown> =>
-  apiPost<unknown>("/ranked/play", {}, token);
-
-export const getRankedStatus = async (token: string): Promise<unknown> =>
-  apiGet<unknown>("/ranked/status", token);
-
-export const cancelRanked = async (token: string): Promise<void> => {
-  await apiPost("/ranked/cancel", {}, token);
-};
-
-export const getRankedMessages = async (
-  matchId: string,
-  token: string
-): Promise<{ messages: RankedMessage[] }> =>
-  apiGet<{ messages: RankedMessage[] }>(
-    `/ranked/match/${encodeURIComponent(matchId)}/messages`,
-    token
-  );
-
-export const sendRankedMessage = async (
-  matchId: string,
-  body: string,
-  token: string
-): Promise<{ message: RankedMessage }> =>
-  apiPost<{ message: RankedMessage }>(
-    `/ranked/match/${encodeURIComponent(matchId)}/messages`,
-    { body },
-    token
-  );
-
-export const patchRankedMessage = async (
-  matchId: string,
-  messageId: string,
-  body: string,
-  token: string
-): Promise<{ message: RankedMessage }> =>
-  apiPatch<{ message: RankedMessage }>(
-    `/ranked/match/${encodeURIComponent(matchId)}/messages/${encodeURIComponent(messageId)}`,
-    { body },
-    token
-  );
-
-export const deleteRankedMessage = async (
-  matchId: string,
-  messageId: string,
-  token: string
-): Promise<void> => {
-  await apiDelete(
-    `/ranked/match/${encodeURIComponent(matchId)}/messages/${encodeURIComponent(messageId)}`,
-    token
-  );
-};
-
-export const saveRankedMatch = async (
-  matchId: string,
-  token: string
-): Promise<{ savedAt: string }> =>
-  apiPost<{ savedAt: string }>(
-    `/ranked/match/${encodeURIComponent(matchId)}/save`,
-    {},
-    token
-  );
-
-export const reportRankedTimeout = async (
-  matchId: string,
-  token: string
-): Promise<void> => {
-  await apiPost(`/ranked/match/${encodeURIComponent(matchId)}/timeout`, {}, token);
-};
-
-export const patchRankedTyping = async (
-  matchId: string,
-  body: string,
-  token: string
-): Promise<void> => {
-  await apiPatch(
-    `/ranked/match/${encodeURIComponent(matchId)}/typing`,
-    { body },
-    token
-  );
-};
-
-export const submitRankedTypingTest = async (
-  matchId: string,
-  attempt: string,
-  token: string
-): Promise<void> => {
-  await apiPost(
-    `/ranked/match/${encodeURIComponent(matchId)}/typing-test`,
-    { attempt },
-    token
-  );
-};
-
-export const smiteRanked = async (matchId: string, token: string): Promise<void> => {
-  await apiPost(`/ranked/match/${encodeURIComponent(matchId)}/smite`, {}, token);
-};
-
-export const voteInRankedMatch = async (
-  matchId: string,
-  messageId: string,
-  token: string
-): Promise<void> => {
-  await apiPost(
-    `/ranked/match/${encodeURIComponent(matchId)}/vote`,
-    { messageId },
-    token
-  );
-};
-
-export const getRankedLeaderboard = async (token?: string | null): Promise<unknown> =>
+export const getLeaderboard = async (token?: string | null): Promise<unknown> =>
   apiGet<unknown>("/leaderboard", token);
 
-export const getPublicRankedLeaderboard = async (): Promise<unknown> =>
+export const getPublicLeaderboard = async (): Promise<unknown> =>
   apiGet<unknown>("/leaderboard/public");
-
-export const getPokerState = async (token: string): Promise<unknown> =>
-  apiGet<unknown>("/poker/state", token);
-
-export const queuePoker = async (
-  amount: number | undefined,
-  token: string
-): Promise<unknown> => apiPost<unknown>("/poker/queue", { amount }, token);
-
-export const pokerAction = async (
-  action: "fold" | "check" | "call" | "bet" | "raise",
-  amount: number | undefined,
-  token: string
-): Promise<unknown> =>
-  apiPost<unknown>("/poker/action", { action, amount }, token);
-
-export const pokerRebuy = async (amount: number, token: string): Promise<unknown> =>
-  apiPost<unknown>("/poker/rebuy", { amount }, token);
-
-export const pokerLeave = async (token: string): Promise<void> => {
-  await apiPost("/poker/leave", {}, token);
-};
 
 export const getClubs = async (token?: string | null): Promise<unknown> =>
   apiGet<unknown>("/clubs", token);

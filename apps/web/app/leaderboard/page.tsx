@@ -44,22 +44,6 @@ export default function LeaderboardPage() {
         if (isActive) {
           setEntries(payload.entries ?? []);
         }
-        return;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "";
-        if (!message.includes("Route /leaderboard not found")) {
-          throw err;
-        }
-      }
-
-      try {
-        const payload = await apiGet<{ entries: LeaderboardEntry[] }>(
-          "/ranked/leaderboard",
-          token
-        );
-        if (isActive) {
-          setEntries(payload.entries ?? []);
-        }
       } catch (err) {
         if (!isActive) return;
         setError(

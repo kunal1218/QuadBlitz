@@ -69,6 +69,8 @@ const RING_IDLE = "#6b7280";
 const MARKER_ANIMATION_MS = 1200;
 const EVENT_FETCH_RADIUS_KM = 5;
 const EVENT_MOVE_THRESHOLD_KM = 1;
+const EVENT_MARKER_Z_INDEX = "10";
+const PLAYER_MARKER_Z_INDEX = "20";
 
 type MapCanvasVariant = "default" | "discovery";
 type DiscoveryCategory = "sports" | "study" | "social";
@@ -832,6 +834,7 @@ export const MapCanvas = ({
       wrapper.className = "relative flex h-14 w-14 items-center justify-center";
       wrapper.style.cursor = "pointer";
       wrapper.style.pointerEvents = "auto";
+      wrapper.style.zIndex = PLAYER_MARKER_Z_INDEX;
 
       const ringColor = getRingColor(friend.lastUpdated);
 
@@ -964,6 +967,7 @@ export const MapCanvas = ({
       wrapper.style.cursor = "pointer";
       wrapper.style.pointerEvents = "auto";
       wrapper.style.opacity = "0.8";
+      wrapper.style.zIndex = PLAYER_MARKER_Z_INDEX;
 
       const ring = document.createElement("div");
       ring.className = "relative flex h-12 w-12 items-center justify-center rounded-full";
@@ -1128,6 +1132,7 @@ export const MapCanvas = ({
         existing.setLngLat([event.longitude, event.latitude]);
       } else {
         const element = document.createElement("div");
+        element.style.zIndex = EVENT_MARKER_Z_INDEX;
         const root = createRoot(element);
         root.render(
           <EventMarker
